@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vault — DC NFT Comic Reader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+–bg: #0a0a0c;
+–surface: #111116;
+–surface2: #18181f;
+–border: #2a2a38;
+–accent: #c8a84b;
+–accent2: #e8c96a;
+–red: #cc2936;
+–text: #e8e8f0;
+–muted: #6a6a80;
+–panel-shadow: 0 0 0 2px #c8a84b22, 0 20px 60px #00000080;
+}
+
+html, body {
+height: 100%;
+background: var(–bg);
+color: var(–text);
+font-family: ‘Barlow’, sans-serif;
+overflow: hidden;
+}
+
+/* ── TOPBAR ── */
+#topbar {
+position: fixed;
+top: 0; left: 0; right: 0;
+height: 52px;
+background: #0d0d11ee;
+backdrop-filter: blur(12px);
+border-bottom: 1px solid var(–border);
+display: flex;
+align-items: center;
+padding: 0 20px;
+gap: 20px;
+z-index: 100;
+}
+
+#logo {
+font-family: ‘Bebas Neue’, sans-serif;
+font-size: 1.6rem;
+letter-spacing: 0.12em;
+color: var(–accent);
+line-height: 1;
+flex-shrink: 0;
+}
+#logo span { color: var(–muted); font-size: 0.7rem; display: block; letter-spacing: 0.3em; margin-top: -2px; }
+
+.topbar-sep { width: 1px; height: 24px; background: var(–border); flex-shrink: 0; }
+
+#issue-info {
+flex: 1;
+min-width: 0;
+}
+#issue-title {
+font-family: ‘Bebas Neue’, sans-serif;
+font-size: 1rem;
+letter-spacing: 0.08em;
+color: var(–text);
+white-space: nowrap;
+overflow: hidden;
+text-overflow: ellipsis;
+}
+#issue-meta {
+font-family: ‘DM Mono’, monospace;
+font-size: 0.62rem;
+color: var(–muted);
+letter-spacing: 0.05em;
+}
+
+.top-btn {
+background: none;
+border: 1px solid var(–border);
+color: var(–muted);
+padding: 5px 12px;
+border-radius: 4px;
+font-family: ‘Barlow’, sans-serif;
+font-size: 0.72rem;
+font-weight: 500;
+letter-spacing: 0.06em;
+text-transform: uppercase;
+cursor: pointer;
+transition: all 0.2s;
+white-space: nowrap;
+flex-shrink: 0;
+}
+.top-btn:hover { border-color: var(–accent); color: var(–accent); }
+.top-btn.primary {
+border-color: var(–accent);
+color: var(–accent);
+background: #c8a84b14;
+}
+.top-btn.primary:hover { background: #c8a84b28; }
+
+#wallet-badge {
+display: flex;
+align-items: center;
+gap: 6px;
+font-family: ‘DM Mono’, monospace;
+font-size: 0.65rem;
+color: var(–muted);
+border: 1px solid var(–border);
+padding: 4px 10px;
+border-radius: 4px;
+flex-shrink: 0;
+}
+#wallet-badge .dot {
+width: 6px; height: 6px;
+border-radius: 50%;
+background: #2ecc71;
+box-shadow: 0 0 6px #2ecc7188;
+}
+#wallet-badge.disconnected .dot { background: var(–muted); box-shadow: none; }
+
+/* ── LAYOUT ── */
+#app {
+display: flex;
+height: 100vh;
+padding-top: 52px;
+}
+
+/* ── SIDEBAR ── */
+#sidebar {
+width: 220px;
+flex-shrink: 0;
+background: var(–surface);
+border-right: 1px solid var(–border);
+display: flex;
+flex-direction: column;
+overflow: hidden;
+transition: width 0.3s ease;
+}
+#sidebar.collapsed { width: 0; }
+
+#sidebar-head {
+padding: 14px 16px 10px;
+border-bottom: 1px solid var(–border);
+display: flex;
+align-items: center;
+justify-content: space-between;
+}
+#sidebar-head span {
+font-family: ‘Bebas Neue’, sans-serif;
+font-size: 0.75rem;
+letter-spacing: 0.2em;
+color: var(–muted);
+}
+#sidebar-toggle-inner {
+background: none; border: none; color: var(–muted);
+cursor: pointer; font-size: 1rem; padding: 2px;
+transition: color 0.2s;
+}
+#sidebar-toggle-inner:hover { color: var(–accent); }
+
+#pages-list {
+overflow-y: auto;
+flex: 1;
+padding: 8px;
+scrollbar-width: thin;
+scrollbar-color: var(–border) transparent;
+}
+
+.page-thumb {
+display: flex;
+align-items: center;
+gap: 10px;
+padding: 8px 10px;
+border-radius: 6px;
+cursor: pointer;
+transition: all 0.15s;
+border: 1px solid transparent;
+margin-bottom: 4px;
+}
+.page-thumb:hover { background: var(–surface2); border-color: var(–border); }
+.page-thumb.active { background: #c8a84b12; border-color: var(–accent); }
+
+.thumb-num {
+font-family: ‘DM Mono’, monospace;
+font-size: 0.62rem;
+color: var(–muted);
+width: 20px;
+flex-shrink: 0;
+}
+.thumb-img {
+width: 36px;
+height: 50px;
+background: var(–surface2);
+border-radius: 3px;
+border: 1px solid var(–border);
+overflow: hidden;
+flex-shrink: 0;
+display: flex;
+align-items: center;
+justify-content: center;
+font-size: 0.5rem;
+color: var(–muted);
+}
+.thumb-img img { width: 100%; height: 100%; object-fit: cover; }
+.thumb-label {
+font-size: 0.7rem;
+color: var(–muted);
+line-height: 1.3;
+}
+.page-thumb.active .thumb-label { color: var(–accent); }
+.page-thumb.active .thumb-num { color: var(–accent); }
+
+/* ── MAIN READER ── */
+#reader {
+flex: 1;
+display: flex;
+flex-direction: column;
+overflow: hidden;
+position: relative;
+background: #070709;
+}
+
+/* Grain texture */
+#reader::before {
+content: ‘’;
+position: absolute;
+inset: 0;
+background-image: url(“data:image/svg+xml,%3Csvg viewBox=‘0 0 200 200’ xmlns=‘http://www.w3.org/2000/svg’%3E%3Cfilter id=‘n’%3E%3CfeTurbulence type=‘fractalNoise’ baseFrequency=‘0.9’ numOctaves=‘4’ stitchTiles=‘stitch’/%3E%3C/filter%3E%3Crect width=‘100%25’ height=‘100%25’ filter=‘url(%23n)’ opacity=‘0.04’/%3E%3C/svg%3E”);
+pointer-events: none;
+z-index: 1;
+opacity: 0.4;
+}
+
+#canvas-wrap {
+flex: 1;
+overflow: hidden;
+display: flex;
+align-items: center;
+justify-content: center;
+position: relative;
+cursor: grab;
+}
+#canvas-wrap.grabbing { cursor: grabbing; }
+#canvas-wrap.zoom-in { cursor: zoom-in; }
+
+#page-display {
+position: relative;
+transform-origin: center center;
+transition: transform 0.05s linear;
+max-height: calc(100vh - 52px - 52px);
+max-width: 100%;
+user-select: none;
+}
+
+#page-display img {
+display: block;
+max-height: calc(100vh - 52px - 52px);
+max-width: 100%;
+width: auto;
+height: auto;
+border-radius: 2px;
+box-shadow: var(–panel-shadow);
+}
+
+/* Empty / placeholder state */
+#empty-state {
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+gap: 20px;
+height: 100%;
+padding: 40px;
+text-align: center;
+}
+#empty-icon {
+width: 120px;
+height: 160px;
+border: 2px solid var(–border);
+border-radius: 8px;
+display: flex;
+align-items: center;
+justify-content: center;
+position: relative;
+background: var(–surface);
+}
+#empty-icon::before {
+content: ‘’;
+position: absolute;
+top: -1px; right: -1px;
+width: 20px; height: 20px;
+background: var(–bg);
+border-bottom-left-radius: 6px;
+border-left: 2px solid var(–border);
+border-bottom: 2px solid var(–border);
+}
+#empty-icon svg { opacity: 0.2; }
+#empty-state h2 {
+font-family: ‘Bebas Neue’, sans-serif;
+font-size: 1.6rem;
+letter-spacing: 0.1em;
+color: var(–muted);
+}
+#empty-state p {
+font-size: 0.82rem;
+color: var(–muted);
+max-width: 320px;
+line-height: 1.6;
+}
+
+.drop-zone-active { border: 2px dashed var(–accent) !important; }
+
+/* ── BOTTOM BAR ── */
+#bottombar {
+height: 52px;
+background: #0d0d11ee;
+backdrop-filter: blur(12px);
+border-top: 1px solid var(–border);
+display: flex;
+align-items: center;
+justify-content: space-between;
+padding: 0 20px;
+position: relative;
+z-index: 10;
+flex-shrink: 0;
+}
+
+#nav-controls {
+display: flex;
+align-items: center;
+gap: 10px;
+}
+
+.nav-btn {
+background: none;
+border: 1px solid var(–border);
+color: var(–text);
+width: 32px; height: 32px;
+border-radius: 4px;
+cursor: pointer;
+display: flex;
+align-items: center;
+justify-content: center;
+font-size: 1rem;
+transition: all 0.15s;
+}
+.nav-btn:hover:not(:disabled) { border-color: var(–accent); color: var(–accent); }
+.nav-btn:disabled { opacity: 0.3; cursor: default; }
+
+#page-indicator {
+font-family: ‘DM Mono’, monospace;
+font-size: 0.7rem;
+color: var(–muted);
+min-width: 70px;
+text-align: center;
+}
+
+/* progress bar */
+#progress-wrap {
+flex: 1;
+max-width: 280px;
+margin: 0 20px;
+position: relative;
+}
+#progress-track {
+height: 3px;
+background: var(–border);
+border-radius: 2px;
+position: relative;
+cursor: pointer;
+}
+#progress-fill {
+height: 100%;
+background: var(–accent);
+border-radius: 2px;
+width: 0%;
+transition: width 0.2s;
+}
+#progress-thumb {
+width: 10px; height: 10px;
+background: var(–accent);
+border-radius: 50%;
+position: absolute;
+top: 50%;
+transform: translate(-50%, -50%);
+left: 0%;
+transition: left 0.2s;
+box-shadow: 0 0 8px var(–accent);
+}
+
+#zoom-controls {
+display: flex;
+align-items: center;
+gap: 8px;
+}
+.zoom-btn {
+background: none;
+border: 1px solid var(–border);
+color: var(–muted);
+width: 28px; height: 28px;
+border-radius: 4px;
+cursor: pointer;
+font-size: 1rem;
+display: flex;
+align-items: center;
+justify-content: center;
+transition: all 0.15s;
+}
+.zoom-btn:hover { border-color: var(–accent); color: var(–accent); }
+#zoom-level {
+font-family: ‘DM Mono’, monospace;
+font-size: 0.65rem;
+color: var(–muted);
+min-width: 36px;
+text-align: center;
+}
+
+/* ── MODAL: Load Comic ── */
+#modal-overlay {
+position: fixed;
+inset: 0;
+background: #00000090;
+backdrop-filter: blur(6px);
+z-index: 200;
+display: flex;
+align-items: center;
+justify-content: center;
+opacity: 0;
+pointer-events: none;
+transition: opacity 0.2s;
+}
+#modal-overlay.open { opacity: 1; pointer-events: all; }
+
+#modal {
+background: var(–surface);
+border: 1px solid var(–border);
+border-radius: 10px;
+width: 520px;
+max-width: 95vw;
+box-shadow: 0 40px 100px #000000a0;
+transform: translateY(10px);
+transition: transform 0.2s;
+}
+#modal-overlay.open #modal { transform: translateY(0); }
+
+#modal-head {
+padding: 20px 24px 16px;
+border-bottom: 1px solid var(–border);
+display: flex;
+align-items: center;
+justify-content: space-between;
+}
+#modal-head h2 {
+font-family: ‘Bebas Neue’, sans-serif;
+font-size: 1.1rem;
+letter-spacing: 0.12em;
+color: var(–accent);
+}
+#modal-close {
+background: none; border: none; color: var(–muted);
+cursor: pointer; font-size: 1.2rem; transition: color 0.2s;
+}
+#modal-close:hover { color: var(–text); }
+
+#modal-body { padding: 24px; }
+
+.modal-section {
+margin-bottom: 24px;
+}
+.modal-section:last-child { margin-bottom: 0; }
+.modal-label {
+font-family: ‘Bebas Neue’, sans-serif;
+font-size: 0.7rem;
+letter-spacing: 0.2em;
+color: var(–muted);
+margin-bottom: 10px;
+}
+
+/* drop zone */
+#drop-zone {
+border: 2px dashed var(–border);
+border-radius: 8px;
+padding: 28px 20px;
+text-align: center;
+cursor: pointer;
+transition: all 0.2s;
+position: relative;
+}
+#drop-zone:hover, #drop-zone.drag-over {
+border-color: var(–accent);
+background: #c8a84b08;
+}
+#drop-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+#drop-zone p { font-size: 0.78rem; color: var(–muted); line-height: 1.6; }
+#drop-zone strong { color: var(–accent); }
+
+/* demo comics */
+#demo-comics {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 8px;
+}
+.demo-comic {
+border: 1px solid var(–border);
+border-radius: 6px;
+padding: 12px;
+cursor: pointer;
+transition: all 0.15s;
+display: flex;
+align-items: center;
+gap: 10px;
+}
+.demo-comic:hover { border-color: var(–accent); background: #c8a84b08; }
+.demo-thumb {
+width: 30px; height: 42px;
+border-radius: 3px;
+flex-shrink: 0;
+display: flex;
+align-items: center;
+justify-content: center;
+font-size: 1.2rem;
+}
+.demo-info { min-width: 0; }
+.demo-title { font-size: 0.72rem; font-weight: 600; color: var(–text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.demo-sub { font-size: 0.64rem; color: var(–muted); }
+
+/* wallet section */
+#wallet-section {
+border: 1px solid var(–border);
+border-radius: 8px;
+padding: 16px;
+background: var(–surface2);
+}
+#wallet-status-text {
+font-size: 0.78rem;
+color: var(–muted);
+margin-bottom: 12px;
+line-height: 1.5;
+}
+#wallet-status-text strong { color: var(–text); }
+#connect-wallet-btn {
+width: 100%;
+padding: 10px;
+background: #c8a84b14;
+border: 1px solid var(–accent);
+border-radius: 6px;
+color: var(–accent);
+font-family: ‘Bebas Neue’, sans-serif;
+font-size: 0.85rem;
+letter-spacing: 0.12em;
+cursor: pointer;
+transition: all 0.2s;
+}
+#connect-wallet-btn:hover { background: #c8a84b28; }
+#connect-wallet-btn.connected {
+border-color: #2ecc71;
+color: #2ecc71;
+background: #2ecc7110;
+}
+
+/* ── NFT token display ── */
+#nft-badge {
+position: absolute;
+bottom: 16px;
+right: 16px;
+background: #0d0d11dd;
+border: 1px solid var(–accent);
+border-radius: 6px;
+padding: 8px 12px;
+font-family: ‘DM Mono’, monospace;
+font-size: 0.6rem;
+color: var(–accent);
+backdrop-filter: blur(8px);
+display: none;
+z-index: 5;
+line-height: 1.6;
+}
+#nft-badge.visible { display: block; }
+
+/* ── Keyboard shortcut hint ── */
+#key-hints {
+position: absolute;
+bottom: 16px;
+left: 50%;
+transform: translateX(-50%);
+display: flex;
+gap: 12px;
+z-index: 5;
+opacity: 0;
+transition: opacity 0.3s;
+}
+#reader:hover #key-hints { opacity: 1; }
+.hint {
+display: flex;
+align-items: center;
+gap: 5px;
+font-size: 0.6rem;
+color: var(–muted);
+}
+.key {
+border: 1px solid var(–border);
+border-radius: 3px;
+padding: 1px 5px;
+font-family: ‘DM Mono’, monospace;
+font-size: 0.6rem;
+color: var(–muted);
+background: var(–surface);
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(–border); border-radius: 2px; }
+
+/* ── Sidebar toggle ── */
+#sidebar-toggle {
+position: fixed;
+left: 0;
+top: 50%;
+transform: translateY(-50%);
+z-index: 50;
+background: var(–surface);
+border: 1px solid var(–border);
+border-left: none;
+border-radius: 0 6px 6px 0;
+width: 16px;
+height: 48px;
+cursor: pointer;
+display: flex;
+align-items: center;
+justify-content: center;
+transition: all 0.2s;
+color: var(–muted);
+font-size: 0.6rem;
+}
+#sidebar-toggle:hover { background: var(–surface2); color: var(–accent); }
+
+/* Page flip animation */
+@keyframes pageFlip {
+0% { opacity: 0; transform: scale(0.97) translateX(10px); }
+100% { opacity: 1; transform: scale(1) translateX(0); }
+}
+.page-entering { animation: pageFlip 0.2s ease-out; }
+</style>
+
+</head>
+<body>
+
+<!-- TOP BAR -->
+
+<div id="topbar">
+  <div id="logo">VAULT<span>DC NFT READER</span></div>
+  <div class="topbar-sep"></div>
+  <div id="issue-info">
+    <div id="issue-title">No issue loaded</div>
+    <div id="issue-meta">Load a comic or connect your wallet to begin</div>
+  </div>
+  <button class="top-btn" onclick="toggleSidebar()">☰ Pages</button>
+  <button class="top-btn primary" onclick="openModal()">⊕ Load Comic</button>
+  <div id="wallet-badge" class="disconnected">
+    <div class="dot"></div>
+    <span id="wallet-text">No Wallet</span>
+  </div>
+</div>
+
+<!-- APP LAYOUT -->
+
+<div id="app">
+
+  <!-- SIDEBAR -->
+
+  <div id="sidebar">
+    <div id="sidebar-head">
+      <span>Pages</span>
+      <button id="sidebar-toggle-inner" onclick="toggleSidebar()">✕</button>
+    </div>
+    <div id="pages-list"></div>
+  </div>
+
+  <!-- READER -->
+
+  <div id="reader" id="reader-area">
+    <div id="canvas-wrap"
+      onwheel="handleWheel(event)"
+      onmousedown="startDrag(event)"
+      ondblclick="dblClickZoom(event)">
+
+```
+  <!-- Empty state -->
+  <div id="empty-state">
+    <div id="empty-icon">
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+        <rect x="8" y="4" width="28" height="38" rx="2" stroke="#c8a84b" stroke-width="2"/>
+        <line x1="14" y1="14" x2="30" y2="14" stroke="#c8a84b" stroke-width="1.5"/>
+        <line x1="14" y1="20" x2="30" y2="20" stroke="#c8a84b" stroke-width="1.5"/>
+        <line x1="14" y1="26" x2="24" y2="26" stroke="#c8a84b" stroke-width="1.5"/>
+      </svg>
+    </div>
+    <h2>Your Vault Awaits</h2>
+    <p>Load a comic from your files, or connect your wallet to read NFTs you own. Self-custody means the comic lives with you.</p>
+    <button class="top-btn primary" onclick="openModal()" style="font-size:0.8rem;padding:8px 20px;">Open Comic</button>
+  </div>
+
+  <!-- Page display (hidden until loaded) -->
+  <div id="page-display" style="display:none;">
+    <img id="comic-page" src="" alt="Comic Page" draggable="false">
+  </div>
+
+  <!-- NFT badge -->
+  <div id="nft-badge">
+    <div>TOKEN ID: <span id="badge-token">—</span></div>
+    <div>CONTRACT: <span id="badge-contract">—</span></div>
+    <div>CHAIN: <span id="badge-chain">—</span></div>
+  </div>
+
+  <!-- Key hints -->
+  <div id="key-hints">
+    <div class="hint"><span class="key">←</span><span class="key">→</span> Navigate</div>
+    <div class="hint"><span class="key">+</span><span class="key">−</span> Zoom</div>
+    <div class="hint"><span class="key">F</span> Fit</div>
+    <div class="hint"><span class="key">Space</span> Next</div>
+  </div>
+</div>
+
+<!-- BOTTOM BAR -->
+<div id="bottombar">
+  <div id="nav-controls">
+    <button class="nav-btn" id="btn-first" onclick="goToPage(0)" title="First page">⏮</button>
+    <button class="nav-btn" id="btn-prev" onclick="prevPage()" title="Previous">◀</button>
+    <div id="page-indicator">— / —</div>
+    <button class="nav-btn" id="btn-next" onclick="nextPage()" title="Next">▶</button>
+    <button class="nav-btn" id="btn-last" onclick="goToPage(pages.length-1)" title="Last page">⏭</button>
+  </div>
+
+  <div id="progress-wrap">
+    <div id="progress-track" onclick="seekProgress(event)">
+      <div id="progress-fill"></div>
+      <div id="progress-thumb"></div>
+    </div>
+  </div>
+
+  <div id="zoom-controls">
+    <button class="zoom-btn" onclick="zoomOut()" title="Zoom out">−</button>
+    <div id="zoom-level">100%</div>
+    <button class="zoom-btn" onclick="zoomIn()" title="Zoom in">+</button>
+    <button class="zoom-btn" onclick="resetZoom()" title="Fit to screen" style="font-size:0.7rem;width:auto;padding:0 6px;">FIT</button>
+  </div>
+</div>
+```
+
+  </div>
+</div>
+
+<!-- LOAD MODAL -->
+
+<div id="modal-overlay" onclick="overlayClose(event)">
+  <div id="modal">
+    <div id="modal-head">
+      <h2>Open Comic</h2>
+      <button id="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div id="modal-body">
+
+```
+  <!-- Upload -->
+  <div class="modal-section">
+    <div class="modal-label">From Your Files</div>
+    <div id="drop-zone"
+      ondragover="dzDragOver(event)"
+      ondragleave="dzDragLeave(event)"
+      ondrop="dzDrop(event)">
+      <input type="file" id="file-input" accept=".cbz,.cbr,.pdf,image/*" multiple onchange="handleFiles(this.files)">
+      <p>Drop a <strong>CBZ</strong>, image folder, or individual pages here<br>
+      <span style="font-size:0.68rem;">or click to browse — JPG, PNG, WEBP, CBZ supported</span></p>
+    </div>
+  </div>
+
+  <!-- Demo Comics -->
+  <div class="modal-section">
+    <div class="modal-label">Demo — Placeholder Pages</div>
+    <div id="demo-comics">
+      <div class="demo-comic" onclick="loadDemo('batman')">
+        <div class="demo-thumb" style="background:#1a1a2e;">🦇</div>
+        <div class="demo-info">
+          <div class="demo-title">Batman #1</div>
+          <div class="demo-sub">Demo · 8 pages</div>
+        </div>
+      </div>
+      <div class="demo-comic" onclick="loadDemo('superman')">
+        <div class="demo-thumb" style="background:#1a2440;">🦸</div>
+        <div class="demo-info">
+          <div class="demo-title">Superman #1</div>
+          <div class="demo-sub">Demo · 8 pages</div>
+        </div>
+      </div>
+      <div class="demo-comic" onclick="loadDemo('ww')">
+        <div class="demo-thumb" style="background:#2a1a1a;">⚔️</div>
+        <div class="demo-info">
+          <div class="demo-title">Wonder Woman #1</div>
+          <div class="demo-sub">Demo · 8 pages</div>
+        </div>
+      </div>
+      <div class="demo-comic" onclick="loadDemo('jl')">
+        <div class="demo-thumb" style="background:#1a2a1a;">🌐</div>
+        <div class="demo-info">
+          <div class="demo-title">Justice League #1</div>
+          <div class="demo-sub">Demo · 8 pages</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Wallet -->
+  <div class="modal-section">
+    <div class="modal-label">Wallet · Self Custody</div>
+    <div id="wallet-section">
+      <div id="wallet-status-text">
+        Connect your wallet to read comics you <strong>own as NFTs</strong>. 
+        The reader verifies ownership on-chain — no logins, no accounts.
+        <br><br>
+        <span style="color:var(--accent);font-size:0.7rem;">⚡ Blockchain integration ready — awaiting Candy.io chain selection</span>
+      </div>
+      <button id="connect-wallet-btn" onclick="mockConnectWallet()">Connect Wallet</button>
+    </div>
+  </div>
+
+</div>
+```
+
+  </div>
+</div>
+
+<script>
+// ── STATE ──
+let pages = [];
+let currentPage = 0;
+let zoomLevel = 1;
+let isDragging = false;
+let dragStart = { x: 0, y: 0 };
+let panOffset = { x: 0, y: 0 };
+let walletConnected = false;
+let sidebarOpen = true;
+
+// ── MODAL ──
+function openModal() {
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+function overlayClose(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+}
+
+// ── SIDEBAR ──
+function toggleSidebar() {
+  sidebarOpen = !sidebarOpen;
+  document.getElementById('sidebar').classList.toggle('collapsed', !sidebarOpen);
+}
+
+// ── DEMO LOADER ──
+// Generates placeholder comic pages using canvas
+function generateDemoPage(issue, pageNum, totalPages) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 680;
+  canvas.height = 1024;
+  const ctx = canvas.getContext('2d');
+
+  const themes = {
+    batman: { bg1: '#0a0a1a', bg2: '#1a1a3a', accent: '#f0c040', text: '#ffffff', char: '🦇', title: 'BATMAN', sub: 'THE DARK KNIGHT' },
+    superman: { bg1: '#0a1525', bg2: '#1a3060', accent: '#e8c040', text: '#ffffff', char: '🦸', title: 'SUPERMAN', sub: 'MAN OF STEEL' },
+    ww: { bg1: '#1a0a0a', bg2: '#3a1520', accent: '#e8a040', text: '#ffffff', char: '⚔️', title: 'WONDER WOMAN', sub: 'PRINCESS OF THEMYSCIRA' },
+    jl: { bg1: '#0a150a', bg2: '#102510', accent: '#60e860', text: '#ffffff', char: '🌐', title: 'JUSTICE LEAGUE', sub: 'UNITED WE STAND' },
+  };
+  const t = themes[issue] || themes.batman;
+
+  // Background gradient
+  const grad = ctx.createLinearGradient(0, 0, 680, 1024);
+  grad.addColorStop(0, t.bg1);
+  grad.addColorStop(1, t.bg2);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 680, 1024);
+
+  // Border
+  ctx.strokeStyle = t.accent;
+  ctx.lineWidth = 3;
+  ctx.strokeRect(16, 16, 648, 992);
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = t.accent + '44';
+  ctx.strokeRect(22, 22, 636, 980);
+
+  // Big character emoji
+  ctx.font = '220px serif';
+  ctx.textAlign = 'center';
+  ctx.globalAlpha = 0.15;
+  ctx.fillText(t.char, 340, 580);
+  ctx.globalAlpha = 1;
+
+  // Title band
+  ctx.fillStyle = t.accent + '22';
+  ctx.fillRect(0, 80, 680, 90);
+  ctx.fillStyle = t.accent;
+  ctx.fillRect(0, 80, 6, 90);
+
+  ctx.font = 'bold 52px Georgia, serif';
+  ctx.fillStyle = t.accent;
+  ctx.textAlign = 'left';
+  ctx.fillText(t.title, 30, 142);
+
+  ctx.font = '16px monospace';
+  ctx.fillStyle = t.text + '88';
+  ctx.fillText(t.sub, 30, 160);
+
+  // Issue / page info
+  ctx.font = 'bold 14px monospace';
+  ctx.fillStyle = t.accent + 'aa';
+  ctx.textAlign = 'right';
+  ctx.fillText(`ISSUE #1  ·  PAGE ${pageNum} OF ${totalPages}`, 650, 110);
+
+  // Mock comic panels
+  const panelColor = t.text + '08';
+  const panelBorder = t.text + '20';
+
+  // Panel 1 - top half
+  ctx.fillStyle = panelColor;
+  ctx.fillRect(30, 200, 620, 300);
+  ctx.strokeStyle = panelBorder;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(30, 200, 620, 300);
+
+  // Panel 2 & 3 - middle row
+  ctx.fillRect(30, 515, 300, 180);
+  ctx.strokeRect(30, 515, 300, 180);
+  ctx.fillRect(345, 515, 305, 180);
+  ctx.strokeRect(345, 515, 305, 180);
+
+  // Panel 4 - bottom
+  ctx.fillRect(30, 710, 620, 200);
+  ctx.strokeRect(30, 710, 620, 200);
+
+  // Panel text placeholders
+  ctx.fillStyle = t.text + '15';
+  ctx.font = 'italic 11px Georgia, serif';
+  ctx.textAlign = 'center';
+
+  const lines = [
+    pageNum === 1 ? ['Gotham City.', 'Three years after the Batman', 'disappeared...'] :
+    pageNum === 2 ? ['"I never asked', 'to be a hero."'] :
+    pageNum === 3 ? ['"But the city', 'needed one."'] :
+    ['"And so I returned."']
+  ];
+  let y = 355;
+  (lines[0] || []).forEach(l => {
+    ctx.fillStyle = t.text + '40';
+    ctx.fillText(l, 340, y);
+    y += 22;
+  });
+
+  // NFT watermark
+  ctx.font = '10px monospace';
+  ctx.fillStyle = t.accent + '40';
+  ctx.textAlign = 'left';
+  ctx.fillText('DC NFT COLLECTIBLE · SELF-CUSTODY ENABLED · candy.io', 30, 940);
+
+  // Page number bottom
+  ctx.font = 'bold 12px monospace';
+  ctx.fillStyle = t.text + '30';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${pageNum}`, 340, 990);
+
+  return canvas.toDataURL('image/jpeg', 0.92);
+}
+
+function loadDemo(issue) {
+  const titles = {
+    batman: { title: 'Batman #1 — The Dark Knight Returns', meta: 'DC NFT · Token ID: 0x4B3C... · 8 Pages' },
+    superman: { title: 'Superman #1 — Man of Steel', meta: 'DC NFT · Token ID: 0x8A2D... · 8 Pages' },
+    ww: { title: 'Wonder Woman #1 — Princess of Power', meta: 'DC NFT · Token ID: 0x2F7E... · 8 Pages' },
+    jl: { title: 'Justice League #1 — United We Stand', meta: 'DC NFT · Token ID: 0x9C1A... · 8 Pages' },
+  };
+  const count = 8;
+  pages = [];
+  for (let i = 1; i <= count; i++) {
+    pages.push({ src: null, issue, num: i, total: count, label: `Page ${i}` });
+  }
+  document.getElementById('issue-title').textContent = titles[issue].title;
+  document.getElementById('issue-meta').textContent = titles[issue].meta;
+  closeModal();
+  buildSidebar();
+  goToPage(0);
+
+  // Set fake NFT badge
+  const tokens = { batman: '4847', superman: '1938', ww: '1941', jl: '1960' };
+  document.getElementById('badge-token').textContent = `#${tokens[issue]}`;
+  document.getElementById('badge-contract').textContent = '0x4a8b…c3f2';
+  document.getElementById('badge-chain').textContent = 'TBD (Candy.io)';
+  document.getElementById('nft-badge').classList.add('visible');
+}
+
+// ── FILE LOADING ──
+function dzDragOver(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.add('drag-over');
+}
+function dzDragLeave() {
+  document.getElementById('drop-zone').classList.remove('drag-over');
+}
+function dzDrop(e) {
+  e.preventDefault();
+  dzDragLeave();
+  handleFiles(e.dataTransfer.files);
+}
+
+function handleFiles(files) {
+  const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+  if (imageFiles.length === 0) {
+    alert('Please drop image files (JPG, PNG, WEBP). CBZ support coming soon.');
+    return;
+  }
+  imageFiles.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  pages = imageFiles.map((f, i) => ({
+    src: URL.createObjectURL(f),
+    label: f.name,
+    num: i + 1,
+    issue: 'custom'
+  }));
+  document.getElementById('issue-title').textContent = `Custom Comic — ${imageFiles.length} pages`;
+  document.getElementById('issue-meta').textContent = 'Loaded from local files';
+  document.getElementById('nft-badge').classList.remove('visible');
+  closeModal();
+  buildSidebar();
+  goToPage(0);
+}
+
+// ── SIDEBAR ──
+function buildSidebar() {
+  const list = document.getElementById('pages-list');
+  list.innerHTML = '';
+  pages.forEach((p, i) => {
+    const el = document.createElement('div');
+    el.className = 'page-thumb' + (i === currentPage ? ' active' : '');
+    el.onclick = () => goToPage(i);
+    el.innerHTML = `
+      <div class="thumb-num">${i + 1}</div>
+      <div class="thumb-img" id="thumb-${i}">
+        ${p.src ? `<img src="${p.src}" alt="">` : `<span>${i + 1}</span>`}
+      </div>
+      <div class="thumb-label">${p.label || `Page ${i + 1}`}</div>
+    `;
+    list.appendChild(el);
+  });
+}
+
+function updateSidebarActive() {
+  document.querySelectorAll('.page-thumb').forEach((el, i) => {
+    el.classList.toggle('active', i === currentPage);
+  });
+  // Scroll active into view
+  const active = document.querySelector('.page-thumb.active');
+  if (active) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+// ── NAVIGATION ──
+function goToPage(idx) {
+  if (!pages.length) return;
+  currentPage = Math.max(0, Math.min(idx, pages.length - 1));
+  const p = pages[currentPage];
+
+  const imgEl = document.getElementById('comic-page');
+  const display = document.getElementById('page-display');
+  const empty = document.getElementById('empty-state');
+
+  empty.style.display = 'none';
+  display.style.display = 'block';
+  display.classList.remove('page-entering');
+
+  // Generate or use src
+  let src;
+  if (p.src) {
+    src = p.src;
+  } else {
+    // Generate demo page
+    src = generateDemoPage(p.issue, p.num, p.total);
+    p.src = src; // cache it
+
+    // Update sidebar thumbnail
+    const thumbEl = document.getElementById(`thumb-${currentPage}`);
+    if (thumbEl) thumbEl.innerHTML = `<img src="${src}" alt="">`;
+  }
+
+  imgEl.src = src;
+  void display.offsetWidth; // reflow
+  display.classList.add('page-entering');
+
+  resetZoom();
+  updateControls();
+  updateSidebarActive();
+}
+
+function nextPage() { goToPage(currentPage + 1); }
+function prevPage() { goToPage(currentPage - 1); }
+
+function updateControls() {
+  const n = pages.length;
+  document.getElementById('page-indicator').textContent = n ? `${currentPage + 1} / ${n}` : '— / —';
+  document.getElementById('btn-prev').disabled = currentPage === 0;
+  document.getElementById('btn-next').disabled = currentPage === n - 1;
+  document.getElementById('btn-first').disabled = currentPage === 0;
+  document.getElementById('btn-last').disabled = currentPage === n - 1;
+  const pct = n > 1 ? (currentPage / (n - 1)) * 100 : 0;
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-thumb').style.left = pct + '%';
+}
+
+function seekProgress(e) {
+  if (!pages.length) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const pct = (e.clientX - rect.left) / rect.width;
+  goToPage(Math.round(pct * (pages.length - 1)));
+}
+
+// ── ZOOM & PAN ──
+function applyTransform() {
+  const el = document.getElementById('page-display');
+  el.style.transform = `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`;
+  document.getElementById('zoom-level').textContent = Math.round(zoomLevel * 100) + '%';
+}
+
+function zoomIn() { zoomLevel = Math.min(zoomLevel * 1.25, 5); applyTransform(); }
+function zoomOut() { zoomLevel = Math.max(zoomLevel / 1.25, 0.25); applyTransform(); }
+function resetZoom() { zoomLevel = 1; panOffset = { x: 0, y: 0 }; applyTransform(); }
+
+function handleWheel(e) {
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? 0.9 : 1.1;
+  zoomLevel = Math.max(0.25, Math.min(5, zoomLevel * delta));
+  applyTransform();
+}
+
+function dblClickZoom() {
+  zoomLevel = zoomLevel > 1.5 ? 1 : 2;
+  applyTransform();
+}
+
+function startDrag(e) {
+  if (e.button !== 0) return;
+  isDragging = true;
+  dragStart = { x: e.clientX - panOffset.x, y: e.clientY - panOffset.y };
+  document.getElementById('canvas-wrap').classList.add('grabbing');
+  window.addEventListener('mousemove', onDrag);
+  window.addEventListener('mouseup', endDrag);
+}
+function onDrag(e) {
+  if (!isDragging) return;
+  panOffset.x = e.clientX - dragStart.x;
+  panOffset.y = e.clientY - dragStart.y;
+  applyTransform();
+}
+function endDrag() {
+  isDragging = false;
+  document.getElementById('canvas-wrap').classList.remove('grabbing');
+  window.removeEventListener('mousemove', onDrag);
+  window.removeEventListener('mouseup', endDrag);
+}
+
+// ── KEYBOARD ──
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  switch (e.key) {
+    case 'ArrowRight': case 'ArrowDown': case ' ': e.preventDefault(); nextPage(); break;
+    case 'ArrowLeft': case 'ArrowUp': e.preventDefault(); prevPage(); break;
+    case '+': case '=': zoomIn(); break;
+    case '-': zoomOut(); break;
+    case 'f': case 'F': resetZoom(); break;
+    case 'Home': goToPage(0); break;
+    case 'End': goToPage(pages.length - 1); break;
+  }
+});
+
+// ── WALLET (stub — blockchain-agnostic) ──
+// This is the integration point. When Candy.io picks a chain,
+// replace this function with real wallet connection + NFT ownership check.
+function mockConnectWallet() {
+  walletConnected = !walletConnected;
+  const btn = document.getElementById('connect-wallet-btn');
+  const badge = document.getElementById('wallet-badge');
+  const badgeText = document.getElementById('wallet-text');
+
+  if (walletConnected) {
+    const addr = '0x' + Math.random().toString(16).substr(2, 8) + '…' + Math.random().toString(16).substr(2, 4);
+    btn.textContent = `✓ Connected: ${addr}`;
+    btn.classList.add('connected');
+    badge.classList.remove('disconnected');
+    badgeText.textContent = addr;
+    document.getElementById('wallet-status-text').innerHTML = `
+      <strong style="color:#2ecc71">Wallet connected.</strong> 
+      Ownership verification active. When Candy.io selects their blockchain, 
+      this will check your wallet for DC NFT ownership before allowing access.
+      <br><br><span style="color:var(--accent);font-size:0.7rem;">⚡ Chain connector: awaiting Candy.io announcement</span>
+    `;
+  } else {
+    btn.textContent = 'Connect Wallet';
+    btn.classList.remove('connected');
+    badge.classList.add('disconnected');
+    badgeText.textContent = 'No Wallet';
+    document.getElementById('wallet-status-text').innerHTML = `
+      Connect your wallet to read comics you <strong>own as NFTs</strong>. 
+      The reader verifies ownership on-chain — no logins, no accounts.
+      <br><br><span style="color:var(--accent);font-size:0.7rem;">⚡ Blockchain integration ready — awaiting Candy.io chain selection</span>
+    `;
+  }
+}
+
+// ── INIT ──
+updateControls();
+</script>
+
+</body>
+</html>
