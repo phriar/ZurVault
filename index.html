@@ -389,6 +389,7 @@ opacity: 0; transition: opacity .25s; pointer-events: none; white-space: nowrap;
         Connect Phantom
       </button>
       <p id="no-phantom">Phantom not detected. <a href="https://phantom.app" target="_blank">Install it here</a> then refresh.</p>
+      <p id="connect-debug" style="margin-top:12px;font-size:.65rem;color:#c9a84c;font-family:monospace;word-break:break-all;max-width:340px;line-height:1.5;"></p>
       <div class="connect-features">
         <div class="feature"><div class="feature-icon">🔑</div>Self Custody</div>
         <div class="feature"><div class="feature-icon">⛓️</div>On-chain Verify</div>
@@ -463,174 +464,33 @@ opacity: 0; transition: opacity .25s; pointer-events: none; white-space: nowrap;
 <div id="toast"></div>
 
 <script>
-// ══════════════════════════════════════════════
-// STATE
-// ══════════════════════════════════════════════
-let walletPubkey = null;
-let allNFTs = [], filtered = [], activeFilter = 'all';
-let currentNFT = null, pages = [], curPage = 0;
-let zoom = 1, pan = {x:0,y:0}, dragging = false, dragOrigin = {x:0,y:0};
-
-// ══════════════════════════════════════════════
-// DEMO COVERS  — SVG-based so they look good
-// ══════════════════════════════════════════════
 function makeCover(cfg) {
-  const c = document.createElement('canvas');
-  c.width = 400; c.height = 600;
-  const ctx = c.getContext('2d');
-
-  // Background
-  const g = ctx.createLinearGradient(0, 0, 400, 600);
-  g.addColorStop(0, cfg.bg1); g.addColorStop(1, cfg.bg2);
-  ctx.fillStyle = g; ctx.fillRect(0, 0, 400, 600);
-
-  // Noise texture
-  for (let i = 0; i < 6000; i++) {
-    const x = Math.random() * 400, y = Math.random() * 600;
-    ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.03})`;
-    ctx.fillRect(x, y, 1, 1);
-  }
-
-  // Big background shape
-  ctx.save();
-  ctx.globalAlpha = 0.18;
-  ctx.fillStyle = cfg.accent;
-  ctx.beginPath();
-  if (cfg.shape === 'circle') {
-    ctx.arc(200, 300, 180, 0, Math.PI * 2);
-  } else if (cfg.shape === 'diamond') {
-    ctx.moveTo(200, 80); ctx.lineTo(360, 300); ctx.lineTo(200, 520); ctx.lineTo(40, 300);
-  } else {
-    ctx.moveTo(40, 100); ctx.lineTo(360, 80); ctx.lineTo(340, 500); ctx.lineTo(60, 520);
-  }
-  ctx.fill();
-  ctx.restore();
-
-  // Hatching lines (comic feel)
-  ctx.save();
-  ctx.globalAlpha = 0.06;
-  ctx.strokeStyle = cfg.accent;
-  ctx.lineWidth = 1;
-  for (let i = -600; i < 800; i += 18) {
-    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + 600, 600); ctx.stroke();
-  }
-  ctx.restore();
-
-  // Top publisher bar
-  ctx.fillStyle = cfg.accent;
-  ctx.fillRect(0, 0, 400, 48);
-  ctx.fillStyle = cfg.pubColor || '#000';
-  ctx.font = 'bold 22px "Arial Black", sans-serif';
-  ctx.textAlign = 'left';
-  ctx.fillText(cfg.publisher, 16, 33);
-
-  // Issue number top right
-  ctx.fillStyle = '#000000aa';
-  ctx.fillRect(300, 0, 100, 48);
-  ctx.fillStyle = cfg.accent;
-  ctx.font = 'bold 14px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText(cfg.issue, 350, 20);
-  ctx.font = '10px monospace';
-  ctx.fillText(cfg.year, 350, 36);
-
-  // Big title
-  ctx.textAlign = 'left';
-  ctx.fillStyle = '#ffffff';
-  ctx.shadowColor = 'rgba(0,0,0,0.8)';
-  ctx.shadowBlur = 12;
-
-  // Title - stacked
-  const titleLines = cfg.title.split('\n');
-  let ty = 390;
-  titleLines.forEach((line, i) => {
-    const sz = i === 0 ? 62 : 44;
-    ctx.font = `900 ${sz}px "Arial Black", Impact, sans-serif`;
-    ctx.fillStyle = i === 0 ? '#ffffff' : cfg.accent;
-    ctx.fillText(line, 20, ty);
-    ty += sz + 6;
-  });
-  ctx.shadowBlur = 0;
-
-  // Subtitle / arc
-  ctx.font = 'italic 16px Georgia, serif';
-  ctx.fillStyle = 'rgba(255,255,255,0.6)';
-  ctx.fillText(cfg.sub || '', 20, ty + 8);
-
-  // Barcode placeholder bottom right
-  ctx.fillStyle = 'rgba(255,255,255,0.15)';
-  ctx.fillRect(290, 548, 96, 38);
-  ctx.fillStyle = 'rgba(0,0,0,0.4)';
-  for (let b = 294; b < 382; b += 4) {
-    ctx.fillRect(b, 552, Math.random() > 0.3 ? 2 : 1, 28);
-  }
-
-  // Price tag
-  ctx.fillStyle = cfg.accent;
-  ctx.font = 'bold 12px monospace';
-  ctx.textAlign = 'left';
-  ctx.fillText('$4.99', 20, 582);
-  ctx.fillStyle = 'rgba(255,255,255,0.4)';
-  ctx.font = '10px monospace';
-  ctx.fillText('NFT EDITION', 62, 582);
-
-  // Border
-  ctx.strokeStyle = cfg.accent;
-  ctx.lineWidth = 3;
-  ctx.strokeRect(2, 2, 396, 596);
-
-  return c.toDataURL('image/jpeg', 0.9);
+  const lines = cfg.title.split('\n');
+  const line1 = lines[0] || '';
+  const line2 = lines[1] || '';
+  const sub = (cfg.sub||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600" viewBox="0 0 400 600">
+    <defs><linearGradient id="g${cfg.issue}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${cfg.bg1}"/>
+      <stop offset="100%" stop-color="${cfg.bg2}"/>
+    </linearGradient></defs>
+    <rect width="400" height="600" fill="url(#g${cfg.issue})"/>
+    ${cfg.shape==='circle'
+      ? `<circle cx="200" cy="280" r="160" fill="${cfg.accent}" opacity="0.15"/>`
+      : `<polygon points="200,60 360,280 200,500 40,280" fill="${cfg.accent}" opacity="0.15"/>`}
+    <rect x="0" y="0" width="400" height="50" fill="${cfg.accent}"/>
+    <text x="14" y="34" font-family="Impact,sans-serif" font-size="22" font-weight="bold" fill="${cfg.pubColor||'#000'}">${cfg.publisher}</text>
+    <text x="386" y="22" font-family="monospace" font-size="13" fill="${cfg.pubColor||'#000'}" text-anchor="end">${cfg.issue}</text>
+    <text x="386" y="40" font-family="monospace" font-size="10" fill="${cfg.pubColor||'#000'}" text-anchor="end">${cfg.year}</text>
+    <rect x="2" y="2" width="396" height="596" fill="none" stroke="${cfg.accent}" stroke-width="3"/>
+    <text x="20" y="400" font-family="Impact,sans-serif" font-size="68" font-weight="900" fill="white">${line1}</text>
+    ${line2 ? `<text x="20" y="462" font-family="Impact,sans-serif" font-size="48" font-weight="900" fill="${cfg.accent}">${line2}</text>` : ''}
+    <text x="20" y="${line2?'492':'442'}" font-family="serif" font-size="14" font-style="italic" fill="rgba(255,255,255,0.5)">${sub}</text>
+    <text x="20" y="583" font-family="monospace" font-size="11" fill="${cfg.accent}">$4.99  NFT EDITION</text>
+  </svg>`;
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
 }
 
-const DEMO_CONFIGS = [
-  {
-    mint: 'SPAWN_DRIP_001', name: 'Spawn #1 — Original Sin',
-    collectionName: 'DRiP · Todd McFarlane', symbol: 'SPAWN', isComic: true,
-    cover: { bg1:'#0a0005', bg2:'#1a0010', accent:'#cc2233', publisher:'IMAGE', pubColor:'#fff',
-      issue:'#001', year:'1992', title:'SPAWN', sub:'Original Sin · McFarlane',
-      shape:'diamond' }
-  },
-  {
-    mint: 'SPAWN_DRIP_301', name: 'Spawn #301 — Record Breaker',
-    collectionName: 'DRiP · Todd McFarlane', symbol: 'SPAWN', isComic: true,
-    cover: { bg1:'#080010', bg2:'#150020', accent:'#8800ff', publisher:'IMAGE', pubColor:'#fff',
-      issue:'#301', year:'2019', title:'SPAWN', sub:'Record Breaking Issue',
-      shape:'circle' }
-  },
-  {
-    mint: 'SPAWNOKI_001', name: 'SPAWNOKI #1',
-    collectionName: 'OddKey · McFarlane × Aoki', symbol: 'SPAWNOKI', isComic: true,
-    cover: { bg1:'#000820', bg2:'#001040', accent:'#00aaff', publisher:'ODDKEY', pubColor:'#000',
-      issue:'#001', year:'2022', title:'SPAWN\nOKI', sub:'McFarlane × Steve Aoki',
-      shape:'circle' }
-  },
-  {
-    mint: 'SPAWNOKI_042', name: 'SPAWNOKI #42',
-    collectionName: 'OddKey · McFarlane × Aoki', symbol: 'SPAWNOKI', isComic: true,
-    cover: { bg1:'#100800', bg2:'#201500', accent:'#ff8800', publisher:'ODDKEY', pubColor:'#000',
-      issue:'#042', year:'2022', title:'SPAWN\nOKI', sub:'Variant Edition',
-      shape:'diamond' }
-  },
-  {
-    mint: 'SPAWN_DRIP_300', name: 'Spawn #300 — Milestone',
-    collectionName: 'DRiP · Todd McFarlane', symbol: 'SPAWN', isComic: true,
-    cover: { bg1:'#050500', bg2:'#101000', accent:'#ddaa00', publisher:'IMAGE', pubColor:'#000',
-      issue:'#300', year:'2019', title:'SPAWN', sub:'The Milestone Issue',
-      shape:'quad' }
-  },
-  {
-    mint: 'DRIP_BONUS_001', name: 'DRiP Collectible #88',
-    collectionName: 'DRiP Season 3', symbol: 'DRIP', isComic: false,
-    cover: { bg1:'#001510', bg2:'#002820', accent:'#00cc88', publisher:'DRiP', pubColor:'#000',
-      issue:'#088', year:'2024', title:'DROP\n88', sub:'Season 3 Exclusive',
-      shape:'circle' }
-  },
-];
-
-// Pre-render covers
-const coverCache = {};
-function getCover(cfg) {
-  if (!coverCache[cfg.mint]) coverCache[cfg.mint] = makeCover(cfg.cover);
   return coverCache[cfg.mint];
 }
 
@@ -642,32 +502,31 @@ function isMobile() { return /iPhone|iPad|iPod|Android/i.test(navigator.userAgen
 function isInPhantomBrowser() { return !!(window.phantom?.solana?.isPhantom && isMobile()); }
 
 async function connectWallet() {
-  const ph = phantom();
+  const dbg = document.getElementById('connect-debug');
+  function setDbg(msg) { if (dbg) dbg.textContent = msg; }
 
-  // Case 1: Desktop extension or Phantom in-app browser — inject available
-  if (ph?.isPhantom) {
-    try {
+  try {
+    setDbg('Detecting wallet...');
+    const ph = phantom();
+    setDbg('window.solana: ' + (!!window.solana) + ' | window.phantom: ' + (!!window.phantom) + ' | isPhantom: ' + (!!(ph?.isPhantom)));
+
+    if (ph && ph.isPhantom) {
+      setDbg('Phantom found, connecting...');
       const r = await ph.connect();
       walletPubkey = r.publicKey.toString();
+      setDbg('');
       onConnected();
-    } catch { toast('Connection cancelled'); }
-    return;
-  }
+      return;
+    }
 
-  // Case 2: Mobile browser — use Phantom deeplink
-  if (isMobile()) {
-    const url = encodeURIComponent(window.location.href);
-    const deeplink = `https://phantom.app/ul/v1/connect`
-      + `?app_url=${url}`
-      + `&redirect_link=${url}`
-      + `&cluster=mainnet-beta`;
-    // Try phantom:// first, fall back to universal link
-    window.location.href = deeplink;
-    return;
-  }
+    // Not detected — show helpful message
+    setDbg('Phantom not injected. UA: ' + navigator.userAgent.slice(0,60));
+    document.getElementById('no-phantom').style.display = 'block';
 
-  // Case 3: Desktop, no extension
-  document.getElementById('no-phantom').style.display = 'block';
+  } catch(e) {
+    setDbg('Error: ' + e.message);
+    toast('Error: ' + e.message);
+  }
 }
 
 // Handle redirect back from Phantom mobile deeplink
