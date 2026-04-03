@@ -169,4 +169,840 @@ COLLECTION VIEW
 #col-header {
 padding: 18px 24px 14px;
 border-bottom: 1px solid var(–border);
-displa
+display: flex; align-items: center; justify-content: space-between;
+flex-shrink: 0;
+}
+#col-header-left h2 {
+font-family: var(–ff-display); font-size: 1.15rem; letter-spacing: .1em; color: var(–gold);
+}
+#col-header-left p { font-family: var(–ff-mono); font-size: .6rem; color: var(–muted); margin-top: 2px; }
+
+#filter-row {
+padding: 10px 24px; border-bottom: 1px solid var(–border);
+display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap;
+}
+.chip {
+padding: 4px 12px; border-radius: 12px; border: 1px solid var(–border);
+background: none; color: var(–muted); cursor: pointer;
+font-family: var(–ff-mono); font-size: .6rem; transition: all .15s;
+}
+.chip:hover { border-color: var(–gold); color: var(–gold); }
+.chip.on { border-color: var(–gold); color: var(–gold); background: var(–gold-dim); }
+
+#nft-grid {
+flex: 1; overflow-y: auto; padding: 20px 24px;
+display: grid;
+grid-template-columns: repeat(auto-fill, minmax(152px, 1fr));
+gap: 12px; align-content: start;
+scrollbar-width: thin; scrollbar-color: var(–border) transparent;
+}
+
+/* NFT card */
+.nft-card {
+border: 1px solid var(–border); border-radius: 8px; overflow: hidden;
+cursor: pointer; background: var(–s1);
+transition: border-color .2s, transform .2s, box-shadow .2s;
+animation: cardIn .3s ease-out both;
+}
+@keyframes cardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.nft-card:hover { border-color: var(–gold); transform: translateY(-3px); box-shadow: 0 10px 30px #00000060; }
+
+.nft-cover {
+aspect-ratio: 2/3; position: relative; overflow: hidden; background: var(–s2);
+}
+.nft-cover img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .35s; }
+.nft-card:hover .nft-cover img { transform: scale(1.05); }
+.nft-cover-placeholder {
+width: 100%; height: 100%;
+display: flex; align-items: center; justify-content: center;
+font-size: 3rem; background: linear-gradient(135deg, var(–s1), var(–s2));
+}
+
+.comic-badge {
+position: absolute; top: 6px; left: 6px;
+background: #000000bb; border: 1px solid var(–gold);
+border-radius: 3px; padding: 2px 5px;
+font-family: var(–ff-mono); font-size: .48rem; color: var(–gold); letter-spacing: .08em;
+}
+.nft-info { padding: 9px 10px 11px; }
+.nft-name { font-family: var(–ff-cond); font-size: .8rem; font-weight: 600; color: var(–text); line-height: 1.2; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nft-coll { font-family: var(–ff-mono); font-size: .56rem; color: var(–muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* states */
+.grid-state {
+grid-column: 1/-1;
+display: flex; flex-direction: column; align-items: center; justify-content: center;
+gap: 14px; padding: 60px 20px; color: var(–muted); text-align: center;
+}
+.spinner { width: 30px; height: 30px; border: 2px solid var(–border); border-top-color: var(–gold); border-radius: 50%; animation: spin .75s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.grid-state p { font-size: .8rem; }
+.grid-state small { font-size: .68rem; opacity: .7; }
+.retry-btn {
+margin-top: 4px; background: none; border: 1px solid var(–border); color: var(–muted);
+padding: 6px 16px; border-radius: 4px; cursor: pointer; font-size: .72rem; transition: all .2s;
+}
+.retry-btn:hover { border-color: var(–gold); color: var(–gold); }
+
+/* ─────────────────────────────────────────────
+READER VIEW
+───────────────────────────────────────────── */
+#view-reader { flex-direction: row; }
+
+#r-sidebar {
+width: 210px; flex-shrink: 0;
+background: var(–s1); border-right: 1px solid var(–border);
+display: flex; flex-direction: column; overflow: hidden;
+}
+#r-sidebar-top {
+padding: 12px; border-bottom: 1px solid var(–border); flex-shrink: 0;
+}
+#r-cover { width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: 5px; display: block; background: var(–s2); margin-bottom: 10px; }
+#r-nft-name { font-family: var(–ff-cond); font-size: .82rem; font-weight: 600; color: var(–text); line-height: 1.3; margin-bottom: 3px; }
+#r-nft-coll { font-family: var(–ff-mono); font-size: .56rem; color: var(–muted); }
+
+#r-page-list { flex: 1; overflow-y: auto; padding: 8px; scrollbar-width: thin; scrollbar-color: var(–border) transparent; }
+.pitem {
+display: flex; align-items: center; gap: 8px;
+padding: 6px 8px; border-radius: 5px; cursor: pointer;
+border: 1px solid transparent; margin-bottom: 3px; transition: all .15s;
+}
+.pitem:hover { background: var(–s2); }
+.pitem.on { background: var(–gold-dim); border-color: var(–gold); }
+.pnum { font-family: var(–ff-mono); font-size: .58rem; color: var(–muted); width: 16px; flex-shrink: 0; }
+.pthumb { width: 28px; height: 40px; background: var(–s2); border-radius: 2px; border: 1px solid var(–border); overflow: hidden; flex-shrink: 0; }
+.pthumb img { width: 100%; height: 100%; object-fit: cover; }
+.plabel { font-size: .64rem; color: var(–muted); }
+.pitem.on .plabel, .pitem.on .pnum { color: var(–gold); }
+
+#r-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #050507; }
+
+#canvas {
+flex: 1; overflow: hidden; position: relative;
+display: flex; align-items: center; justify-content: center;
+cursor: grab;
+}
+#canvas.dragging { cursor: grabbing; }
+
+#page-wrap { transform-origin: center; user-select: none; max-width: 100%; max-height: 100%; }
+#page-img { max-height: calc(100vh - 54px - 50px); max-width: 100%; display: block; border-radius: 2px; box-shadow: 0 0 0 1px #c9a84c14, 0 20px 60px #00000088; }
+
+/* cover-only overlay */
+#cover-only {
+position: absolute; inset: 0; display: none;
+flex-direction: column; align-items: center; justify-content: center;
+gap: 20px; padding: 30px; text-align: center; background: #050507;
+}
+#cover-only.show { display: flex; }
+#cover-only-img { max-height: 52vh; max-width: 280px; border-radius: 5px; box-shadow: 0 0 0 1px #c9a84c18, 0 24px 60px #00000088; }
+#cover-only h3 { font-family: var(–ff-display); font-size: 1.3rem; letter-spacing: .08em; color: var(–gold); }
+#cover-only p { font-size: .78rem; color: var(–muted); max-width: 320px; line-height: 1.7; }
+.tbd-pill {
+display: inline-flex; align-items: center; gap: 7px;
+border: 1px solid var(–gold); border-radius: 20px;
+padding: 5px 14px; color: var(–gold);
+font-family: var(–ff-mono); font-size: .6rem; letter-spacing: .06em;
+}
+.tbd-dot { width: 5px; height: 5px; border-radius: 50%; background: var(–gold); animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.3} }
+
+#r-bottom {
+height: 50px; background: #09090dee; backdrop-filter: blur(12px);
+border-top: 1px solid var(–border);
+display: flex; align-items: center; justify-content: space-between;
+padding: 0 16px; flex-shrink: 0;
+}
+.nav-row { display: flex; align-items: center; gap: 7px; }
+.nbtn {
+background: none; border: 1px solid var(–border); color: var(–text);
+width: 30px; height: 30px; border-radius: 4px; cursor: pointer;
+display: flex; align-items: center; justify-content: center; font-size: .85rem;
+transition: all .15s;
+}
+.nbtn:hover:not(:disabled) { border-color: var(–gold); color: var(–gold); }
+.nbtn:disabled { opacity: .25; cursor: default; }
+#pgcount { font-family: var(–ff-mono); font-size: .62rem; color: var(–muted); min-width: 52px; text-align: center; }
+
+#progbar { flex: 1; max-width: 220px; margin: 0 14px; height: 3px; background: var(–border); border-radius: 2px; cursor: pointer; position: relative; }
+#progfill { height: 100%; background: var(–gold); border-radius: 2px; width: 0; transition: width .15s; }
+
+.zoom-row { display: flex; align-items: center; gap: 6px; }
+.zbtn {
+background: none; border: 1px solid var(–border); color: var(–muted);
+width: 26px; height: 26px; border-radius: 3px; cursor: pointer; font-size: .9rem;
+display: flex; align-items: center; justify-content: center; transition: all .15s;
+}
+.zbtn:hover { border-color: var(–gold); color: var(–gold); }
+#zpct { font-family: var(–ff-mono); font-size: .58rem; color: var(–muted); min-width: 30px; text-align: center; }
+
+/* ── TOAST ── */
+#toast {
+position: fixed; bottom: 64px; left: 50%; transform: translateX(-50%);
+background: var(–s1); border: 1px solid var(–border);
+border-radius: 6px; padding: 9px 18px;
+font-size: .73rem; color: var(–muted); z-index: 500;
+opacity: 0; transition: opacity .25s; pointer-events: none; white-space: nowrap;
+}
+#toast.show { opacity: 1; }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(–border); border-radius: 2px; }
+</style>
+
+</head>
+<body>
+
+<!-- TOP BAR -->
+
+<div id="topbar">
+  <a id="wordmark" href="#" onclick="if(walletPubkey)showView('view-collection')">
+    <span id="wordmark-zur">Zur</span><span id="wordmark-vault">Vault</span>
+    <span id="wordmark-tag">NFT READER</span>
+  </a>
+  <div class="tsep"></div>
+  <div id="topbar-sub">Connect your Phantom wallet to begin</div>
+  <button id="back-btn" onclick="showCollection()">← Library</button>
+  <button id="wallet-pill" onclick="toggleWallet()">
+    <div class="wdot"></div>
+    <span id="wpill-label">Connect Phantom</span>
+  </button>
+</div>
+
+<div id="app">
+
+  <!-- ── CONNECT ── -->
+
+  <div class="view active" id="view-connect">
+    <div class="connect-inner">
+      <div class="connect-logo-wrap">
+        <!-- Z glyph -->
+        <svg viewBox="0 0 52 52" fill="none">
+          <path d="M8 10h36L10 42h34" stroke="#c9a84c" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="connect-title">Zur<span>Vault</span></div>
+      <div class="connect-sub">NFT Comic Reader · Self Custody</div>
+      <div class="connect-desc">Connect your Phantom wallet to read the comics you own. Ownership verified on-chain — no logins, no middlemen.</div>
+      <button id="connect-btn" onclick="connectWallet()">
+        <svg viewBox="0 0 128 128" fill="none"><rect width="128" height="128" rx="32" fill="#9945ff"/><path fill-rule="evenodd" clip-rule="evenodd" d="M110 65c0 24.853-20.147 45-45 45S20 89.853 20 65s20.147-45 45-45 45 20.147 45 45zm-62 0c0 9.389 7.611 17 17 17s17-7.611 17-17-7.611-17-17-17-17 7.611-17 17z" fill="white"/></svg>
+        Connect Phantom
+      </button>
+      <p id="no-phantom">Phantom not detected. <a href="https://phantom.app" target="_blank">Install it here</a> then refresh.</p>
+      <div class="connect-features">
+        <div class="feature"><div class="feature-icon">🔑</div>Self Custody</div>
+        <div class="feature"><div class="feature-icon">⛓️</div>On-chain Verify</div>
+        <div class="feature"><div class="feature-icon">📚</div>All Collections</div>
+        <div class="feature"><div class="feature-icon">🔒</div>No Account</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── COLLECTION ── -->
+
+  <div class="view" id="view-collection">
+    <div id="col-header">
+      <div id="col-header-left">
+        <h2>Your Library</h2>
+        <p id="col-meta">—</p>
+      </div>
+    </div>
+    <div id="filter-row">
+      <button class="chip on" onclick="setFilter('all',this)">All</button>
+      <button class="chip" onclick="setFilter('comic',this)">Comics</button>
+    </div>
+    <div id="nft-grid">
+      <div class="grid-state"><div class="spinner"></div><p>Fetching your NFTs…</p></div>
+    </div>
+  </div>
+
+  <!-- ── READER ── -->
+
+  <div class="view" id="view-reader">
+    <div id="r-sidebar">
+      <div id="r-sidebar-top">
+        <img id="r-cover" src="" alt="">
+        <div id="r-nft-name">—</div>
+        <div id="r-nft-coll">—</div>
+      </div>
+      <div id="r-page-list"></div>
+    </div>
+    <div id="r-main">
+      <div id="canvas"
+        onwheel="handleWheel(event)"
+        onmousedown="startDrag(event)"
+        ondblclick="dblZoom()">
+        <div id="page-wrap"><img id="page-img" src="" alt=""></div>
+        <div id="cover-only">
+          <img id="cover-only-img" src="" alt="">
+          <h3>Cover NFT</h3>
+          <p>This is your cover art NFT. Full multi-page reading arrives when Candy.io opens their content layer.</p>
+          <div class="tbd-pill"><div class="tbd-dot"></div>Awaiting Candy.io · Chain TBD</div>
+        </div>
+      </div>
+      <div id="r-bottom">
+        <div class="nav-row">
+          <button class="nbtn" id="nb-first" onclick="goPage(0)">⏮</button>
+          <button class="nbtn" id="nb-prev" onclick="prevPage()">◀</button>
+          <div id="pgcount">— / —</div>
+          <button class="nbtn" id="nb-next" onclick="nextPage()">▶</button>
+          <button class="nbtn" id="nb-last" onclick="goPage(pages.length-1)">⏭</button>
+        </div>
+        <div id="progbar" onclick="seekProg(event)"><div id="progfill"></div></div>
+        <div class="zoom-row">
+          <button class="zbtn" onclick="zoomOut()">−</button>
+          <div id="zpct">100%</div>
+          <button class="zbtn" onclick="zoomIn()">+</button>
+          <button class="zbtn" onclick="resetZoom()" style="font-size:.52rem;width:auto;padding:0 6px;">FIT</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+let walletPubkey = null;
+let allNFTs = [], filtered = [], activeFilter = 'all';
+let currentNFT = null, pages = [], curPage = 0;
+let zoom = 1, pan = {x:0,y:0}, dragging = false, dragOrigin = {x:0,y:0};
+
+// ══════════════════════════════════════════════
+// DEMO COVERS  — SVG-based so they look good
+// ══════════════════════════════════════════════
+function makeCover(cfg) {
+  const c = document.createElement('canvas');
+  c.width = 400; c.height = 600;
+  const ctx = c.getContext('2d');
+
+  // Background
+  const g = ctx.createLinearGradient(0, 0, 400, 600);
+  g.addColorStop(0, cfg.bg1); g.addColorStop(1, cfg.bg2);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 400, 600);
+
+  // Noise texture
+  for (let i = 0; i < 6000; i++) {
+    const x = Math.random() * 400, y = Math.random() * 600;
+    ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.03})`;
+    ctx.fillRect(x, y, 1, 1);
+  }
+
+  // Big background shape
+  ctx.save();
+  ctx.globalAlpha = 0.18;
+  ctx.fillStyle = cfg.accent;
+  ctx.beginPath();
+  if (cfg.shape === 'circle') {
+    ctx.arc(200, 300, 180, 0, Math.PI * 2);
+  } else if (cfg.shape === 'diamond') {
+    ctx.moveTo(200, 80); ctx.lineTo(360, 300); ctx.lineTo(200, 520); ctx.lineTo(40, 300);
+  } else {
+    ctx.moveTo(40, 100); ctx.lineTo(360, 80); ctx.lineTo(340, 500); ctx.lineTo(60, 520);
+  }
+  ctx.fill();
+  ctx.restore();
+
+  // Hatching lines (comic feel)
+  ctx.save();
+  ctx.globalAlpha = 0.06;
+  ctx.strokeStyle = cfg.accent;
+  ctx.lineWidth = 1;
+  for (let i = -600; i < 800; i += 18) {
+    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + 600, 600); ctx.stroke();
+  }
+  ctx.restore();
+
+  // Top publisher bar
+  ctx.fillStyle = cfg.accent;
+  ctx.fillRect(0, 0, 400, 48);
+  ctx.fillStyle = cfg.pubColor || '#000';
+  ctx.font = 'bold 22px "Arial Black", sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(cfg.publisher, 16, 33);
+
+  // Issue number top right
+  ctx.fillStyle = '#000000aa';
+  ctx.fillRect(300, 0, 100, 48);
+  ctx.fillStyle = cfg.accent;
+  ctx.font = 'bold 14px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(cfg.issue, 350, 20);
+  ctx.font = '10px monospace';
+  ctx.fillText(cfg.year, 350, 36);
+
+  // Big title
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#ffffff';
+  ctx.shadowColor = 'rgba(0,0,0,0.8)';
+  ctx.shadowBlur = 12;
+
+  // Title - stacked
+  const titleLines = cfg.title.split('\n');
+  let ty = 390;
+  titleLines.forEach((line, i) => {
+    const sz = i === 0 ? 62 : 44;
+    ctx.font = `900 ${sz}px "Arial Black", Impact, sans-serif`;
+    ctx.fillStyle = i === 0 ? '#ffffff' : cfg.accent;
+    ctx.fillText(line, 20, ty);
+    ty += sz + 6;
+  });
+  ctx.shadowBlur = 0;
+
+  // Subtitle / arc
+  ctx.font = 'italic 16px Georgia, serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.fillText(cfg.sub || '', 20, ty + 8);
+
+  // Barcode placeholder bottom right
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  ctx.fillRect(290, 548, 96, 38);
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  for (let b = 294; b < 382; b += 4) {
+    ctx.fillRect(b, 552, Math.random() > 0.3 ? 2 : 1, 28);
+  }
+
+  // Price tag
+  ctx.fillStyle = cfg.accent;
+  ctx.font = 'bold 12px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('$4.99', 20, 582);
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = '10px monospace';
+  ctx.fillText('NFT EDITION', 62, 582);
+
+  // Border
+  ctx.strokeStyle = cfg.accent;
+  ctx.lineWidth = 3;
+  ctx.strokeRect(2, 2, 396, 596);
+
+  return c.toDataURL('image/jpeg', 0.9);
+}
+
+const DEMO_CONFIGS = [
+  {
+    mint: 'SPAWN_DRIP_001', name: 'Spawn #1 — Original Sin',
+    collectionName: 'DRiP · Todd McFarlane', symbol: 'SPAWN', isComic: true,
+    cover: { bg1:'#0a0005', bg2:'#1a0010', accent:'#cc2233', publisher:'IMAGE', pubColor:'#fff',
+      issue:'#001', year:'1992', title:'SPAWN', sub:'Original Sin · McFarlane',
+      shape:'diamond' }
+  },
+  {
+    mint: 'SPAWN_DRIP_301', name: 'Spawn #301 — Record Breaker',
+    collectionName: 'DRiP · Todd McFarlane', symbol: 'SPAWN', isComic: true,
+    cover: { bg1:'#080010', bg2:'#150020', accent:'#8800ff', publisher:'IMAGE', pubColor:'#fff',
+      issue:'#301', year:'2019', title:'SPAWN', sub:'Record Breaking Issue',
+      shape:'circle' }
+  },
+  {
+    mint: 'SPAWNOKI_001', name: 'SPAWNOKI #1',
+    collectionName: 'OddKey · McFarlane × Aoki', symbol: 'SPAWNOKI', isComic: true,
+    cover: { bg1:'#000820', bg2:'#001040', accent:'#00aaff', publisher:'ODDKEY', pubColor:'#000',
+      issue:'#001', year:'2022', title:'SPAWN\nOKI', sub:'McFarlane × Steve Aoki',
+      shape:'circle' }
+  },
+  {
+    mint: 'SPAWNOKI_042', name: 'SPAWNOKI #42',
+    collectionName: 'OddKey · McFarlane × Aoki', symbol: 'SPAWNOKI', isComic: true,
+    cover: { bg1:'#100800', bg2:'#201500', accent:'#ff8800', publisher:'ODDKEY', pubColor:'#000',
+      issue:'#042', year:'2022', title:'SPAWN\nOKI', sub:'Variant Edition',
+      shape:'diamond' }
+  },
+  {
+    mint: 'SPAWN_DRIP_300', name: 'Spawn #300 — Milestone',
+    collectionName: 'DRiP · Todd McFarlane', symbol: 'SPAWN', isComic: true,
+    cover: { bg1:'#050500', bg2:'#101000', accent:'#ddaa00', publisher:'IMAGE', pubColor:'#000',
+      issue:'#300', year:'2019', title:'SPAWN', sub:'The Milestone Issue',
+      shape:'quad' }
+  },
+  {
+    mint: 'DRIP_BONUS_001', name: 'DRiP Collectible #88',
+    collectionName: 'DRiP Season 3', symbol: 'DRIP', isComic: false,
+    cover: { bg1:'#001510', bg2:'#002820', accent:'#00cc88', publisher:'DRiP', pubColor:'#000',
+      issue:'#088', year:'2024', title:'DROP\n88', sub:'Season 3 Exclusive',
+      shape:'circle' }
+  },
+];
+
+// Pre-render covers
+const coverCache = {};
+function getCover(cfg) {
+  if (!coverCache[cfg.mint]) coverCache[cfg.mint] = makeCover(cfg.cover);
+  return coverCache[cfg.mint];
+}
+
+// ══════════════════════════════════════════════
+// WALLET  — desktop extension + mobile deeplink
+// ══════════════════════════════════════════════
+function phantom() { return window.phantom?.solana ?? window.solana ?? null; }
+function isMobile() { return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent); }
+function isInPhantomBrowser() { return !!(window.phantom?.solana?.isPhantom && isMobile()); }
+
+async function connectWallet() {
+  const ph = phantom();
+
+  // Case 1: Desktop extension or Phantom in-app browser — inject available
+  if (ph?.isPhantom) {
+    try {
+      const r = await ph.connect();
+      walletPubkey = r.publicKey.toString();
+      onConnected();
+    } catch { toast('Connection cancelled'); }
+    return;
+  }
+
+  // Case 2: Mobile browser — use Phantom deeplink
+  if (isMobile()) {
+    const url = encodeURIComponent(window.location.href);
+    const deeplink = `https://phantom.app/ul/v1/connect`
+      + `?app_url=${url}`
+      + `&redirect_link=${url}`
+      + `&cluster=mainnet-beta`;
+    // Try phantom:// first, fall back to universal link
+    window.location.href = deeplink;
+    return;
+  }
+
+  // Case 3: Desktop, no extension
+  document.getElementById('no-phantom').style.display = 'block';
+}
+
+// Handle redirect back from Phantom mobile deeplink
+function checkDeeplinkReturn() {
+  const params = new URLSearchParams(window.location.search);
+  const pubkey = params.get('phantom_encryption_public_key') || params.get('pubkey') || params.get('public_key');
+  if (pubkey) {
+    walletPubkey = pubkey;
+    // Clean the URL
+    const clean = window.location.origin + window.location.pathname;
+    window.history.replaceState({}, '', clean);
+    onConnected();
+    return true;
+  }
+  // Also check hash params (some deeplink implementations use these)
+  const hash = new URLSearchParams(window.location.hash.replace('#',''));
+  const hpk = hash.get('pubkey') || hash.get('public_key');
+  if (hpk) {
+    walletPubkey = hpk;
+    window.history.replaceState({}, '', window.location.origin + window.location.pathname);
+    onConnected();
+    return true;
+  }
+  return false;
+}
+
+async function toggleWallet() {
+  if (walletPubkey) {
+    phantom()?.disconnect?.();
+    walletPubkey = null; allNFTs = [];
+    setWalletUI(false);
+    showView('view-connect');
+    document.getElementById('topbar-sub').textContent = 'Connect your Phantom wallet to begin';
+    document.getElementById('back-btn').classList.remove('show');
+  } else {
+    await connectWallet();
+  }
+}
+
+function onConnected() {
+  setWalletUI(true);
+  document.getElementById('topbar-sub').textContent = short(walletPubkey);
+  showView('view-collection');
+  fetchNFTs();
+}
+
+function setWalletUI(on) {
+  const pill = document.getElementById('wallet-pill');
+  pill.classList.toggle('on', on);
+  document.getElementById('wpill-label').textContent = on ? short(walletPubkey) : 'Connect Phantom';
+}
+
+function short(a) { return a.slice(0,4)+'…'+a.slice(-4); }
+
+// ══════════════════════════════════════════════
+// NFT FETCHING
+// ══════════════════════════════════════════════
+const RPC = 'https://api.mainnet-beta.solana.com';
+// 👆 Swap this for a Helius RPC URL for much faster loading
+
+async function rpc(method, params) {
+  const r = await fetch(RPC, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({jsonrpc:'2.0', id:1, method, params})
+  });
+  const j = await r.json();
+  if (j.error) throw new Error(j.error.message);
+  return j.result;
+}
+
+async function fetchNFTs() {
+  setGrid('<div class="grid-state"><div class="spinner"></div><p>Fetching your NFTs…</p></div>');
+  try {
+    // Try DAS (Helius/QuickNode) first, fall back to demo
+    let nfts = [];
+    try { nfts = await fetchDAS(); }
+    catch (e) {
+      console.warn('DAS failed, trying token accounts:', e.message);
+      try { nfts = await fetchTokenAccounts(); }
+      catch (e2) {
+        console.warn('Token accounts failed, loading demos:', e2.message);
+        nfts = loadDemos();
+      }
+    }
+    allNFTs = nfts;
+    buildFilterRow();
+    applyFilter();
+    document.getElementById('col-meta').textContent =
+      `${allNFTs.length} item${allNFTs.length!==1?'s':''} · ${short(walletPubkey)}`;
+  } catch(e) {
+    setGrid(`<div class="grid-state"><p>Could not load NFTs</p><small>${e.message}</small><button class="retry-btn" onclick="fetchNFTs()">Retry</button></div>`);
+  }
+}
+
+// DAS (Metaplex Digital Asset Standard — fastest)
+async function fetchDAS() {
+  const result = await rpc('getAssetsByOwner', [{ownerAddress: walletPubkey, page:1, limit:100}]);
+  if (!result?.items) throw new Error('No DAS items');
+  return result.items
+    .filter(a => a.interface === 'V1_NFT' || a.interface === 'ProgrammableNFT')
+    .map(a => ({
+      mint: a.id,
+      name: a.content?.metadata?.name || 'Unnamed',
+      collectionName: a.content?.metadata?.collection?.name || a.grouping?.[0]?.group_value || '',
+      symbol: a.content?.metadata?.symbol || '',
+      image: a.content?.links?.image || a.content?.files?.[0]?.uri || '',
+      description: a.content?.metadata?.description || '',
+      isComic: isComic({name: a.content?.metadata?.name||'', collectionName:'', symbol: a.content?.metadata?.symbol||'', description: a.content?.metadata?.description||''}),
+      real: true,
+    }));
+}
+
+// Token account fallback (slower, no DAS needed)
+async function fetchTokenAccounts() {
+  const res = await rpc('getTokenAccountsByOwner', [
+    walletPubkey,
+    {programId:'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'},
+    {encoding:'jsonParsed'}
+  ]);
+  const mints = (res?.value||[])
+    .filter(a => { const i = a.account.data.parsed.info; return i.tokenAmount.uiAmount===1 && i.tokenAmount.decimals===0; })
+    .slice(0,40)
+    .map(a => a.account.data.parsed.info.mint);
+
+  if (!mints.length) throw new Error('No NFT token accounts');
+
+  const nfts = [];
+  for (const mint of mints) {
+    try {
+      const nft = await fetchTokenMeta(mint);
+      if (nft) nfts.push(nft);
+    } catch {}
+  }
+  // Pad with demos if real wallet has few NFTs
+  if (nfts.length < 3) return [...nfts, ...loadDemos()];
+  return nfts;
+}
+
+async function fetchTokenMeta(mint) {
+  // Simplified: just return a minimal object, image fetching is async
+  return {
+    mint, name: short(mint), collectionName: 'Solana NFT',
+    symbol: '', image: '', isComic: false, real: true,
+  };
+}
+
+// Demo fallback — shown when wallet RPC is rate limited
+function loadDemos() {
+  return DEMO_CONFIGS.map(cfg => ({
+    ...cfg,
+    image: getCover(cfg),
+    demo: true,
+  }));
+}
+
+// ══════════════════════════════════════════════
+// FILTER & GRID
+// ══════════════════════════════════════════════
+const COMIC_KW = ['spawn','comic','batman','superman','dc','marvel','manga','drip','oddkey','issue','#','cover','image comics'];
+function isComic(n) {
+  const h = (n.name+n.collectionName+n.symbol+n.description||'').toLowerCase();
+  return COMIC_KW.some(k => h.includes(k));
+}
+
+function buildFilterRow() {
+  const cc = allNFTs.filter(n=>n.isComic).length;
+  document.getElementById('filter-row').innerHTML = `
+    <button class="chip ${activeFilter==='all'?'on':''}" onclick="setFilter('all',this)">All (${allNFTs.length})</button>
+    <button class="chip ${activeFilter==='comic'?'on':''}" onclick="setFilter('comic',this)">Comics (${cc})</button>
+  `;
+}
+
+function setFilter(f, btn) {
+  activeFilter = f;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  btn.classList.add('on');
+  applyFilter();
+}
+
+function applyFilter() {
+  filtered = activeFilter==='comic' ? allNFTs.filter(n=>n.isComic) : allNFTs;
+  renderGrid();
+}
+
+function renderGrid() {
+  if (!filtered.length) {
+    setGrid('<div class="grid-state"><p>No NFTs found</p><small>Try the "All" filter</small></div>');
+    return;
+  }
+  const html = filtered.map((n,i) => `
+    <div class="nft-card" style="animation-delay:${i*25}ms" onclick="openNFT(${i})">
+      <div class="nft-cover">
+        ${n.image
+          ? `<img src="${n.image}" alt="${n.name}" loading="lazy" onerror="this.parentNode.innerHTML='<div class=\\'nft-cover-placeholder\\'>📄</div>'">`
+          : '<div class="nft-cover-placeholder">📄</div>'
+        }
+        ${n.isComic ? '<div class="comic-badge">COMIC</div>' : ''}
+      </div>
+      <div class="nft-info">
+        <div class="nft-name">${n.name}</div>
+        <div class="nft-coll">${n.collectionName || n.symbol || short(n.mint)}</div>
+      </div>
+    </div>
+  `).join('');
+  setGrid(html);
+}
+
+function setGrid(html) { document.getElementById('nft-grid').innerHTML = html; }
+
+// ══════════════════════════════════════════════
+// READER
+// ══════════════════════════════════════════════
+function openNFT(idx) {
+  currentNFT = filtered[idx];
+  pages = [];
+  document.getElementById('r-cover').src = currentNFT.image || '';
+  document.getElementById('r-nft-name').textContent = currentNFT.name;
+  document.getElementById('r-nft-coll').textContent = currentNFT.collectionName || currentNFT.symbol || short(currentNFT.mint);
+  document.getElementById('topbar-sub').textContent = currentNFT.name;
+  document.getElementById('back-btn').classList.add('show');
+  showView('view-reader');
+  buildPageList();
+  showCoverOnly();
+}
+
+function showCoverOnly() {
+  document.getElementById('cover-only-img').src = currentNFT.image || '';
+  document.getElementById('cover-only').classList.add('show');
+  document.getElementById('page-wrap').style.visibility = 'hidden';
+  updateNav();
+}
+
+function buildPageList() {
+  document.getElementById('r-page-list').innerHTML = pages.length
+    ? pages.map((p,i)=>`<div class="pitem ${i===curPage?'on':''}" onclick="goPage(${i})">
+        <div class="pnum">${i+1}</div>
+        <div class="pthumb"><img src="${p.src}" alt=""></div>
+        <div class="plabel">${p.label||`Page ${i+1}`}</div>
+      </div>`).join('')
+    : `<div style="padding:14px;text-align:center">
+        <p style="font-size:.62rem;color:var(--muted);line-height:1.7">Cover NFT<br>Multi-page content coming<br>via Candy.io</p>
+      </div>`;
+}
+
+function showCollection() {
+  showView('view-collection');
+  document.getElementById('back-btn').classList.remove('show');
+  document.getElementById('topbar-sub').textContent = short(walletPubkey||'');
+}
+
+// ══════════════════════════════════════════════
+// PAGE NAV
+// ══════════════════════════════════════════════
+function goPage(i) {
+  if (!pages.length) return;
+  curPage = Math.max(0, Math.min(i, pages.length-1));
+  document.getElementById('page-img').src = pages[curPage].src;
+  document.getElementById('cover-only').classList.remove('show');
+  document.getElementById('page-wrap').style.visibility = '';
+  resetZoom(); updateNav(); buildPageList();
+}
+function nextPage() { goPage(curPage+1); }
+function prevPage() { goPage(curPage-1); }
+function updateNav() {
+  const n = pages.length;
+  document.getElementById('pgcount').textContent = n ? `${curPage+1} / ${n}` : '— / —';
+  ['nb-first','nb-prev'].forEach(id => document.getElementById(id).disabled = curPage===0||!n);
+  ['nb-next','nb-last'].forEach(id => document.getElementById(id).disabled = curPage===n-1||!n);
+  document.getElementById('progfill').style.width = n>1 ? (curPage/(n-1)*100)+'%' : '0%';
+}
+function seekProg(e) {
+  if (!pages.length) return;
+  const r = e.currentTarget.getBoundingClientRect();
+  goPage(Math.round((e.clientX-r.left)/r.width*(pages.length-1)));
+}
+
+// ══════════════════════════════════════════════
+// ZOOM / PAN
+// ══════════════════════════════════════════════
+function applyT() {
+  document.getElementById('page-wrap').style.transform = `translate(${pan.x}px,${pan.y}px) scale(${zoom})`;
+  document.getElementById('zpct').textContent = Math.round(zoom*100)+'%';
+}
+function zoomIn()  { zoom = Math.min(zoom*1.25,5); applyT(); }
+function zoomOut() { zoom = Math.max(zoom/1.25,.25); applyT(); }
+function resetZoom() { zoom=1; pan={x:0,y:0}; applyT(); }
+function handleWheel(e) { e.preventDefault(); zoom = Math.max(.25,Math.min(5,zoom*(e.deltaY>0?.9:1.1))); applyT(); }
+function dblZoom() { zoom = zoom>1.5?1:2; applyT(); }
+function startDrag(e) {
+  if (e.button!==0) return;
+  dragging=true; dragOrigin={x:e.clientX-pan.x, y:e.clientY-pan.y};
+  document.getElementById('canvas').classList.add('dragging');
+  window.addEventListener('mousemove',onDrag); window.addEventListener('mouseup',endDrag);
+}
+function onDrag(e) { if(!dragging)return; pan.x=e.clientX-dragOrigin.x; pan.y=e.clientY-dragOrigin.y; applyT(); }
+function endDrag() { dragging=false; document.getElementById('canvas').classList.remove('dragging'); window.removeEventListener('mousemove',onDrag); window.removeEventListener('mouseup',endDrag); }
+
+// ══════════════════════════════════════════════
+// KEYBOARD
+// ══════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('view-reader').classList.contains('active')) return;
+  if (e.key==='ArrowRight'||e.key===' ') { e.preventDefault(); nextPage(); }
+  if (e.key==='ArrowLeft') { e.preventDefault(); prevPage(); }
+  if (e.key==='+'||e.key==='=') zoomIn();
+  if (e.key==='-') zoomOut();
+  if (e.key==='f'||e.key==='F') resetZoom();
+  if (e.key==='Escape') showCollection();
+});
+
+// ══════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════
+function showView(id) { document.querySelectorAll('.view').forEach(v=>v.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+
+let toastT;
+function toast(msg) {
+  const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('show'),2800);
+}
+
+// Auto-reconnect: check deeplink return first, then injected wallet
+window.addEventListener('load', async () => {
+  if (checkDeeplinkReturn()) return;
+  const ph = phantom();
+  if (ph?.isConnected && ph.publicKey) { walletPubkey=ph.publicKey.toString(); onConnected(); }
+  // Update connect button text for mobile non-injected
+  if (isMobile() && !ph?.isPhantom) {
+    document.getElementById('connect-btn').innerHTML = `
+      <svg viewBox="0 0 128 128" fill="none" width="24" height="24"><rect width="128" height="128" rx="32" fill="#9945ff"/><path fill-rule="evenodd" clip-rule="evenodd" d="M110 65c0 24.853-20.147 45-45 45S20 89.853 20 65s20.147-45 45-45 45 20.147 45 45zm-62 0c0 9.389 7.611 17 17 17s17-7.611 17-17-7.611-17-17-17-17 7.611-17 17z" fill="white"/></svg>
+      Open in Phantom
+    `;
+  }
+});
+</script>
+
+</body>
+</html>
