@@ -88,7 +88,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   align-items: center; justify-content: center; overflow: hidden;
   background: var(--bg);
 }
-/* background glyph */
 #view-connect::before {
   content: 'Z';
   position: absolute;
@@ -196,7 +195,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   scrollbar-width: thin; scrollbar-color: var(--border) transparent;
 }
 
-/* NFT card */
 .nft-card {
   border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
   cursor: pointer; background: var(--s1);
@@ -227,7 +225,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .nft-name { font-family: var(--ff-cond); font-size: .8rem; font-weight: 600; color: var(--text); line-height: 1.2; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .nft-coll { font-family: var(--ff-mono); font-size: .56rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* states */
 .grid-state {
   grid-column: 1/-1;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -286,7 +283,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 #page-wrap { transform-origin: center; user-select: none; max-width: 100%; max-height: 100%; }
 #page-img { max-height: calc(100vh - 54px - 50px); max-width: 100%; display: block; border-radius: 2px; box-shadow: 0 0 0 1px #c9a84c14, 0 20px 60px #00000088; }
 
-/* cover-only overlay */
 #cover-only {
   position: absolute; inset: 0; display: none;
   flex-direction: column; align-items: center; justify-content: center;
@@ -372,7 +368,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   <div class="view active" id="view-connect">
     <div class="connect-inner">
       <div class="connect-logo-wrap">
-        <!-- Z glyph -->
         <svg viewBox="0 0 52 52" fill="none">
           <path d="M8 10h36L10 42h34" stroke="#c9a84c" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
@@ -458,6 +453,35 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 <div id="toast"></div>
 
 <script>
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+let walletPubkey = null;
+let allNFTs = [];
+let filtered = [];
+let activeFilter = 'all';
+let currentNFT = null;
+let pages = [];
+let curPage = 0;
+let zoom = 1;
+let pan = { x: 0, y: 0 };
+let dragging = false;
+let dragOrigin = { x: 0, y: 0 };
+const coverCache = {};
+
+// ══════════════════════════════════════════════
+// DEMO CONFIGS — shown when no real NFTs / RPC fails
+// ══════════════════════════════════════════════
+const DEMO_CONFIGS = [
+  { mint:'demo1', title:'IRON\nFIST', sub:'The Living Weapon', publisher:'ZUR', issue:'#1', year:'2024', bg1:'#1a0a2e', bg2:'#0d0014', accent:'#c9a84c', shape:'circle', pubColor:'#000', isComic:true, collectionName:'ZurVault Demo', symbol:'ZUR', demo:true },
+  { mint:'demo2', title:'VOID\nRAIDER', sub:'Beyond the Singularity', publisher:'ZUR', issue:'#2', year:'2024', bg1:'#0a1a2e', bg2:'#000d14', accent:'#4c9ac9', shape:'diamond', pubColor:'#000', isComic:true, collectionName:'ZurVault Demo', symbol:'ZUR', demo:true },
+  { mint:'demo3', title:'NEON\nSHADOW', sub:'City of Forgotten Dreams', publisher:'ZUR', issue:'#3', year:'2024', bg1:'#1a2e0a', bg2:'#0d1400', accent:'#6ac94c', shape:'circle', pubColor:'#000', isComic:true, collectionName:'ZurVault Demo', symbol:'ZUR', demo:true },
+  { mint:'demo4', title:'CHROME\nWITCH', sub:'Rise of the Machine God', publisher:'ZUR', issue:'#4', year:'2024', bg1:'#2e0a0a', bg2:'#140000', accent:'#c94c4c', shape:'diamond', pubColor:'#000', isComic:true, collectionName:'ZurVault Demo', symbol:'ZUR', demo:true },
+];
+
+// ══════════════════════════════════════════════
+// COVER GENERATION
+// ══════════════════════════════════════════════
 function makeCover(cfg) {
   const lines = cfg.title.split('\n');
   const line1 = lines[0] || '';
@@ -485,6 +509,10 @@ function makeCover(cfg) {
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
 }
 
+function getCover(cfg) {
+  if (!coverCache[cfg.mint]) {
+    coverCache[cfg.mint] = makeCover(cfg);
+  }
   return coverCache[cfg.mint];
 }
 
@@ -523,19 +551,16 @@ async function connectWallet() {
   }
 }
 
-// Handle redirect back from Phantom mobile deeplink
 function checkDeeplinkReturn() {
   const params = new URLSearchParams(window.location.search);
   const pubkey = params.get('phantom_encryption_public_key') || params.get('pubkey') || params.get('public_key');
   if (pubkey) {
     walletPubkey = pubkey;
-    // Clean the URL
     const clean = window.location.origin + window.location.pathname;
     window.history.replaceState({}, '', clean);
     onConnected();
     return true;
   }
-  // Also check hash params (some deeplink implementations use these)
   const hash = new URLSearchParams(window.location.hash.replace('#',''));
   const hpk = hash.get('pubkey') || hash.get('public_key');
   if (hpk) {
@@ -573,13 +598,12 @@ function setWalletUI(on) {
   document.getElementById('wpill-label').textContent = on ? short(walletPubkey) : 'Connect Phantom';
 }
 
-function short(a) { return a.slice(0,4)+'…'+a.slice(-4); }
+function short(a) { return a ? a.slice(0,4)+'…'+a.slice(-4) : ''; }
 
 // ══════════════════════════════════════════════
 // NFT FETCHING
 // ══════════════════════════════════════════════
 const RPC = 'https://api.mainnet-beta.solana.com';
-// 👆 Swap this for a Helius RPC URL for much faster loading
 
 async function rpc(method, params) {
   const r = await fetch(RPC, {
@@ -594,7 +618,6 @@ async function rpc(method, params) {
 async function fetchNFTs() {
   setGrid('<div class="grid-state"><div class="spinner"></div><p>Fetching your NFTs…</p></div>');
   try {
-    // Try DAS (Helius/QuickNode) first, fall back to demo
     let nfts = [];
     try { nfts = await fetchDAS(); }
     catch (e) {
@@ -615,7 +638,6 @@ async function fetchNFTs() {
   }
 }
 
-// DAS (Metaplex Digital Asset Standard — fastest)
 async function fetchDAS() {
   const result = await rpc('getAssetsByOwner', [{ownerAddress: walletPubkey, page:1, limit:100}]);
   if (!result?.items) throw new Error('No DAS items');
@@ -633,7 +655,6 @@ async function fetchDAS() {
     }));
 }
 
-// Token account fallback (slower, no DAS needed)
 async function fetchTokenAccounts() {
   const res = await rpc('getTokenAccountsByOwner', [
     walletPubkey,
@@ -654,25 +675,21 @@ async function fetchTokenAccounts() {
       if (nft) nfts.push(nft);
     } catch {}
   }
-  // Pad with demos if real wallet has few NFTs
   if (nfts.length < 3) return [...nfts, ...loadDemos()];
   return nfts;
 }
 
 async function fetchTokenMeta(mint) {
-  // Simplified: just return a minimal object, image fetching is async
   return {
     mint, name: short(mint), collectionName: 'Solana NFT',
     symbol: '', image: '', isComic: false, real: true,
   };
 }
 
-// Demo fallback — shown when wallet RPC is rate limited
 function loadDemos() {
   return DEMO_CONFIGS.map(cfg => ({
     ...cfg,
     image: getCover(cfg),
-    demo: true,
   }));
 }
 
@@ -681,7 +698,7 @@ function loadDemos() {
 // ══════════════════════════════════════════════
 const COMIC_KW = ['spawn','comic','batman','superman','dc','marvel','manga','drip','oddkey','issue','#','cover','image comics'];
 function isComic(n) {
-  const h = (n.name+n.collectionName+n.symbol+n.description||'').toLowerCase();
+  const h = (n.name+n.collectionName+n.symbol+(n.description||'')).toLowerCase();
   return COMIC_KW.some(k => h.includes(k));
 }
 
@@ -842,12 +859,11 @@ function toast(msg) {
   clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('show'),2800);
 }
 
-// Auto-reconnect: check deeplink return first, then injected wallet
+// Auto-reconnect
 window.addEventListener('load', async () => {
   if (checkDeeplinkReturn()) return;
   const ph = phantom();
   if (ph?.isConnected && ph.publicKey) { walletPubkey=ph.publicKey.toString(); onConnected(); }
-  // Update connect button text for mobile non-injected
   if (isMobile() && !ph?.isPhantom) {
     document.getElementById('connect-btn').innerHTML = `
       <svg viewBox="0 0 128 128" fill="none" width="24" height="24"><rect width="128" height="128" rx="32" fill="#9945ff"/><path fill-rule="evenodd" clip-rule="evenodd" d="M110 65c0 24.853-20.147 45-45 45S20 89.853 20 65s20.147-45 45-45 45 20.147 45 45zm-62 0c0 9.389 7.611 17 17 17s17-7.611 17-17-7.611-17-17-17-17 7.611-17 17z" fill="white"/></svg>
