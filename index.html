@@ -519,7 +519,7 @@ function getCover(cfg) {
 // ══════════════════════════════════════════════
 // WALLET  — desktop extension + mobile deeplink
 // ══════════════════════════════════════════════
-function phantom() { return window.phantom?.solana ?? window.solana ?? null; }
+function getPhantom() { return window.phantom?.solana ?? window.solana ?? null; }
 function isMobile() { return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent); }
 function isInPhantomBrowser() { return !!(window.phantom?.solana?.isPhantom && isMobile()); }
 
@@ -529,7 +529,7 @@ async function connectWallet() {
 
   try {
     setDbg('Detecting wallet...');
-    const ph = phantom();
+    const ph = getPhantom();
     setDbg('window.solana: ' + (!!window.solana) + ' | window.phantom: ' + (!!window.phantom) + ' | isPhantom: ' + (!!(ph?.isPhantom)));
 
     if (ph && ph.isPhantom) {
@@ -574,7 +574,7 @@ function checkDeeplinkReturn() {
 
 async function toggleWallet() {
   if (walletPubkey) {
-    phantom()?.disconnect?.();
+    getPhantom()?.disconnect?.();
     walletPubkey = null; allNFTs = [];
     setWalletUI(false);
     showView('view-connect');
@@ -862,7 +862,7 @@ function toast(msg) {
 // Auto-reconnect
 window.addEventListener('load', async () => {
   if (checkDeeplinkReturn()) return;
-  const ph = phantom();
+  const ph = getPhantom();
   if (ph?.isConnected && ph.publicKey) { walletPubkey=ph.publicKey.toString(); onConnected(); }
   if (isMobile() && !ph?.isPhantom) {
     document.getElementById('connect-btn').innerHTML = `
