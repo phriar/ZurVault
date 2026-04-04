@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPAWN // COMICS</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@300;400;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blood:   #8B0000;
+    --ember:   #FF4500;
+    --coal:    #0d0d0d;
+    --ash:     #1a1a1a;
+    --bone:    #e8e0d0;
+    --ghost:   #666;
+    --dim:     #2a2a2a;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--coal);
+    color: var(--bone);
+    font-family: 'Oswald', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(0,0,0,0.97);
+    border-bottom: 2px solid var(--blood);
+    padding: 0 16px;
+    height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+    backdrop-filter: blur(10px);
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.75rem; letter-spacing: 4px;
+    color: var(--bone);
+    text-shadow: 0 0 18px var(--blood), 2px 2px 0 var(--blood);
+    flex-shrink: 0;
+  }
+  .logo em { color: var(--ember); font-style: normal; }
+
+  /* Header right — nav buttons */
+  .hdr-nav { display: flex; align-items: center; gap: 8px; }
+
+  .nav-link {
+    display: flex; align-items: center; gap: 6px;
+    background: transparent;
+    border: 1px solid var(--blood);
+    color: var(--ember);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.85rem; letter-spacing: 2px;
+    padding: 5px 12px; border-radius: 2px;
+    text-decoration: none; white-space: nowrap;
+    transition: background 0.12s, color 0.12s;
+  }
+  .nav-link:hover {
+    background: var(--blood);
+    color: var(--bone);
+  }
+  .nav-link .nav-icon { font-size: 0.75rem; }
+
+  #issue-count {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem; color: var(--ghost);
+    letter-spacing: 1px; white-space: nowrap;
+  }
+
+  /* ── LIBRARY ── */
+  #library-view { padding: 18px 14px; }
+
+  .section-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.8rem; letter-spacing: 6px; color: var(--ember);
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .section-label::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(90deg, var(--blood), transparent);
+  }
+
+  /* Grid */
+  .comics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+  }
+
+  .comic-card {
+    position: relative; cursor: pointer; border-radius: 5px;
+    overflow: hidden; background: var(--ash); border: 1px solid #222;
+    aspect-ratio: 0.65 / 1;
+    transition: transform 0.14s, border-color 0.14s, box-shadow 0.14s;
+    will-change: transform;
+  }
+  .comic-card:hover {
+    transform: translateY(-4px) scale(1.02);
+    border-color: var(--blood);
+    box-shadow: 0 8px 24px rgba(139,0,0,0.5);
+    z-index: 2;
+  }
+  .comic-card img {
+    width: 100%; height: 100%;
+    object-fit: cover; object-position: top center; display: block;
+    transition: opacity 0.22s;
+  }
+  .comic-card img.loading { opacity: 0; }
+  .comic-card img.loaded  { opacity: 1; }
+
+  .comic-skeleton {
+    position: absolute; inset: 0;
+    background: linear-gradient(120deg, #1a1a1a 25%, #242424 50%, #1a1a1a 75%);
+    background-size: 300% 300%;
+    animation: shimmer 1.4s ease infinite;
+  }
+  @keyframes shimmer { 0%{background-position:300% 0} 100%{background-position:-300% 0} }
+
+  .comic-card-meta {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,0.92));
+    padding: 18px 8px 7px;
+  }
+  .comic-tag {
+    display: inline-block;
+    font-family: 'Space Mono', monospace; font-size: 0.5rem;
+    background: var(--blood); color: #fff;
+    padding: 1px 5px; border-radius: 2px;
+    margin-bottom: 2px; letter-spacing: 1px;
+  }
+  .comic-issue {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1rem; color: var(--bone); line-height: 1;
+  }
+
+  /* ── READER VIEW ── */
+  #reader-view {
+    display: none; flex-direction: column; height: 100vh;
+    background: #000;
+  }
+  #reader-view.active { display: flex; }
+
+  .reader-toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px;
+    background: rgba(0,0,0,0.95);
+    border-bottom: 1px solid #1a1a1a;
+    gap: 10px; flex-shrink: 0;
+  }
+
+  .btn-back {
+    background: var(--blood); border: none; color: var(--bone);
+    font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem;
+    letter-spacing: 2px; padding: 6px 13px; border-radius: 2px;
+    cursor: pointer; transition: background 0.1s; white-space: nowrap;
+  }
+  .btn-back:hover { background: #a00; }
+
+  .reader-title {
+    font-family: 'Bebas Neue', sans-serif; font-size: 1.15rem;
+    letter-spacing: 3px; flex: 1; text-align: center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .reader-nav { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+  .nav-btn {
+    background: #1a1a1a; border: 1px solid #2a2a2a; color: var(--bone);
+    width: 34px; height: 34px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; border-radius: 2px; font-size: 1.1rem;
+    transition: background 0.1s, border-color 0.1s;
+    user-select: none;
+  }
+  .nav-btn:hover:not(:disabled) { background: var(--blood); border-color: var(--blood); }
+  .nav-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+
+  .nav-counter {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem; color: var(--ghost); white-space: nowrap;
+  }
+
+  .reader-canvas {
+    flex: 1; overflow: auto; display: flex;
+    align-items: flex-start; justify-content: center;
+    background: #080808; cursor: zoom-in;
+  }
+  .reader-canvas.zoomed { cursor: zoom-out; }
+
+  .reader-img-wrap {
+    max-width: 780px; width: 100%;
+    transform-origin: top center;
+    transition: transform 0.2s ease;
+    animation: pageIn 0.2s ease forwards;
+  }
+  .reader-img-wrap.zoomed {
+    transform: scale(1.9);
+    transform-origin: var(--zx, 50%) var(--zy, 20%);
+  }
+  @keyframes pageIn { from{opacity:0;transform:translateX(18px)} to{opacity:1;transform:translateX(0)} }
+
+  .reader-img-wrap img { width: 100%; height: auto; display: block; }
+
+  .reader-loading {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: #000; z-index: 10;
+    font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem;
+    letter-spacing: 4px; color: var(--blood);
+    opacity: 0; pointer-events: none; transition: opacity 0.15s;
+  }
+  .reader-loading.show { opacity: 1; pointer-events: all; }
+  .pulse { animation: pulse 0.8s ease infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+  .keyboard-hint {
+    text-align: center; padding: 5px;
+    font-family: 'Space Mono', monospace; font-size: 0.55rem;
+    color: #2a2a2a; background: #000; border-top: 1px solid #111;
+    flex-shrink: 0;
+  }
+
+  /* ── NFT DETAIL PANEL ── */
+  .nft-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.78);
+    z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .nft-overlay.open { opacity: 1; pointer-events: all; }
+
+  .nft-panel {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: #111; border-top: 2px solid var(--blood);
+    border-radius: 14px 14px 0 0; z-index: 201;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.32,0.72,0,1);
+    max-height: 86vh; display: flex; flex-direction: column;
+  }
+  .nft-panel.open { transform: translateY(0); }
+
+  .nft-handle {
+    width: 34px; height: 4px; background: #2a2a2a;
+    border-radius: 2px; margin: 10px auto 0; flex-shrink: 0;
+  }
+  .nft-close {
+    position: absolute; top: 10px; right: 12px;
+    background: #1a1a1a; border: 1px solid #2a2a2a; color: var(--ghost);
+    width: 28px; height: 28px; border-radius: 50%; font-size: 0.88rem;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background 0.1s;
+  }
+  .nft-close:hover { background: var(--blood); color: var(--bone); border-color: var(--blood); }
+
+  .nft-scroll { overflow-y: auto; padding: 12px 16px 36px; flex: 1; }
+  .nft-scroll::-webkit-scrollbar { width: 2px; }
+  .nft-scroll::-webkit-scrollbar-thumb { background: var(--blood); }
+
+  .nft-hero { display: flex; gap: 14px; margin-bottom: 18px; }
+  .nft-cover {
+    width: 95px; height: 146px; object-fit: cover; object-position: top;
+    border-radius: 5px; border: 1px solid #2a2a2a; flex-shrink: 0; background: #1a1a1a;
+  }
+  .nft-info { flex: 1; min-width: 0; }
+  .nft-name {
+    font-family: 'Bebas Neue', sans-serif; font-size: 1.35rem;
+    letter-spacing: 2px; line-height: 1.1; margin-bottom: 3px;
+  }
+  .nft-coll {
+    font-family: 'Space Mono', monospace; font-size: 0.57rem;
+    color: var(--ember); letter-spacing: 1px; margin-bottom: 6px;
+  }
+  .nft-rank {
+    display: inline-block; background: var(--blood); color: #fff;
+    font-family: 'Bebas Neue', sans-serif; font-size: 0.8rem;
+    letter-spacing: 2px; padding: 2px 9px; border-radius: 2px; margin-bottom: 6px;
+  }
+  .nft-desc { font-weight: 300; font-size: 0.78rem; color: #666; line-height: 1.5; margin-bottom: 8px; }
+  .nft-mint { font-family: 'Space Mono', monospace; font-size: 0.5rem; color: #3a3a3a; word-break: break-all; line-height: 1.8; }
+  .nft-mint b { color: #484848; display: block; }
+  .nft-actions { display: flex; gap: 7px; margin-top: 10px; }
+  .nft-link {
+    flex: 1; background: var(--blood); border: none; color: var(--bone);
+    font-family: 'Bebas Neue', sans-serif; font-size: 0.88rem;
+    letter-spacing: 2px; padding: 8px; border-radius: 2px;
+    text-align: center; text-decoration: none; display: inline-block;
+    transition: background 0.1s; white-space: nowrap;
+  }
+  .nft-link:hover { background: #a00; }
+  .nft-link.outline {
+    background: transparent; border: 1px solid var(--dim); color: var(--ghost); font-size: 0.75rem;
+  }
+  .nft-link.outline:hover { border-color: var(--blood); color: var(--bone); }
+
+  .sec-label {
+    font-family: 'Bebas Neue', sans-serif; font-size: 0.78rem; letter-spacing: 5px; color: var(--ember);
+    display: flex; align-items: center; gap: 10px; margin: 16px 0 10px;
+  }
+  .sec-label::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,#2a2a2a,transparent); }
+  .traits-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 7px; }
+  .t-pill {
+    background: #181818; border: 1px solid #242424; border-radius: 5px;
+    padding: 7px 9px; position: relative; overflow: hidden;
+  }
+  .t-pill::after {
+    content:''; position:absolute; bottom:0; left:0;
+    height:2px; width:var(--w,35%); background:var(--blood);
+    transition:width 0.65s ease 0.1s;
+  }
+  .t-type { font-family:'Space Mono',monospace; font-size:0.5rem; color:var(--ghost); letter-spacing:1px; text-transform:uppercase; margin-bottom:2px; }
+  .t-val  { font-family:'Oswald',sans-serif; font-weight:600; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .t-pct  { font-family:'Space Mono',monospace; font-size:0.5rem; color:var(--ember); margin-top:1px; }
+  .no-traits { font-family:'Space Mono',monospace; font-size:0.6rem; color:#383838; text-align:center; padding:14px 0 6px; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 480px) {
+    .comics-grid { grid-template-columns: repeat(3,1fr); gap: 7px; }
+    #library-view { padding: 12px 10px; }
+    .reader-title { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LIBRARY -->
+<div id="library-view">
+  <header>
+    <div class="logo">SP<em>A</em>WN</div>
+    <div class="hdr-nav">
+      <span id="issue-count"></span>
+      <a class="nav-link" href="spawn-vault.html">
+        <span class="nav-icon">◈</span> NFT VAULT
+      </a>
+    </div>
+  </header>
+  <div style="padding:16px 14px 0">
+    <div class="section-label">ISSUE LIBRARY</div>
+  </div>
+  <div style="padding:0 14px 80px">
+    <div class="comics-grid" id="comics-grid"></div>
+  </div>
+</div>
+
+<!-- READER -->
+<div id="reader-view">
+  <div class="reader-toolbar">
+    <button class="btn-back" id="btn-back">← LIBRARY</button>
+    <div class="reader-title" id="reader-title">SPAWN #1</div>
+    <div class="reader-nav">
+      <button class="nav-btn" id="btn-prev">‹</button>
+      <span class="nav-counter" id="nav-counter">1 / 1</span>
+      <button class="nav-btn" id="btn-next">›</button>
+    </div>
+  </div>
+  <div class="reader-canvas" id="reader-canvas">
+    <div class="reader-loading" id="reader-loading">
+      <span class="pulse">LOADING...</span>
+    </div>
+    <div class="reader-img-wrap" id="img-wrap">
+      <img id="reader-img" src="" alt="Comic cover" />
+    </div>
+  </div>
+  <div class="keyboard-hint">← → ARROW KEYS TO NAVIGATE &nbsp;·&nbsp; CLICK TO ZOOM</div>
+</div>
+
+<!-- NFT DETAIL PANEL -->
+<div class="nft-overlay" id="nft-overlay"></div>
+<div class="nft-panel" id="nft-panel">
+  <div class="nft-handle"></div>
+  <button class="nft-close" id="nft-close">✕</button>
+  <div class="nft-scroll" id="nft-scroll"></div>
+</div>
+
+<script>
+// ── DATA ─────────────────────────────────────────────
+// Replace coverUrl values with your real CDN image paths.
+// Add mintAddress to any issue to enable live on-chain metadata fetch.
+const spawnData = [
+  { issue:1,  title:"Spawn #1",  year:1992, color:"#6a0000",
+    traits:[{trait_type:"Artist",value:"Todd McFarlane"},{trait_type:"Grade",value:"9.8 CGC"},{trait_type:"Variant",value:"First Print"},{trait_type:"Era",value:"Copper Age"},{trait_type:"Publisher",value:"Image Comics"}] },
+  { issue:2,  title:"Spawn #2",  year:1992, color:"#0d1a3d",
+    traits:[{trait_type:"Artist",value:"Todd McFarlane"},{trait_type:"Grade",value:"9.6"},{trait_type:"Variant",value:"Newsstand"}] },
+  { issue:3,  title:"Spawn #3",  year:1992, color:"#1a3010",
+    traits:[{trait_type:"Artist",value:"Todd McFarlane"},{trait_type:"Grade",value:"9.4"}] },
+  { issue:4,  title:"Spawn #4",  year:1992, color:"#3d1800",
+    traits:[{trait_type:"Artist",value:"Greg Capullo"},{trait_type:"Grade",value:"9.2"}] },
+  { issue:5,  title:"Spawn #5",  year:1993, color:"#2d0000",
+    traits:[{trait_type:"Artist",value:"Todd McFarlane"},{trait_type:"Grade",value:"9.8"}] },
+  { issue:6,  title:"Spawn #6",  year:1993, color:"#001229",
+    traits:[{trait_type:"Artist",value:"Greg Capullo"},{trait_type:"Grade",value:"9.6"}] },
+  { issue:7,  title:"Spawn #7",  year:1993, color:"#130024",
+    traits:[{trait_type:"Artist",value:"Todd McFarlane"},{trait_type:"Grade",value:"9.4"}] },
+  { issue:8,  title:"Spawn #8",  year:1993, color:"#240000",
+    traits:[{trait_type:"Artist",value:"Greg Capullo"},{trait_type:"Grade",value:"9.8 CGC"}] },
+  { issue:9,  title:"Spawn #9",  year:1993, color:"#001400",
+    traits:[{trait_type:"Artist",value:"Todd McFarlane"}] },
+  { issue:10, title:"Spawn #10", year:1993, color:"#141400",
+    traits:[{trait_type:"Artist",value:"Todd McFarlane"},{trait_type:"Grade",value:"9.6"},{trait_type:"Variant",value:"Direct Edition"}] },
+  { issue:11, title:"Spawn #11", year:1993, color:"#240011",
+    traits:[{trait_type:"Artist",value:"Greg Capullo"}] },
+  { issue:12, title:"Spawn #12", year:1993, color:"#001424",
+    traits:[{trait_type:"Artist",value:"Greg Capullo"},{trait_type:"Grade",value:"9.4"}] },
+  { issue:18, title:"Spawn #18", year:1994, color:"#24000c",
+    traits:[{trait_type:"Artist",value:"Greg Capullo"},{trait_type:"Grade",value:"9.8 CGC"}] },
+  { issue:19, title:"Spawn #19", year:1994, color:"#130018",
+    traits:[{trait_type:"Artist",value:"Greg Capullo"}] },
+  { issue:20, title:"Spawn #20", year:1994, color:"#180013",
+    traits:[{trait_type:"Artist",value:"Greg Capullo"},{trait_type:"Grade",value:"9.6"}] },
+  { issue:26, title:"Spawn #26", year:1994, color:"#090024",
+    traits:[{trait_type:"Artist",value:"Greg Capullo"}] },
+  { issue:28, title:"Spawn #28", year:1994, color:"#24000a",
+    traits:[{trait_type:"Artist",value:"Greg Capullo"},{trait_type:"Variant",value:"Newsstand"}] },
+  { issue:29, title:"Spawn #29", year:1994, color:"#000d24",
+    traits:[{trait_type:"Artist",value:"Greg Capullo"},{trait_type:"Grade",value:"9.8"}] },
+  { issue:33, title:"Spawn #33", year:1995, color:"#1e0000",
+    traits:[{trait_type:"Artist",value:"Greg Capullo"},{trait_type:"Grade",value:"9.4"}] },
+];
+
+// Build comics array — swap coverUrl for real images
+const comics = spawnData.map((s, i) => ({
+  ...s, _index: i,
+  coverUrl: `https://placehold.co/400x615/${s.color.replace('#','')+'/e8e0d0'}?text=SPAWN+%23${s.issue}&font=oswald`,
+}));
+
+// ── STATE ─────────────────────────────────────────────
+let currentIndex = 0;
+let isZoomed = false;
+
+// ── DOM ───────────────────────────────────────────────
+const libraryView   = document.getElementById('library-view');
+const readerView    = document.getElementById('reader-view');
+const comicsGrid    = document.getElementById('comics-grid');
+const issueCount    = document.getElementById('issue-count');
+const readerTitle   = document.getElementById('reader-title');
+const readerImg     = document.getElementById('reader-img');
+const imgWrap       = document.getElementById('img-wrap');
+const navCounter    = document.getElementById('nav-counter');
+const btnBack       = document.getElementById('btn-back');
+const btnPrev       = document.getElementById('btn-prev');
+const btnNext       = document.getElementById('btn-next');
+const readerCanvas  = document.getElementById('reader-canvas');
+const readerLoading = document.getElementById('reader-loading');
+const nftOverlay    = document.getElementById('nft-overlay');
+const nftPanel      = document.getElementById('nft-panel');
+const nftScroll     = document.getElementById('nft-scroll');
+const nftClose      = document.getElementById('nft-close');
+
+// ── BUILD GRID ────────────────────────────────────────
+function buildGrid() {
+  issueCount.textContent = `${comics.length} ISSUES`;
+  comicsGrid.innerHTML = '';
+
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      const img = e.target;
+      img.src = img.dataset.src;
+      img.onload = () => {
+        img.classList.replace('loading', 'loaded');
+        img.previousElementSibling?.remove();
+      };
+      io.unobserve(img);
+    });
+  }, { rootMargin: '220px' });
+
+  comics.forEach((comic, i) => {
+    const card = document.createElement('div');
+    card.className = 'comic-card';
+    card.innerHTML = `
+      <div class="comic-skeleton"></div>
+      <img data-src="${comic.coverUrl}" class="loading" alt="${comic.title}" />
+      <div class="comic-card-meta">
+        <div class="comic-tag">COMIC</div>
+        <div class="comic-issue">#${comic.issue}</div>
+      </div>`;
+    // Single tap → detail panel
+    card.addEventListener('click', () => openNftPanel(comic));
+    comicsGrid.appendChild(card);
+    io.observe(card.querySelector('img'));
+  });
+}
+
+// ── NFT DETAIL PANEL ──────────────────────────────────
+function openNftPanel(comic) {
+  const attrs = comic.traits || [];
+  const traitsHtml = attrs.length
+    ? `<div class="sec-label">TRAITS</div>
+       <div class="traits-grid">
+         ${attrs.map(a => `
+           <div class="t-pill" style="--w:${a.percentage ?? 40}%">
+             <div class="t-type">${a.trait_type || 'Trait'}</div>
+             <div class="t-val">${a.value ?? '—'}</div>
+             ${a.percentage != null ? `<div class="t-pct">${parseFloat(a.percentage).toFixed(1)}% have this</div>` : ''}
+           </div>`).join('')}
+       </div>`
+    : `<div class="no-traits">No trait data for this issue.</div>`;
+
+  // If there's a real mint address, show ME/Solscan links
+  const mintSection = comic.mintAddress
+    ? `<div class="nft-mint" style="margin-top:6px;"><b>MINT</b>${comic.mintAddress.slice(0,8)}...${comic.mintAddress.slice(-6)}</div>
+       <div class="nft-actions">
+         <a class="nft-link" href="https://magiceden.io/item-details/${comic.mintAddress}" target="_blank">MAGIC EDEN ↗</a>
+         <a class="nft-link outline" href="https://solscan.io/token/${comic.mintAddress}" target="_blank">SOLSCAN</a>
+       </div>`
+    : `<div class="nft-actions" style="margin-top:10px;">
+         <button class="nft-link" onclick="closeNftPanel();openReader(${comic._index});">READ COMIC →</button>
+       </div>`;
+
+  nftScroll.innerHTML = `
+    <div class="nft-hero">
+      <img class="nft-cover" src="${comic.coverUrl}" alt="${comic.title}" />
+      <div class="nft-info">
+        <div class="nft-name">${comic.title}</div>
+        <div class="nft-coll">SPAWN · IMAGE COMICS · ${comic.year}</div>
+        ${comic.rank ? `<div class="nft-rank">⚡ RANK #${comic.rank}</div>` : ''}
+        ${mintSection}
+      </div>
+    </div>
+    ${traitsHtml}`;
+
+  nftOverlay.classList.add('open');
+  nftPanel.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeNftPanel() {
+  nftOverlay.classList.remove('open');
+  nftPanel.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+nftClose.addEventListener('click', closeNftPanel);
+nftOverlay.addEventListener('click', closeNftPanel);
+
+// Swipe down to close
+let panelTY = 0;
+nftPanel.addEventListener('touchstart', e => { panelTY = e.touches[0].clientY; }, { passive: true });
+nftPanel.addEventListener('touchend', e => {
+  if (e.changedTouches[0].clientY - panelTY > 70) closeNftPanel();
+});
+
+// ── READER ────────────────────────────────────────────
+function openReader(index) {
+  currentIndex = index;
+  libraryView.style.display = 'none';
+  readerView.classList.add('active');
+  loadIssue(index);
+}
+
+function loadIssue(index) {
+  const comic = comics[index];
+  if (!comic) return;
+
+  readerLoading.classList.add('show');
+  isZoomed = false;
+  imgWrap.classList.remove('zoomed');
+  imgWrap.style.animation = 'none';
+  void imgWrap.offsetWidth;
+  imgWrap.style.animation = '';
+
+  readerTitle.textContent = comic.title;
+  navCounter.textContent = `${index + 1} / ${comics.length}`;
+  btnPrev.disabled = index === 0;
+  btnNext.disabled = index === comics.length - 1;
+
+  const preload = new Image();
+  preload.onload = preload.onerror = () => {
+    readerImg.src = comic.coverUrl;
+    readerLoading.classList.remove('show');
+    // Preload neighbors
+    [index-1, index+1].forEach(i => { if (comics[i]) new Image().src = comics[i].coverUrl; });
+  };
+  preload.src = comic.coverUrl;
+}
+
+function goBack() {
+  readerView.classList.remove('active');
+  libraryView.style.display = '';
+  comicsGrid.children[currentIndex]?.scrollIntoView({ behavior: 'instant', block: 'center' });
+}
+
+btnBack.addEventListener('click', goBack);
+btnNext.addEventListener('click', () => { if (currentIndex < comics.length-1) loadIssue(++currentIndex); });
+btnPrev.addEventListener('click', () => { if (currentIndex > 0) loadIssue(--currentIndex); });
+
+// Zoom on click
+readerCanvas.addEventListener('click', e => {
+  isZoomed = !isZoomed;
+  if (isZoomed) {
+    const r = readerCanvas.getBoundingClientRect();
+    imgWrap.style.setProperty('--zx', ((e.clientX-r.left)/r.width*100).toFixed(1)+'%');
+    imgWrap.style.setProperty('--zy', ((e.clientY-r.top)/r.height*100).toFixed(1)+'%');
+    imgWrap.classList.add('zoomed');
+    readerCanvas.classList.add('zoomed');
+  } else {
+    imgWrap.classList.remove('zoomed');
+    readerCanvas.classList.remove('zoomed');
+  }
+});
+
+// Keyboard nav
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (nftPanel.classList.contains('open')) closeNftPanel();
+    else if (readerView.classList.contains('active')) goBack();
+  }
+  if (!readerView.classList.contains('active')) return;
+  if (e.key === 'ArrowRight') btnNext.click();
+  if (e.key === 'ArrowLeft')  btnPrev.click();
+});
+
+// Mobile swipe in reader
+let touchX = 0;
+readerCanvas.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; }, { passive:true });
+readerCanvas.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - touchX;
+  if (Math.abs(dx) > 55) dx < 0 ? btnNext.click() : btnPrev.click();
+});
+
+// ── INIT ─────────────────────────────────────────────
+buildGrid();
+</script>
+</body>
+</html>
