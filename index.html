@@ -82,8 +82,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 @keyframes cardIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
 .nft-card:hover { border-color: var(--gold); transform: translateY(-3px); box-shadow: 0 10px 30px #00000060; }
 .nft-cover { aspect-ratio: 2/3; position: relative; overflow: hidden; background: var(--s2); }
-.nft-cover img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .35s; }
-.nft-card:hover .nft-cover img { transform: scale(1.05); }
+.nft-cover img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; transition: transform .35s; background: var(--s2); }
+.nft-card:hover .nft-cover img { transform: scale(1.04); }
 .nft-cover-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 3rem; background: linear-gradient(135deg, var(--s1), var(--s2)); }
 .comic-badge { position: absolute; top: 6px; left: 6px; background: #000000bb; border: 1px solid var(--gold); border-radius: 3px; padding: 2px 5px; font-family: var(--ff-mono); font-size: .48rem; color: var(--gold); letter-spacing: .08em; }
 .demo-badge { position: absolute; top: 6px; right: 6px; background: #000000bb; border: 1px solid var(--muted); border-radius: 3px; padding: 2px 5px; font-family: var(--ff-mono); font-size: .48rem; color: var(--muted); letter-spacing: .08em; }
@@ -120,7 +120,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 #page-img { max-height: calc(100vh - 54px - 50px); max-width: 100%; display: block; border-radius: 2px; box-shadow: 0 0 0 1px #c9a84c14, 0 20px 60px #00000088; }
 #cover-only { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 30px; text-align: center; background: #050507; pointer-events: none; }
 #cover-only.show { display: flex; }
-#cover-only-img { max-height: 62vh; max-width: 340px; border-radius: 5px; box-shadow: 0 0 0 1px #c9a84c18, 0 24px 60px #00000088; transform-origin: center; transition: transform 0s; }
+#cover-only-img { max-height: 80vh; max-width: min(480px, 90vw); border-radius: 5px; box-shadow: 0 0 0 1px #c9a84c18, 0 24px 60px #00000088; transform-origin: center; transition: transform 0s; }
 #cover-only h3 { font-family: var(--ff-display); font-size: 1.3rem; letter-spacing: .08em; color: var(--gold); }
 #cover-only p { font-size: .78rem; color: var(--muted); max-width: 320px; line-height: 1.7; }
 .tbd-pill { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--gold); border-radius: 20px; padding: 5px 14px; color: var(--gold); font-family: var(--ff-mono); font-size: .6rem; letter-spacing: .06em; }
@@ -223,11 +223,11 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
       </div>
       <div id="r-bottom">
         <div class="nav-row">
-          <button class="nbtn" id="nb-first" onclick="goPage(0)">&#9198;</button>
+          <button class="nbtn" id="nb-first" onclick="pages.length ? goPage(0) : openNFT(0)">&#9198;</button>
           <button class="nbtn" id="nb-prev" onclick="prevPage()">&#9664;</button>
           <div id="pgcount">&#8212; / &#8212;</div>
           <button class="nbtn" id="nb-next" onclick="nextPage()">&#9654;</button>
-          <button class="nbtn" id="nb-last" onclick="goPage(pages.length-1)">&#9197;</button>
+          <button class="nbtn" id="nb-last" onclick="pages.length ? goPage(pages.length-1) : openNFT(filtered.length-1)">&#9197;</button>
         </div>
         <div id="progbar" onclick="seekProg(event)"><div id="progfill"></div></div>
         <div class="zoom-row">
@@ -258,6 +258,7 @@ var allNFTs = [];
 var filtered = [];
 var activeFilter = 'all';
 var currentNFT = null;
+var currentNFTIdx = 0;
 var pages = [];
 var curPage = 0;
 var zoom = 1;
@@ -599,7 +600,7 @@ function setGrid(html) { document.getElementById('nft-grid').innerHTML = html; }
 // READER
 // ════════════════════════════════════════════
 function openNFT(idx) {
-  currentNFT = filtered[idx]; pages = []; curPage = 0;
+  currentNFT = filtered[idx]; currentNFTIdx = idx; pages = []; curPage = 0;
   document.getElementById('r-cover').src = currentNFT.image || '';
   document.getElementById('r-nft-name').textContent = currentNFT.name;
   document.getElementById('r-nft-coll').textContent = currentNFT.collectionName || currentNFT.symbol || short(currentNFT.mint);
@@ -632,14 +633,30 @@ function goPage(i) {
   document.getElementById('page-wrap').style.visibility = '';
   resetZoom(); updateNav(); buildPageList();
 }
-function nextPage() { goPage(curPage+1); }
-function prevPage() { goPage(curPage-1); }
+function nextPage() {
+  if (pages.length) { goPage(curPage+1); return; }
+  if (currentNFTIdx < filtered.length - 1) openNFT(currentNFTIdx + 1);
+}
+function prevPage() {
+  if (pages.length) { goPage(curPage-1); return; }
+  if (currentNFTIdx > 0) openNFT(currentNFTIdx - 1);
+}
 function updateNav() {
   var n = pages.length;
-  document.getElementById('pgcount').textContent = n ? (curPage+1) + ' / ' + n : '\u2014 / \u2014';
-  ['nb-first','nb-prev'].forEach(function(id){ document.getElementById(id).disabled = curPage===0||!n; });
-  ['nb-next','nb-last'].forEach(function(id){ document.getElementById(id).disabled = curPage===n-1||!n; });
-  document.getElementById('progfill').style.width = n>1 ? (curPage/(n-1)*100)+'%' : '0%';
+  if (n) {
+    document.getElementById('pgcount').textContent = (curPage+1) + ' / ' + n;
+    ['nb-first','nb-prev'].forEach(function(id){ document.getElementById(id).disabled = curPage===0; });
+    ['nb-next','nb-last'].forEach(function(id){ document.getElementById(id).disabled = curPage===n-1; });
+    document.getElementById('progfill').style.width = n>1 ? (curPage/(n-1)*100)+'%' : '0%';
+  } else {
+    // No pages — show NFT position in collection instead
+    document.getElementById('pgcount').textContent = (currentNFTIdx+1) + ' / ' + filtered.length;
+    document.getElementById('nb-first').disabled = currentNFTIdx === 0;
+    document.getElementById('nb-prev').disabled  = currentNFTIdx === 0;
+    document.getElementById('nb-next').disabled  = currentNFTIdx === filtered.length - 1;
+    document.getElementById('nb-last').disabled  = currentNFTIdx === filtered.length - 1;
+    document.getElementById('progfill').style.width = filtered.length > 1 ? (currentNFTIdx/(filtered.length-1)*100)+'%' : '0%';
+  }
 }
 function seekProg(e) {
   if (!pages.length) return;
