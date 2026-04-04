@@ -606,7 +606,9 @@ html, body {
 // ══════════════════════════════════════════════
 // CONFIG
 // ══════════════════════════════════════════════
-const RPC             = 'https://api.mainnet-beta.solana.com';
+// ⬇ Replace with your Helius API key — get one free at helius.dev
+const HELIUS_KEY      = '36ed4b8e-218e-4f34-a367-4d75185dea34';
+const RPC             = `https://mainnet.helius-rpc.com/?api-key=${HELIUS_KEY}`;
 const FILTER_KEYWORD  = 'spawn';   // set null to show ALL wallet NFTs
 const SLIDE_DURATION  = 5000;      // ms per slide
 const MAX_TRAITS_SHOW = 5;         // traits shown in slideshow footer
@@ -735,34 +737,53 @@ async function loadNfts() {
   }
 }
 
+// Fetch NFT metadata via Helius DAS API (getAsset)
+// This is the canonical on-chain source — image, name, traits, collection, all in one call
 async function fetchMeta(mint) {
   try {
-    const r = await fetch(
-      `https://api-mainnet.magiceden.dev/v2/tokens/${mint}`,
-      { headers: { accept: 'application/json' } }
-    );
+    const r = await fetch(RPC, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 1,
+        method: 'getAsset',
+        params: { id: mint }
+      })
+    });
     if (!r.ok) return null;
-    const d = await r.json();
+    const j = await r.json();
+    const d = j.result;
+    if (!d) return null;
 
-    // Pull attributes: prefer raw URI data
-    let attrs = d.uriData?.attributes || d.attributes || [];
-    if (!attrs.length && d.uri) {
-      try {
-        const ur = await fetch(d.uri);
-        if (ur.ok) { const uj = await ur.json(); attrs = uj.attributes || []; }
-      } catch {}
-    }
+    // DAS response structure
+    const meta    = d.content?.metadata || {};
+    const links   = d.content?.links    || {};
+    const files   = d.content?.files    || [];
+    const coll    = d.grouping?.find(g => g.group_key === 'collection');
+    const royalty = d.royalty?.basis_points || 0;
+    const rank    = d.rarity?.rank || null;
+
+    // Image: prefer CDN link, fallback to first file uri
+    const image = links.image || files[0]?.cdn_uri || files[0]?.uri || '';
+
+    // Attributes
+    const attrs = (meta.attributes || []).map(a => ({
+      trait_type: a.trait_type,
+      value:      String(a.value),
+      percentage: a.percentage ?? null,
+      rarity:     a.rarity     ?? null,
+    }));
+
     return {
       mint,
-      name:        d.name        || mint.slice(0,8),
-      image:       d.image       || d.uriData?.image || '',
-      collection:  d.collection  || d.collectionName || d.symbol || '',
-      symbol:      d.symbol      || 'NFT',
-      description: d.description || d.uriData?.description || '',
+      name:        meta.name        || d.id?.slice(0,8) || mint.slice(0,8),
+      image,
+      collection:  meta.symbol      || coll?.collection_metadata?.name || '',
+      symbol:      meta.symbol      || 'NFT',
+      description: meta.description || '',
       attributes:  attrs,
-      uri:         d.uri         || '',
-      rank:        d.moonrankRank || d.howrareRank || null,
-      royalty:     d.sellerFeeBasisPoints || 0,
+      rank,
+      royalty,
     };
   } catch { return null; }
 }
