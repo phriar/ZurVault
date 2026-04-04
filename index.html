@@ -77,7 +77,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .chip { padding: 4px 12px; border-radius: 12px; border: 1px solid var(--border); background: none; color: var(--muted); cursor: pointer; font-family: var(--ff-mono); font-size: .6rem; transition: all .15s; }
 .chip:hover { border-color: var(--gold); color: var(--gold); }
 .chip.on { border-color: var(--gold); color: var(--gold); background: var(--gold-dim); }
-#nft-grid { flex: 1; overflow-y: auto; padding: 20px 24px; display: grid; grid-template-columns: repeat(auto-fill,minmax(152px,1fr)); gap: 12px; align-content: start; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+#nft-grid { flex: 1; overflow-y: auto; padding: 20px 24px; display: grid; grid-template-columns: repeat(auto-fill,minmax(220px,1fr)); gap: 12px; align-content: start; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 .nft-card { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; cursor: pointer; background: var(--s1); transition: border-color .2s, transform .2s, box-shadow .2s; animation: cardIn .3s ease-out both; }
 @keyframes cardIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
 .nft-card:hover { border-color: var(--gold); transform: translateY(-3px); box-shadow: 0 10px 30px #00000060; }
@@ -118,9 +118,9 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 #canvas.dragging { cursor: grabbing; }
 #page-wrap { transform-origin: center; user-select: none; max-width: 100%; max-height: 100%; }
 #page-img { max-height: calc(100vh - 54px - 50px); max-width: 100%; display: block; border-radius: 2px; box-shadow: 0 0 0 1px #c9a84c14, 0 20px 60px #00000088; }
-#cover-only { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 30px; text-align: center; background: #050507; }
+#cover-only { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 30px; text-align: center; background: #050507; pointer-events: none; }
 #cover-only.show { display: flex; }
-#cover-only-img { max-height: 52vh; max-width: 280px; border-radius: 5px; box-shadow: 0 0 0 1px #c9a84c18, 0 24px 60px #00000088; }
+#cover-only-img { max-height: 62vh; max-width: 340px; border-radius: 5px; box-shadow: 0 0 0 1px #c9a84c18, 0 24px 60px #00000088; transform-origin: center; transition: transform 0s; }
 #cover-only h3 { font-family: var(--ff-display); font-size: 1.3rem; letter-spacing: .08em; color: var(--gold); }
 #cover-only p { font-size: .78rem; color: var(--muted); max-width: 320px; line-height: 1.7; }
 .tbd-pill { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--gold); border-radius: 20px; padding: 5px 14px; color: var(--gold); font-family: var(--ff-mono); font-size: .6rem; letter-spacing: .06em; }
@@ -248,7 +248,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 // Sign up at https://helius.dev (no credit card)
 // Leave blank and it will use standard RPC instead
 // ════════════════════════════════════════════
-var HELIUS_KEY = '';
+var HELIUS_KEY = '36ed4b8e-218e-4f34-a367-4d75185dea34';
 
 // ════════════════════════════════════════════
 // STATE
@@ -268,8 +268,10 @@ var coverCache = {};
 
 var RPCS = [
   HELIUS_KEY ? 'https://mainnet.helius-rpc.com/?api-key=' + HELIUS_KEY : null,
-  'https://api.mainnet-beta.solana.com',
+  'https://solana-mainnet.rpc.extrnode.com',
   'https://rpc.ankr.com/solana',
+  'https://api.mainnet-beta.solana.com',
+  'https://solana.public-rpc.com',
 ].filter(Boolean);
 
 // ════════════════════════════════════════════
@@ -329,6 +331,12 @@ async function rpcCall(method, params, preferDAS) {
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: method, params: params }),
         signal: AbortSignal.timeout(15000),
       });
+      // 403/429 = rate limited, try next endpoint immediately
+      if (resp.status === 403 || resp.status === 429) {
+        lastErr = new Error('HTTP ' + resp.status);
+        console.warn('[' + url + '] rate limited, trying next');
+        continue;
+      }
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
       var json = await resp.json();
       if (json.error) throw new Error(json.error.message || 'RPC error');
@@ -338,7 +346,7 @@ async function rpcCall(method, params, preferDAS) {
       lastErr = e;
     }
   }
-  throw lastErr || new Error('All RPC endpoints failed');
+  throw lastErr || new Error('All RPC endpoints failed — add a free Helius key at helius.dev');
 }
 
 // ════════════════════════════════════════════
@@ -530,10 +538,18 @@ function isComic(n) {
 }
 
 function buildFilterRow() {
-  var cc = allNFTs.filter(function(n){ return n.isComic; }).length;
-  document.getElementById('filter-row').innerHTML =
-    '<button class="chip ' + (activeFilter==='all'?'on':'') + '" onclick="setFilter(\'all\',this)">All (' + allNFTs.length + ')</button>' +
-    '<button class="chip ' + (activeFilter==='comic'?'on':'') + '" onclick="setFilter(\'comic\',this)">Comics (' + cc + ')</button>';
+  var collMap = {};
+  allNFTs.forEach(function(n) {
+    var key = n.collectionName || n.symbol || 'Other';
+    collMap[key] = (collMap[key] || 0) + 1;
+  });
+  var colls = Object.keys(collMap).sort(function(a,b){ return collMap[b]-collMap[a]; });
+  var html = '<button class="chip ' + (activeFilter==='all'?'on':'') + '" onclick="setFilter('all',this)">All (' + allNFTs.length + ')</button>';
+  colls.forEach(function(coll) {
+    var safe = coll.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    html += '<button class="chip ' + (activeFilter===coll?'on':'') + '" onclick="setFilter(\'' + safe + '\',this)">' + esc(coll) + ' (' + collMap[coll] + ')</button>';
+  });
+  document.getElementById('filter-row').innerHTML = html;
 }
 function setFilter(f, btn) {
   activeFilter = f;
@@ -542,7 +558,13 @@ function setFilter(f, btn) {
   applyFilter();
 }
 function applyFilter() {
-  filtered = activeFilter === 'comic' ? allNFTs.filter(function(n){ return n.isComic; }) : allNFTs;
+  if (activeFilter === 'all') {
+    filtered = allNFTs;
+  } else {
+    filtered = allNFTs.filter(function(n){
+      return (n.collectionName || n.symbol || 'Other') === activeFilter;
+    });
+  }
   renderGrid();
 }
 function renderGrid() {
@@ -579,6 +601,7 @@ function showCoverOnly() {
   document.getElementById('cover-only-img').src = currentNFT.image || '';
   document.getElementById('cover-only').classList.add('show');
   document.getElementById('page-wrap').style.visibility = 'hidden';
+  resetZoom();
   updateNav();
 }
 function buildPageList() {
@@ -618,7 +641,11 @@ function seekProg(e) {
 // ZOOM / PAN
 // ════════════════════════════════════════════
 function applyT() {
-  document.getElementById('page-wrap').style.transform = 'translate('+pan.x+'px,'+pan.y+'px) scale('+zoom+')';
+  var t = 'translate('+pan.x+'px,'+pan.y+'px) scale('+zoom+')';
+  document.getElementById('page-wrap').style.transform = t;
+  // Also apply zoom/pan to cover image when in cover-only mode
+  var coverImg = document.getElementById('cover-only-img');
+  if (coverImg) coverImg.style.transform = t;
   document.getElementById('zpct').textContent = Math.round(zoom*100)+'%';
 }
 function zoomIn()  { zoom = Math.min(zoom*1.25,5); applyT(); }
