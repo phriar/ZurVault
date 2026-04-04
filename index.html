@@ -540,16 +540,26 @@ function isComic(n) {
 function buildFilterRow() {
   var collMap = {};
   allNFTs.forEach(function(n) {
-    var key = n.collectionName || n.symbol || 'Other';
+    var key = n.collectionName || n.symbol || "Other";
     collMap[key] = (collMap[key] || 0) + 1;
   });
   var colls = Object.keys(collMap).sort(function(a,b){ return collMap[b]-collMap[a]; });
-  var html = '<button class="chip ' + (activeFilter==='all'?'on':'') + '" onclick="setFilter('all',this)">All (' + allNFTs.length + ')</button>';
+  var html = "<button class=\"chip " + (activeFilter==='all'?"on":"") + "\" onclick=\"setFilter('all',this)\">All (" + allNFTs.length + ")</button>";
   colls.forEach(function(coll) {
-    var safe = coll.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-    html += '<button class="chip ' + (activeFilter===coll?'on':'') + '" onclick="setFilter(\'' + safe + '\',this)">' + esc(coll) + ' (' + collMap[coll] + ')</button>';
+    var id = "coll_" + colls.indexOf(coll);
+    html += "<button class=\"chip " + (activeFilter===coll?"on":"") + "\" onclick=\"setCollFilter(" + colls.indexOf(coll) + ")\">"
+      + esc(coll) + " (" + collMap[coll] + ")</button>";
   });
-  document.getElementById('filter-row').innerHTML = html;
+  document.getElementById("filter-row").innerHTML = html;
+  window._collKeys = colls;
+}
+function setCollFilter(idx) {
+  var coll = window._collKeys[idx];
+  activeFilter = coll;
+  document.querySelectorAll(".chip").forEach(function(c){ c.classList.remove("on"); });
+  var chips = document.querySelectorAll(".chip");
+  if (chips[idx+1]) chips[idx+1].classList.add("on");
+  applyFilter();
 }
 function setFilter(f, btn) {
   activeFilter = f;
