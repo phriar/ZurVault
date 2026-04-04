@@ -77,19 +77,17 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .chip { padding: 4px 12px; border-radius: 12px; border: 1px solid var(--border); background: none; color: var(--muted); cursor: pointer; font-family: var(--ff-mono); font-size: .6rem; transition: all .15s; }
 .chip:hover { border-color: var(--gold); color: var(--gold); }
 .chip.on { border-color: var(--gold); color: var(--gold); background: var(--gold-dim); }
-#nft-grid { flex: 1; overflow-y: auto; padding: 20px 24px; display: grid; grid-template-columns: repeat(auto-fill,minmax(220px,1fr)); gap: 12px; align-content: start; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
-.nft-card { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; cursor: pointer; background: var(--s1); transition: border-color .2s, transform .2s, box-shadow .2s; animation: cardIn .3s ease-out both; }
-@keyframes cardIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-.nft-card:hover { border-color: var(--gold); transform: translateY(-3px); box-shadow: 0 10px 30px #00000060; }
+#nft-grid { flex: 1; overflow-y: auto; padding: 16px 20px; display: grid; grid-template-columns: repeat(auto-fill,minmax(150px,1fr)); gap: 8px; align-content: start; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+.nft-card { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; cursor: pointer; background: var(--s2); transition: border-color .2s, transform .18s, box-shadow .2s; animation: cardIn .25s ease-out both; }
+@keyframes cardIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+.nft-card:hover { border-color: var(--gold); transform: translateY(-2px); box-shadow: 0 8px 24px #00000070; }
 .nft-cover { aspect-ratio: 2/3; position: relative; overflow: hidden; background: var(--s2); }
-.nft-cover img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; transition: transform .35s; background: var(--s2); }
-.nft-card:hover .nft-cover img { transform: scale(1.04); }
-.nft-cover-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 3rem; background: linear-gradient(135deg, var(--s1), var(--s2)); }
-.comic-badge { position: absolute; top: 6px; left: 6px; background: #000000bb; border: 1px solid var(--gold); border-radius: 3px; padding: 2px 5px; font-family: var(--ff-mono); font-size: .48rem; color: var(--gold); letter-spacing: .08em; }
-.demo-badge { position: absolute; top: 6px; right: 6px; background: #000000bb; border: 1px solid var(--muted); border-radius: 3px; padding: 2px 5px; font-family: var(--ff-mono); font-size: .48rem; color: var(--muted); letter-spacing: .08em; }
-.nft-info { padding: 9px 10px 11px; }
-.nft-name { font-family: var(--ff-cond); font-size: .8rem; font-weight: 600; color: var(--text); line-height: 1.2; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.nft-coll { font-family: var(--ff-mono); font-size: .56rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nft-cover img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; transition: transform .3s; background: var(--s2); }
+.nft-card:hover .nft-cover img { transform: scale(1.03); }
+.nft-cover-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 2.2rem; background: linear-gradient(135deg, var(--s1), var(--s2)); }
+.comic-badge { position: absolute; top: 5px; left: 5px; background: #000000bb; border: 1px solid var(--gold); border-radius: 3px; padding: 1px 4px; font-family: var(--ff-mono); font-size: .44rem; color: var(--gold); letter-spacing: .08em; }
+.demo-badge { position: absolute; top: 5px; right: 5px; background: #000000bb; border: 1px solid var(--muted); border-radius: 3px; padding: 1px 4px; font-family: var(--ff-mono); font-size: .44rem; color: var(--muted); letter-spacing: .08em; }
+.nft-info { display: none; }
 .grid-state { grid-column: 1/-1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 60px 20px; color: var(--muted); text-align: center; }
 .spinner { width: 30px; height: 30px; border: 2px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin .75s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -99,11 +97,20 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .retry-btn:hover { border-color: var(--gold); color: var(--gold); }
 
 #view-reader { flex-direction: row; }
-#r-sidebar { width: 210px; flex-shrink: 0; background: var(--s1); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
-#r-sidebar-top { padding: 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-#r-cover { width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: 5px; display: block; background: var(--s2); margin-bottom: 10px; }
-#r-nft-name { font-family: var(--ff-cond); font-size: .82rem; font-weight: 600; color: var(--text); line-height: 1.3; margin-bottom: 3px; }
-#r-nft-coll { font-family: var(--ff-mono); font-size: .56rem; color: var(--muted); }
+#r-sidebar { width: 220px; flex-shrink: 0; background: var(--s1); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+#r-sidebar-top { padding: 14px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; overflow-y: auto; }
+#r-meta-name { font-family: var(--ff-display); font-size: 1.1rem; letter-spacing: .06em; color: var(--gold); line-height: 1.15; margin-bottom: 3px; }
+#r-meta-coll { font-family: var(--ff-mono); font-size: .54rem; color: var(--muted); letter-spacing: .1em; margin-bottom: 12px; }
+.meta-section-label { font-family: var(--ff-mono); font-size: .48rem; letter-spacing: .18em; color: var(--muted); text-transform: uppercase; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+.meta-traits { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 10px; }
+.meta-trait { background: var(--s2); border: 1px solid var(--border); border-radius: 4px; padding: 5px 7px; }
+.meta-trait-type { font-family: var(--ff-mono); font-size: .46rem; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.meta-trait-val { font-family: var(--ff-cond); font-size: .75rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.meta-mint { font-family: var(--ff-mono); font-size: .48rem; color: var(--muted); word-break: break-all; line-height: 1.6; margin-bottom: 8px; }
+.meta-mint b { color: var(--text); display: block; margin-bottom: 2px; font-size: .5rem; letter-spacing: .1em; }
+.meta-links { display: flex; flex-direction: column; gap: 4px; }
+.meta-link { display: block; text-align: center; padding: 5px 8px; border-radius: 4px; border: 1px solid var(--border); font-family: var(--ff-mono); font-size: .52rem; color: var(--muted); text-decoration: none; transition: all .15s; }
+.meta-link:hover { border-color: var(--gold); color: var(--gold); }
 #r-page-list { flex: 1; overflow-y: auto; padding: 8px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 .pitem { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 5px; cursor: pointer; border: 1px solid transparent; margin-bottom: 3px; transition: all .15s; }
 .pitem:hover { background: var(--s2); }
@@ -120,7 +127,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 #page-img { max-height: calc(100vh - 54px - 50px); max-width: 100%; display: block; border-radius: 2px; box-shadow: 0 0 0 1px #c9a84c14, 0 20px 60px #00000088; }
 #cover-only { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 30px; text-align: center; background: #050507; pointer-events: none; }
 #cover-only.show { display: flex; }
-#cover-only-img { max-height: 80vh; max-width: min(480px, 90vw); border-radius: 5px; box-shadow: 0 0 0 1px #c9a84c18, 0 24px 60px #00000088; transform-origin: center; transition: transform 0s; }
+#cover-only-img { max-height: 82vh; max-width: min(520px, 88vw); border-radius: 5px; box-shadow: 0 0 0 1px #c9a84c18, 0 24px 60px #00000088; transform-origin: center; transition: transform 0s; }
 #cover-only h3 { font-family: var(--ff-display); font-size: 1.3rem; letter-spacing: .08em; color: var(--gold); }
 #cover-only p { font-size: .78rem; color: var(--muted); max-width: 320px; line-height: 1.7; }
 .tbd-pill { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--gold); border-radius: 20px; padding: 5px 14px; color: var(--gold); font-family: var(--ff-mono); font-size: .6rem; letter-spacing: .06em; }
@@ -205,9 +212,9 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   <div class="view" id="view-reader">
     <div id="r-sidebar">
       <div id="r-sidebar-top">
-        <img id="r-cover" src="" alt="">
-        <div id="r-nft-name">&#8212;</div>
-        <div id="r-nft-coll">&#8212;</div>
+        <div id="r-meta-name">—</div>
+        <div id="r-meta-coll">—</div>
+        <div id="r-meta-body"></div>
       </div>
       <div id="r-page-list"></div>
     </div>
@@ -475,7 +482,11 @@ function parseDASAsset(a) {
   var collectionName = (meta.collection && meta.collection.name) || (grp && grp.collection_metadata && grp.collection_metadata.name) || '';
   var symbol = meta.symbol || '';
   var description = meta.description || '';
-  return { mint: a.id, name: name, collectionName: collectionName, symbol: symbol, image: image, description: description,
+  var attributes = meta.attributes || [];
+  var rank = (a.rarity && a.rarity.rank) || null;
+  var royalty = (a.royalty && a.royalty.basis_points) ? (a.royalty.basis_points / 100).toFixed(1) + '%' : null;
+  return { mint: a.id, name: name, collectionName: collectionName, symbol: symbol, image: image,
+    description: description, attributes: attributes, rank: rank, royalty: royalty,
     isComic: isComic({ name: name, collectionName: collectionName, symbol: symbol, description: description }), real: true, demo: false };
 }
 
@@ -600,13 +611,64 @@ function setGrid(html) { document.getElementById('nft-grid').innerHTML = html; }
 // READER
 // ════════════════════════════════════════════
 function openNFT(idx) {
-  currentNFT = filtered[idx]; currentNFTIdx = idx; pages = []; curPage = 0;
-  document.getElementById('r-cover').src = currentNFT.image || '';
-  document.getElementById('r-nft-name').textContent = currentNFT.name;
-  document.getElementById('r-nft-coll').textContent = currentNFT.collectionName || currentNFT.symbol || short(currentNFT.mint);
+  currentNFTIdx = idx;
+  currentNFT = filtered[idx];
+  pages = []; curPage = 0;
+
+  // Sidebar metadata
+  document.getElementById('r-meta-name').textContent = currentNFT.name;
+  document.getElementById('r-meta-coll').textContent = currentNFT.collectionName || currentNFT.symbol || short(currentNFT.mint);
+  document.getElementById('r-meta-body').innerHTML = buildSidebarMeta(currentNFT);
+
   document.getElementById('topbar-sub').textContent = currentNFT.name;
   document.getElementById('back-btn').classList.add('show');
-  showView('view-reader'); buildPageList(); showCoverOnly();
+  showView('view-reader');
+  buildPageList();
+  showCoverOnly();
+
+  // Preload neighbors so next/prev feels instant
+  [idx - 1, idx + 1].forEach(function(i) {
+    if (filtered[i] && filtered[i].image) {
+      var img = new Image(); img.src = filtered[i].image;
+    }
+  });
+}
+
+function buildSidebarMeta(nft) {
+  var html = '';
+
+  // Traits
+  var attrs = nft.attributes || [];
+  if (attrs.length) {
+    html += '<div class="meta-section-label">Traits</div>';
+    html += '<div class="meta-traits">';
+    attrs.forEach(function(a) {
+      html += '<div class="meta-trait">'
+        + '<div class="meta-trait-type">' + esc(String(a.trait_type || '')) + '</div>'
+        + '<div class="meta-trait-val">' + esc(String(a.value || '—')) + '</div>'
+        + '</div>';
+    });
+    html += '</div>';
+  }
+
+  // Rank
+  if (nft.rank) {
+    html += '<div class="meta-section-label">Rarity</div>';
+    html += '<div class="meta-trait" style="margin-bottom:10px"><div class="meta-trait-type">Rank</div><div class="meta-trait-val">#' + esc(String(nft.rank)) + '</div></div>';
+  }
+
+  // Mint address
+  html += '<div class="meta-section-label">On-Chain</div>';
+  html += '<div class="meta-mint"><b>Mint Address</b>'
+    + nft.mint.slice(0,8) + '...' + nft.mint.slice(-6) + '</div>';
+
+  // Links
+  html += '<div class="meta-links">'
+    + '<a class="meta-link" href="https://magiceden.io/item-details/' + nft.mint + '" target="_blank">Magic Eden ↗</a>'
+    + '<a class="meta-link" href="https://solscan.io/token/' + nft.mint + '" target="_blank">Solscan ↗</a>'
+    + '</div>';
+
+  return html;
 }
 function showCoverOnly() {
   document.getElementById('cover-only-img').src = currentNFT.image || '';
@@ -634,28 +696,30 @@ function goPage(i) {
   resetZoom(); updateNav(); buildPageList();
 }
 function nextPage() {
-  if (pages.length) { goPage(curPage+1); return; }
+  if (pages.length) { goPage(curPage + 1); return; }
   if (currentNFTIdx < filtered.length - 1) openNFT(currentNFTIdx + 1);
 }
 function prevPage() {
-  if (pages.length) { goPage(curPage-1); return; }
+  if (pages.length) { goPage(curPage - 1); return; }
   if (currentNFTIdx > 0) openNFT(currentNFTIdx - 1);
 }
 function updateNav() {
   var n = pages.length;
   if (n) {
-    document.getElementById('pgcount').textContent = (curPage+1) + ' / ' + n;
-    ['nb-first','nb-prev'].forEach(function(id){ document.getElementById(id).disabled = curPage===0; });
-    ['nb-next','nb-last'].forEach(function(id){ document.getElementById(id).disabled = curPage===n-1; });
-    document.getElementById('progfill').style.width = n>1 ? (curPage/(n-1)*100)+'%' : '0%';
+    document.getElementById('pgcount').textContent = (curPage + 1) + ' / ' + n;
+    document.getElementById('nb-first').disabled = curPage === 0;
+    document.getElementById('nb-prev').disabled  = curPage === 0;
+    document.getElementById('nb-next').disabled  = curPage === n - 1;
+    document.getElementById('nb-last').disabled  = curPage === n - 1;
+    document.getElementById('progfill').style.width = n > 1 ? (curPage / (n - 1) * 100) + '%' : '0%';
   } else {
-    // No pages — show NFT position in collection instead
-    document.getElementById('pgcount').textContent = (currentNFTIdx+1) + ' / ' + filtered.length;
+    document.getElementById('pgcount').textContent = (currentNFTIdx + 1) + ' / ' + filtered.length;
     document.getElementById('nb-first').disabled = currentNFTIdx === 0;
     document.getElementById('nb-prev').disabled  = currentNFTIdx === 0;
     document.getElementById('nb-next').disabled  = currentNFTIdx === filtered.length - 1;
     document.getElementById('nb-last').disabled  = currentNFTIdx === filtered.length - 1;
-    document.getElementById('progfill').style.width = filtered.length > 1 ? (currentNFTIdx/(filtered.length-1)*100)+'%' : '0%';
+    document.getElementById('progfill').style.width = filtered.length > 1
+      ? (currentNFTIdx / (filtered.length - 1) * 100) + '%' : '0%';
   }
 }
 function seekProg(e) {
