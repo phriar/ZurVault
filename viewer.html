@@ -564,8 +564,12 @@ var gridEl    = document.getElementById('grid-container');
 var emptyEl   = document.getElementById('empty');
 
 // ── WALLET ──────────────────────────────────────────
+function getPhantom() {
+  return (window.phantom && window.phantom.solana) || window.solana || null;
+}
+
 async function connectWallet() {
-  var ph = window.solana;
+  var ph = getPhantom();
   if (!ph || !ph.isPhantom) { document.getElementById('no-ph').style.display='block'; return; }
   try {
     var r = await ph.connect();
@@ -573,20 +577,26 @@ async function connectWallet() {
     connectEl.classList.add('hide');
     loadEl.classList.add('show');
     await fetchAll();
-  } catch(e) { console.error(e); }
+  } catch(e) { console.error('Wallet connect error:', e); }
 }
 
 window.addEventListener('load', async function() {
-  var ph = window.solana;
-  if (ph && ph.isPhantom) {
-    try {
-      var r = await ph.connect({ onlyIfTrusted: true });
-      wallet = r.publicKey.toString();
+  var ph = getPhantom();
+  if (!ph || !ph.isPhantom) return;
+  try {
+    if (ph.publicKey) {
+      wallet = ph.publicKey.toString();
       connectEl.classList.add('hide');
       loadEl.classList.add('show');
       await fetchAll();
-    } catch(e) {}
-  }
+      return;
+    }
+    var r = await ph.connect({ onlyIfTrusted: true });
+    wallet = r.publicKey.toString();
+    connectEl.classList.add('hide');
+    loadEl.classList.add('show');
+    await fetchAll();
+  } catch(e) {}
 });
 
 // ── FETCH ────────────────────────────────────────────

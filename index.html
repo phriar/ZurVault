@@ -463,8 +463,13 @@ var pauseBtn  = document.getElementById('pause-btn');
 var RPC       = 'https://mainnet.helius-rpc.com/?api-key=' + HELIUS_KEY;
 
 // ── WALLET ──────────────────────────────────────────
+function getPhantom() {
+  // Phantom v0.3+ exposes window.phantom.solana; fall back to window.solana
+  return (window.phantom && window.phantom.solana) || window.solana || null;
+}
+
 async function connectWallet() {
-  var ph = window.solana;
+  var ph = getPhantom();
   if (!ph || !ph.isPhantom) { document.getElementById('no-ph').style.display = 'block'; return; }
   try {
     var r = await ph.connect();
@@ -472,7 +477,7 @@ async function connectWallet() {
     connectEl.classList.add('hide');
     loadingEl.classList.add('show');
     await fetchAllNFTs();
-  } catch(e) { console.error(e); }
+  } catch(e) { console.error('Wallet connect error:', e); }
 }
 
 function backToConnect() {
@@ -481,6 +486,8 @@ function backToConnect() {
 }
 
 function disconnect() {
+  var ph = getPhantom();
+  if (ph && ph.disconnect) ph.disconnect();
   wallet = null; allNFTs = []; nfts = [];
   clearTimeout(timer);
   frameEl.classList.remove('show');
@@ -495,15 +502,25 @@ function switchCollection() {
 }
 
 window.addEventListener('load', async function() {
-  var ph = window.solana;
-  if (ph && ph.isPhantom) {
-    try {
-      var r = await ph.connect({ onlyIfTrusted: true });
-      wallet = r.publicKey.toString();
+  var ph = getPhantom();
+  if (!ph || !ph.isPhantom) return;
+  try {
+    // Phantom's in-app browser: publicKey is injected immediately, no connect() call needed
+    if (ph.publicKey) {
+      wallet = ph.publicKey.toString();
       connectEl.classList.add('hide');
       loadingEl.classList.add('show');
       await fetchAllNFTs();
-    } catch(e) {}
+      return;
+    }
+    // External browser with extension: try silent reconnect if previously approved
+    var r = await ph.connect({ onlyIfTrusted: true });
+    wallet = r.publicKey.toString();
+    connectEl.classList.add('hide');
+    loadingEl.classList.add('show');
+    await fetchAllNFTs();
+  } catch(e) {
+    // Not previously trusted — show connect screen normally
   }
 });
 
