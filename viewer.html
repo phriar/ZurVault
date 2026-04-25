@@ -3,781 +3,826 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZurVault — NFT Comic Reader</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Barlow+Condensed:wght@300;400;600;700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<title>ZurVault · Viewer</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 <style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+* { margin:0; padding:0; box-sizing:border-box; }
+
 :root {
-  --bg: #07070a;
-  --s1: #0e0e14;
-  --s2: #14141c;
-  --border: #222230;
-  --gold: #c9a84c;
-  --gold2: #e8c96a;
-  --gold-dim: #c9a84c1a;
-  --text: #e2e2ee;
-  --muted: #55556e;
-  --green: #27ae60;
-  --ff-display: 'Bebas Neue', sans-serif;
-  --ff-mono: 'DM Mono', monospace;
-  --ff-cond: 'Barlow Condensed', sans-serif;
-  --ff-body: 'Barlow', sans-serif;
+  --ink:    #0a0a0a;
+  --gold:   #c9a84c;
+  --faint:  rgba(255,255,255,0.05);
+  --border: rgba(255,255,255,0.07);
 }
-html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--ff-body); overflow: hidden; }
 
-#topbar {
-  position: fixed; top: 0; left: 0; right: 0; height: 54px;
-  background: #09090dee; backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; padding: 0 20px; gap: 16px; z-index: 300;
+html { scroll-behavior: smooth; }
+body {
+  background: var(--ink); color: #fff;
+  min-height: 100vh;
+  font-family: 'DM Mono', monospace;
+  overflow-x: hidden;
 }
-#wordmark { display: flex; align-items: baseline; gap: 2px; flex-shrink: 0; text-decoration: none; }
-#wordmark-zur { font-family: var(--ff-display); font-size: 1.55rem; letter-spacing: .04em; color: var(--text); line-height: 1; }
-#wordmark-vault { font-family: var(--ff-display); font-size: 1.55rem; letter-spacing: .04em; color: var(--gold); line-height: 1; }
-#wordmark-tag { font-family: var(--ff-mono); font-size: .5rem; color: var(--muted); letter-spacing: .2em; margin-left: 8px; align-self: center; border: 1px solid var(--border); padding: 2px 6px; border-radius: 3px; }
-.tsep { width: 1px; height: 24px; background: var(--border); flex-shrink: 0; }
-#topbar-sub { flex: 1; font-family: var(--ff-mono); font-size: .62rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#back-btn { background: none; border: 1px solid var(--border); color: var(--muted); padding: 5px 12px; border-radius: 4px; cursor: pointer; font-family: var(--ff-cond); font-size: .8rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; transition: all .2s; display: none; flex-shrink: 0; }
-#back-btn:hover { border-color: var(--gold); color: var(--gold); }
-#back-btn.show { display: block; }
-#wallet-pill { display: flex; align-items: center; gap: 7px; padding: 5px 14px; border-radius: 20px; border: 1px solid var(--border); cursor: pointer; font-family: var(--ff-mono); font-size: .62rem; color: var(--muted); transition: all .2s; background: none; flex-shrink: 0; }
-#wallet-pill:hover { border-color: var(--gold); color: var(--gold); }
-#wallet-pill.on { border-color: var(--green); color: var(--green); }
-.wdot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink: 0; transition: all .3s; }
-#wallet-pill.on .wdot { background: var(--green); box-shadow: 0 0 7px var(--green); }
 
-#app { padding-top: 54px; height: 100vh; }
-.view { position: absolute; inset: 54px 0 0; display: none; }
-.view.active { display: flex; flex-direction: column; }
+/* ── GRAIN ── */
+#grain {
+  position: fixed; inset: 0; z-index: 200;
+  pointer-events: none; opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
 
-#view-connect { align-items: center; justify-content: center; overflow: hidden; background: var(--bg); }
-#view-connect::before { content: 'Z'; position: absolute; font-family: var(--ff-display); font-size: 60vw; color: #c9a84c06; top: 50%; left: 50%; transform: translate(-50%,-50%); pointer-events: none; user-select: none; line-height: 1; }
-.connect-inner { position: relative; text-align: center; max-width: 400px; padding: 24px; }
-.connect-logo-wrap { margin: 0 auto 32px; width: 90px; height: 90px; border: 1px solid var(--border); border-radius: 22px; background: var(--s1); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 60px #c9a84c14, inset 0 1px 0 #ffffff08; }
-.connect-logo-wrap svg { width: 52px; height: 52px; }
-.connect-title { font-family: var(--ff-display); font-size: 3rem; letter-spacing: .06em; line-height: 1; margin-bottom: 6px; }
-.connect-title span { color: var(--gold); }
-.connect-sub { font-family: var(--ff-mono); font-size: .58rem; letter-spacing: .22em; color: var(--muted); text-transform: uppercase; margin-bottom: 28px; }
-.connect-desc { font-size: .85rem; color: var(--muted); line-height: 1.7; margin-bottom: 36px; max-width: 320px; margin-left: auto; margin-right: auto; }
-#connect-btn { display: inline-flex; align-items: center; gap: 10px; padding: 13px 30px; border-radius: 8px; background: #9945ff18; border: 1px solid #9945ff66; color: #c077ff; cursor: pointer; font-family: var(--ff-cond); font-size: 1.1rem; font-weight: 600; letter-spacing: .1em; transition: all .25s; }
-#connect-btn:hover { background: #9945ff28; border-color: #9945ffaa; box-shadow: 0 0 28px #9945ff22; }
-#connect-btn svg { width: 24px; height: 24px; flex-shrink: 0; }
-#no-phantom { margin-top: 14px; font-size: .72rem; color: var(--muted); display: none; }
-#no-phantom a { color: var(--gold); text-decoration: none; }
-.connect-features { display: flex; gap: 24px; justify-content: center; margin-top: 40px; flex-wrap: wrap; }
-.feature { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: .7rem; color: var(--muted); text-align: center; max-width: 90px; }
-.feature-icon { width: 36px; height: 36px; border: 1px solid var(--border); border-radius: 8px; background: var(--s1); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+/* ── CONNECT ── */
+#connect-wrap {
+  position: fixed; inset: 0; z-index: 150;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-end;
+  padding-bottom: 12vh;
 
-#view-collection { overflow: hidden; }
-#col-header { padding: 18px 24px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
-#col-header-left h2 { font-family: var(--ff-display); font-size: 1.15rem; letter-spacing: .1em; color: var(--gold); }
-#col-header-left p { font-family: var(--ff-mono); font-size: .6rem; color: var(--muted); margin-top: 2px; }
-#filter-row { padding: 10px 24px; border-bottom: 1px solid var(--border); display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
-.chip { padding: 4px 12px; border-radius: 12px; border: 1px solid var(--border); background: none; color: var(--muted); cursor: pointer; font-family: var(--ff-mono); font-size: .6rem; transition: all .15s; }
-.chip:hover { border-color: var(--gold); color: var(--gold); }
-.chip.on { border-color: var(--gold); color: var(--gold); background: var(--gold-dim); }
-#nft-grid { flex: 1; overflow-y: auto; padding: 16px 20px; display: grid; grid-template-columns: repeat(auto-fill,minmax(150px,1fr)); gap: 8px; align-content: start; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
-.nft-card { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; cursor: pointer; background: var(--s2); transition: border-color .2s, transform .18s, box-shadow .2s; animation: cardIn .25s ease-out both; }
-@keyframes cardIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
-.nft-card:hover { border-color: var(--gold); transform: translateY(-2px); box-shadow: 0 8px 24px #00000070; }
-.nft-cover { aspect-ratio: 2/3; position: relative; overflow: hidden; background: var(--s2); }
-.nft-cover img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; transition: transform .3s; background: var(--s2); }
-.nft-card:hover .nft-cover img { transform: scale(1.03); }
-.nft-cover-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 2.2rem; background: linear-gradient(135deg, var(--s1), var(--s2)); }
-.comic-badge { position: absolute; top: 5px; left: 5px; background: #000000bb; border: 1px solid var(--gold); border-radius: 3px; padding: 1px 4px; font-family: var(--ff-mono); font-size: .44rem; color: var(--gold); letter-spacing: .08em; }
-.demo-badge { position: absolute; top: 5px; right: 5px; background: #000000bb; border: 1px solid var(--muted); border-radius: 3px; padding: 1px 4px; font-family: var(--ff-mono); font-size: .44rem; color: var(--muted); letter-spacing: .08em; }
-.nft-info { display: none; }
-.grid-state { grid-column: 1/-1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 60px 20px; color: var(--muted); text-align: center; }
-.spinner { width: 30px; height: 30px; border: 2px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin .75s linear infinite; }
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     SWAP THIS URL — paste your Spawn cowl image address.
+     Easiest way: right-click the NFT on Magic Eden →
+     "Copy image address" and paste it here.
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  background-image: url('YOUR_SPAWN_COWL_URL_HERE');
+  background-size: cover;
+  background-position: center top;
+  background-color: var(--ink);
+}
+#connect-wrap::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(0,0,0,0.12) 0%,
+    rgba(0,0,0,0.32) 40%,
+    rgba(0,0,0,0.80) 68%,
+    rgba(0,0,0,0.96) 100%
+  );
+}
+#connect-wrap > * { position: relative; z-index: 1; }
+#connect-wrap.hide { display: none; }
+
+.cw-wordmark {
+  font-family: 'DM Mono', monospace;
+  font-size: .52rem; letter-spacing: .55em;
+  color: rgba(255,255,255,0.22); text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.cw-tagline {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(1.8rem, 5vw, 2.6rem);
+  font-weight: 300; letter-spacing: .04em;
+  color: rgba(255,255,255,0.92);
+  margin-bottom: 26px; text-align: center; line-height: 1.1;
+}
+
+/* Trust pills */
+.cw-trust {
+  display: flex; flex-wrap: wrap; gap: 7px;
+  justify-content: center;
+  margin-bottom: 26px; max-width: 360px;
+}
+.cw-pill {
+  display: flex; align-items: center; gap: 5px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 100px; padding: 5px 12px;
+  background: rgba(0,0,0,0.5); backdrop-filter: blur(8px);
+}
+.cw-pill-dot { width:6px; height:6px; border-radius:50%; background:#4ade80; flex-shrink:0; }
+.cw-pill-text {
+  font-family: 'DM Mono', monospace;
+  font-size: .44rem; letter-spacing: .14em;
+  color: rgba(255,255,255,0.5); text-transform: uppercase; white-space: nowrap;
+}
+
+.cw-btn {
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: rgba(255,255,255,0.7);
+  font-family: 'DM Mono', monospace;
+  font-size: .6rem; letter-spacing: .25em; text-transform: uppercase;
+  padding: 14px 36px; border-radius: 2px; cursor: pointer;
+  backdrop-filter: blur(12px);
+  transition: all .2s; margin-bottom: 14px;
+}
+.cw-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+.cw-readonly {
+  font-family: 'DM Mono', monospace;
+  font-size: .46rem; letter-spacing: .13em;
+  color: rgba(255,255,255,0.22); text-align: center;
+  line-height: 1.8; max-width: 300px;
+}
+.cw-readonly strong { color: rgba(255,255,255,0.4); font-weight: 400; }
+
+.cw-note { margin-top:10px; font-size:.5rem; letter-spacing:.12em; color:rgba(255,255,255,0.12); }
+.cw-note a { color: rgba(201,168,76,0.45); text-decoration: none; }
+
+/* ── LOADING ── */
+#loading {
+  position: fixed; inset: 0; z-index: 140;
+  display: none; align-items: center; justify-content: center;
+  background: var(--ink); flex-direction: column; gap: 14px;
+}
+#loading.show { display: flex; }
+.load-ring {
+  width: 28px; height: 28px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-top-color: var(--gold);
+  border-radius: 50%; animation: spin .9s linear infinite;
+}
+.load-text { font-size:.5rem; letter-spacing:.25em; color:rgba(255,255,255,0.2); text-transform:uppercase; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.grid-state p { font-size: .8rem; }
-.grid-state small { font-size: .68rem; opacity: .7; max-width: 260px; line-height: 1.5; }
-.retry-btn { margin-top: 4px; background: none; border: 1px solid var(--border); color: var(--muted); padding: 6px 16px; border-radius: 4px; cursor: pointer; font-size: .72rem; transition: all .2s; }
-.retry-btn:hover { border-color: var(--gold); color: var(--gold); }
 
-#view-reader { flex-direction: row; }
-#r-sidebar { width: 220px; flex-shrink: 0; background: var(--s1); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
-#r-sidebar-top { padding: 14px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; overflow-y: auto; }
-#r-meta-name { font-family: var(--ff-display); font-size: 1.1rem; letter-spacing: .06em; color: var(--gold); line-height: 1.15; margin-bottom: 3px; }
-#r-meta-coll { font-family: var(--ff-mono); font-size: .54rem; color: var(--muted); letter-spacing: .1em; margin-bottom: 12px; }
-.meta-section-label { font-family: var(--ff-mono); font-size: .48rem; letter-spacing: .18em; color: var(--muted); text-transform: uppercase; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
-.meta-traits { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 10px; }
-.meta-trait { background: var(--s2); border: 1px solid var(--border); border-radius: 4px; padding: 5px 7px; }
-.meta-trait-type { font-family: var(--ff-mono); font-size: .46rem; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.meta-trait-val { font-family: var(--ff-cond); font-size: .75rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.meta-mint { font-family: var(--ff-mono); font-size: .48rem; color: var(--muted); word-break: break-all; line-height: 1.6; margin-bottom: 8px; }
-.meta-mint b { color: var(--text); display: block; margin-bottom: 2px; font-size: .5rem; letter-spacing: .1em; }
-.meta-links { display: flex; flex-direction: column; gap: 4px; }
-.meta-link { display: block; text-align: center; padding: 5px 8px; border-radius: 4px; border: 1px solid var(--border); font-family: var(--ff-mono); font-size: .52rem; color: var(--muted); text-decoration: none; transition: all .15s; }
-.meta-link:hover { border-color: var(--gold); color: var(--gold); }
-#r-page-list { flex: 1; overflow-y: auto; padding: 8px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
-.pitem { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 5px; cursor: pointer; border: 1px solid transparent; margin-bottom: 3px; transition: all .15s; }
-.pitem:hover { background: var(--s2); }
-.pitem.on { background: var(--gold-dim); border-color: var(--gold); }
-.pnum { font-family: var(--ff-mono); font-size: .58rem; color: var(--muted); width: 16px; flex-shrink: 0; }
-.pthumb { width: 28px; height: 40px; background: var(--s2); border-radius: 2px; border: 1px solid var(--border); overflow: hidden; flex-shrink: 0; }
-.pthumb img { width: 100%; height: 100%; object-fit: cover; }
-.plabel { font-size: .64rem; color: var(--muted); }
-.pitem.on .plabel, .pitem.on .pnum { color: var(--gold); }
-#r-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #050507; }
-#canvas { flex: 1; overflow: hidden; position: relative; display: flex; align-items: center; justify-content: center; cursor: grab; }
-#canvas.dragging { cursor: grabbing; }
-#page-wrap { transform-origin: center; user-select: none; max-width: 100%; max-height: 100%; }
-#page-img { max-height: calc(100vh - 54px - 50px); max-width: 100%; display: block; border-radius: 2px; box-shadow: 0 0 0 1px #c9a84c14, 0 20px 60px #00000088; }
-#cover-only { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 30px; text-align: center; background: #050507; pointer-events: none; }
-#cover-only.show { display: flex; }
-#cover-only-img { max-height: 82vh; max-width: min(520px, 88vw); border-radius: 5px; box-shadow: 0 0 0 1px #c9a84c18, 0 24px 60px #00000088; transform-origin: center; transition: transform 0s; }
-#cover-only h3 { font-family: var(--ff-display); font-size: 1.3rem; letter-spacing: .08em; color: var(--gold); }
-#cover-only p { font-size: .78rem; color: var(--muted); max-width: 320px; line-height: 1.7; }
-.tbd-pill { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--gold); border-radius: 20px; padding: 5px 14px; color: var(--gold); font-family: var(--ff-mono); font-size: .6rem; letter-spacing: .06em; }
-.tbd-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--gold); animation: pulse 1.5s infinite; }
-@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.3} }
-#r-bottom { height: 50px; background: #09090dee; backdrop-filter: blur(12px); border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; flex-shrink: 0; }
-.nav-row { display: flex; align-items: center; gap: 7px; }
-.nbtn { background: none; border: 1px solid var(--border); color: var(--text); width: 30px; height: 30px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: .85rem; transition: all .15s; }
-.nbtn:hover:not(:disabled) { border-color: var(--gold); color: var(--gold); }
-.nbtn:disabled { opacity: .25; cursor: default; }
-#pgcount { font-family: var(--ff-mono); font-size: .62rem; color: var(--muted); min-width: 52px; text-align: center; }
-#progbar { flex: 1; max-width: 220px; margin: 0 14px; height: 3px; background: var(--border); border-radius: 2px; cursor: pointer; position: relative; }
-#progfill { height: 100%; background: var(--gold); border-radius: 2px; width: 0; transition: width .15s; }
-.zoom-row { display: flex; align-items: center; gap: 6px; }
-.zbtn { background: none; border: 1px solid var(--border); color: var(--muted); width: 26px; height: 26px; border-radius: 3px; cursor: pointer; font-size: .9rem; display: flex; align-items: center; justify-content: center; transition: all .15s; }
-.zbtn:hover { border-color: var(--gold); color: var(--gold); }
-#zpct { font-family: var(--ff-mono); font-size: .58rem; color: var(--muted); min-width: 30px; text-align: center; }
-#toast { position: fixed; bottom: 64px; left: 50%; transform: translateX(-50%); background: var(--s1); border: 1px solid var(--border); border-radius: 6px; padding: 9px 18px; font-size: .73rem; color: var(--muted); z-index: 500; opacity: 0; transition: opacity .25s; pointer-events: none; white-space: nowrap; }
-#toast.show { opacity: 1; }
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+/* ── NAV ── */
+#nav {
+  position: sticky; top: 0; z-index: 100;
+  height: 52px; display: flex; align-items: center;
+  padding: 0 28px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(10,10,10,0.92);
+  backdrop-filter: blur(20px);
+  gap: 20px; display: none;
+}
+.nav-logo {
+  font-family: 'DM Mono', monospace;
+  font-size: .55rem; letter-spacing: .45em;
+  color: rgba(255,255,255,0.25); text-transform: uppercase;
+  text-decoration: none; flex-shrink: 0;
+}
+.nav-logo span { color: var(--gold); }
+.nav-sep { width:1px; height:18px; background:var(--border); flex-shrink:0; }
+
+#search-wrap { flex:1; max-width:320px; position:relative; }
+#search {
+  width: 100%; background: var(--faint);
+  border: 1px solid var(--border); border-radius: 2px;
+  padding: 5px 10px 5px 30px;
+  font-family: 'DM Mono', monospace;
+  font-size: .52rem; letter-spacing: .1em;
+  color: rgba(255,255,255,0.6); outline: none;
+  transition: border-color .15s;
+}
+#search:focus { border-color: rgba(201,168,76,0.3); }
+#search::placeholder { color: rgba(255,255,255,0.18); }
+.search-icon {
+  position: absolute; left: 9px; top: 50%;
+  transform: translateY(-50%);
+  font-size: .6rem; opacity: .25; pointer-events: none;
+}
+
+.nav-sort {
+  background: var(--faint); border: 1px solid var(--border);
+  color: rgba(255,255,255,0.4); font-family: 'DM Mono', monospace;
+  font-size: .48rem; letter-spacing: .12em;
+  padding: 5px 10px; border-radius: 2px; cursor: pointer;
+  outline: none; appearance: none; text-transform: uppercase;
+  transition: border-color .15s, color .15s;
+}
+.nav-sort:focus, .nav-sort:hover { border-color: rgba(201,168,76,0.3); color: rgba(255,255,255,0.7); }
+.nav-sort option { background: #111; }
+
+.grid-toggle { display: flex; gap: 4px; }
+.gt-btn {
+  width: 28px; height: 28px; display: flex;
+  align-items: center; justify-content: center;
+  border: 1px solid var(--border); border-radius: 2px;
+  background: var(--faint); cursor: pointer;
+  color: rgba(255,255,255,0.2); font-size: .65rem;
+  transition: all .15s;
+}
+.gt-btn.active, .gt-btn:hover { border-color: rgba(201,168,76,0.4); color: var(--gold); }
+
+.nav-frame {
+  margin-left: auto;
+  font-family: 'DM Mono', monospace; font-size: .5rem;
+  letter-spacing: .18em; text-transform: uppercase;
+  color: rgba(201,168,76,0.5); text-decoration: none;
+  border: 1px solid rgba(201,168,76,0.15);
+  padding: 5px 12px; border-radius: 2px;
+  transition: all .15s; white-space: nowrap; flex-shrink: 0;
+}
+.nav-frame:hover { color: var(--gold); border-color: rgba(201,168,76,0.4); }
+
+/* ── LAYOUT ── */
+#layout { display: flex; min-height: calc(100vh - 52px); display: none; }
+
+/* Sidebar */
+#sidebar {
+  width: 200px; flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  padding: 20px 0;
+  position: sticky; top: 52px;
+  height: calc(100vh - 52px);
+  overflow-y: auto;
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.05) transparent;
+}
+.sb-head {
+  font-size: .44rem; letter-spacing: .32em;
+  color: rgba(255,255,255,0.15); text-transform: uppercase;
+  padding: 0 16px 10px;
+}
+.sb-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 16px; cursor: pointer;
+  transition: background .12s; position: relative;
+}
+.sb-item:hover { background: var(--faint); }
+.sb-item.active { background: rgba(201,168,76,0.06); }
+.sb-item.active::before {
+  content: ''; position: absolute; left:0; top:0; bottom:0;
+  width: 2px; background: var(--gold); opacity: .6;
+}
+.sb-thumb {
+  width: 28px; height: 28px; border-radius: 2px;
+  object-fit: cover; flex-shrink: 0;
+  border: 1px solid var(--border); background: #1a1a1a;
+}
+.sb-info { min-width: 0; }
+.sb-name {
+  font-size: .48rem; letter-spacing: .06em;
+  color: rgba(255,255,255,0.55);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 110px;
+}
+.sb-count { font-size:.4rem; letter-spacing:.06em; color:rgba(255,255,255,0.2); margin-top:1px; }
+.sb-all-thumb {
+  width: 28px; height: 28px; border-radius: 2px;
+  border: 1px dashed rgba(255,255,255,0.1);
+  display: flex; align-items: center; justify-content: center;
+  font-size: .7rem; opacity: .25; flex-shrink: 0;
+}
+
+/* ── MAIN ── */
+#main { flex:1; min-width:0; padding:24px; }
+
+#stats-bar {
+  display: flex; align-items: center; gap: 16px;
+  margin-bottom: 20px; padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.sb-coll-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.3rem; font-weight: 300;
+  letter-spacing: .02em; color: #fff;
+}
+.sb-item-count {
+  font-size: .46rem; letter-spacing: .2em;
+  color: rgba(255,255,255,0.2); text-transform: uppercase; margin-top: 2px;
+}
+
+/* Grid */
+#grid-container {
+  display: grid; gap: 8px;
+  grid-template-columns: repeat(var(--cols, 4), 1fr);
+}
+
+.nft-card {
+  position: relative;
+  border: 1px solid var(--border); border-radius: 3px;
+  overflow: hidden; cursor: pointer;
+  background: #0f0f0f; aspect-ratio: 1/1;
+  transition: border-color .18s, transform .18s;
+  animation: fadeUp .3s ease both;
+}
+.nft-card:hover { border-color: rgba(201,168,76,0.35); transform: translateY(-2px); z-index: 2; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+
+.nft-card-img {
+  width:100%; height:100%; object-fit:cover; display:block;
+  opacity:.85; transition:opacity .2s;
+}
+.nft-card:hover .nft-card-img { opacity:1; }
+.nft-card-skel {
+  position:absolute; inset:0;
+  background: linear-gradient(120deg,#111 25%,#191919 50%,#111 75%);
+  background-size:300%; animation:shim 1.4s ease infinite;
+}
+@keyframes shim { 0%{background-position:300% 0} 100%{background-position:-300% 0} }
+
+.nft-card-over {
+  position:absolute; bottom:0; left:0; right:0;
+  padding:28px 8px 8px;
+  background:linear-gradient(transparent,rgba(0,0,0,0.88));
+  opacity:0; transition:opacity .2s;
+}
+.nft-card:hover .nft-card-over { opacity:1; }
+.nft-over-name {
+  font-family:'Cormorant Garamond',serif;
+  font-size:.82rem; font-weight:400; color:#fff;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.nft-over-coll {
+  font-size:.4rem; letter-spacing:.14em;
+  color:var(--gold); text-transform:uppercase; margin-top:1px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+
+/* List view */
+.grid-list #grid-container { display:flex; flex-direction:column; gap:1px; }
+.grid-list .nft-card {
+  aspect-ratio:unset; display:flex; align-items:center;
+  gap:12px; height:56px; padding:8px 12px; border-radius:2px;
+  animation:none;
+}
+.grid-list .nft-card-img { width:40px; height:40px; object-fit:cover; border-radius:2px; flex-shrink:0; }
+.grid-list .nft-card-skel, .grid-list .nft-card-over { display:none; }
+.grid-list .nft-card-text { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.grid-list .nft-list-name {
+  font-family:'Cormorant Garamond',serif;
+  font-size:.9rem; font-weight:300;
+  color:rgba(255,255,255,0.8);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.grid-list .nft-list-coll {
+  font-size:.42rem; letter-spacing:.14em;
+  color:rgba(255,255,255,0.25); text-transform:uppercase;
+}
+.grid-list .nft-card:hover { transform:none; }
+
+/* ── LIGHTBOX ── */
+#lightbox {
+  position:fixed; inset:0; z-index:300;
+  display:none; background:rgba(0,0,0,0.92);
+  backdrop-filter:blur(30px) saturate(1.8);
+  animation:lbIn .2s ease;
+}
+#lightbox.show { display:flex; }
+@keyframes lbIn { from{opacity:0} to{opacity:1} }
+
+#lb-bg {
+  position:absolute; inset:-40px;
+  background-size:cover; background-position:center;
+  filter:blur(80px) brightness(0.12) saturate(1.6); z-index:0;
+}
+#lb-inner {
+  position:relative; z-index:1;
+  display:flex; width:100%; height:100%;
+}
+#lb-art-side {
+  flex:1; min-width:0;
+  display:flex; align-items:center; justify-content:center;
+  padding:48px 32px;
+}
+#lb-img {
+  max-width:100%; max-height:100%; object-fit:contain;
+  box-shadow:0 40px 100px rgba(0,0,0,0.7);
+  animation:imgIn .3s ease;
+}
+@keyframes imgIn { from{opacity:0;transform:scale(.97)} to{opacity:1;transform:scale(1)} }
+
+#lb-info {
+  width:300px; flex-shrink:0;
+  border-left:1px solid rgba(255,255,255,0.06);
+  display:flex; flex-direction:column;
+  padding:32px 24px; overflow-y:auto;
+  scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.05) transparent;
+}
+.lb-coll {
+  font-size:.5rem; letter-spacing:.3em;
+  color:var(--gold); text-transform:uppercase; margin-bottom:8px;
+}
+.lb-name {
+  font-family:'Cormorant Garamond',serif;
+  font-size:clamp(1.3rem,3vw,1.8rem); font-weight:300;
+  line-height:1.1; color:#fff; margin-bottom:24px;
+}
+.lb-traits-head {
+  font-size:.42rem; letter-spacing:.28em;
+  color:rgba(255,255,255,0.2); text-transform:uppercase; margin-bottom:10px;
+}
+.lb-traits { display:flex; flex-direction:column; gap:6px; }
+.lb-trait {
+  display:flex; justify-content:space-between; align-items:baseline;
+  padding:6px 10px;
+  border:1px solid rgba(255,255,255,0.06);
+  border-radius:2px; background:rgba(255,255,255,0.02);
+}
+.lb-trait-type { font-size:.42rem; letter-spacing:.14em; color:rgba(255,255,255,0.3); text-transform:uppercase; }
+.lb-trait-val { font-family:'Cormorant Garamond',serif; font-size:.85rem; color:rgba(255,255,255,0.75); }
+.lb-spacer { flex:1; }
+.lb-actions { display:flex; flex-direction:column; gap:8px; margin-top:24px; }
+.lb-btn {
+  display:block; text-align:center;
+  font-family:'DM Mono',monospace;
+  font-size:.5rem; letter-spacing:.2em; text-transform:uppercase;
+  padding:10px 16px; border-radius:2px; text-decoration:none;
+  transition:all .15s;
+}
+.lb-btn-primary { background:none; border:1px solid rgba(201,168,76,0.3); color:var(--gold); }
+.lb-btn-primary:hover { background:rgba(201,168,76,0.08); border-color:var(--gold); }
+.lb-btn-sec { border:1px solid rgba(255,255,255,0.08); color:rgba(255,255,255,0.3); cursor:pointer; }
+.lb-btn-sec:hover { border-color:rgba(255,255,255,0.2); color:rgba(255,255,255,0.6); }
+
+.lb-nav {
+  position:absolute; top:50%; transform:translateY(-50%); z-index:10;
+  width:40px; height:40px; display:flex; align-items:center; justify-content:center;
+  border:1px solid rgba(255,255,255,0.08); border-radius:50%;
+  background:rgba(0,0,0,0.4); color:rgba(255,255,255,0.3);
+  cursor:pointer; font-size:.9rem; transition:all .15s;
+}
+.lb-nav:hover { border-color:rgba(201,168,76,0.4); color:var(--gold); }
+#lb-prev { left:16px; } #lb-next { right:316px; }
+#lb-close {
+  position:absolute; top:16px; right:16px; z-index:10;
+  width:32px; height:32px; display:flex; align-items:center; justify-content:center;
+  border:1px solid rgba(255,255,255,0.1); border-radius:50%;
+  background:rgba(0,0,0,0.5); color:rgba(255,255,255,0.35);
+  cursor:pointer; font-size:.8rem; transition:all .15s;
+}
+#lb-close:hover { border-color:rgba(255,255,255,0.3); color:#fff; }
+
+#empty {
+  display:none; flex-direction:column;
+  align-items:center; justify-content:center;
+  gap:12px; padding:80px 24px; text-align:center;
+}
+#empty.show { display:flex; }
+.em-icon { font-size:2rem; opacity:.1; }
+.em-text { font-size:.52rem; letter-spacing:.2em; color:rgba(255,255,255,0.15); text-transform:uppercase; }
+
+/* ── RESPONSIVE ── */
+@media(max-width:700px) {
+  #sidebar { display:none; }
+  #lb-info { display:none; }
+  #lb-next { right:16px; }
+  :root { --cols:2 !important; }
+}
 </style>
 </head>
 <body>
+<div id="grain"></div>
 
-<div id="topbar">
-  <a id="wordmark" href="/" onclick="if(walletPubkey){event.preventDefault();showView('view-collection')}">
-    <span id="wordmark-zur">Zur</span><span id="wordmark-vault">Vault</span>
-    <span id="wordmark-tag">NFT VIEWER</span>
-  </a>
-  <div class="tsep"></div>
-  <div id="topbar-sub">Connect your Phantom wallet to begin</div>
-  <button id="back-btn" onclick="showCollection()">&#8592; Library</button>
-  <button id="wallet-pill" onclick="toggleWallet()">
-    <div class="wdot"></div>
-    <span id="wpill-label">Connect Phantom</span>
-  </button>
+<!-- CONNECT -->
+<div id="connect-wrap">
+  <div class="cw-wordmark">ZurVault</div>
+  <div class="cw-tagline">Your collection.<br>Read only.</div>
+
+  <div class="cw-trust">
+    <div class="cw-pill"><div class="cw-pill-dot"></div><div class="cw-pill-text">View only</div></div>
+    <div class="cw-pill"><div class="cw-pill-dot"></div><div class="cw-pill-text">No signing</div></div>
+    <div class="cw-pill"><div class="cw-pill-dot"></div><div class="cw-pill-text">Cannot transfer</div></div>
+    <div class="cw-pill"><div class="cw-pill-dot"></div><div class="cw-pill-text">Cannot approve</div></div>
+  </div>
+
+  <button class="cw-btn" onclick="connectWallet()">Connect Phantom</button>
+
+  <div class="cw-readonly">
+    Only your <strong>public wallet address</strong> is read to fetch NFT metadata.<br>
+    No transactions, signatures, or approvals — ever.
+  </div>
+  <div class="cw-note" id="no-ph" style="display:none">
+    Phantom not found — <a href="https://phantom.app" target="_blank">install it</a>
+  </div>
+  <div class="cw-note">or <a href="index.html">open the frame ↗</a></div>
 </div>
 
-<div id="app">
-  <div class="view active" id="view-connect">
-    <div class="connect-inner">
-      <div class="connect-logo-wrap">
-        <svg viewBox="0 0 52 52" fill="none">
-          <path d="M8 10h36L10 42h34" stroke="#c9a84c" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </div>
-      <div class="connect-title">Zur<span>Vault</span></div>
-      <div class="connect-sub">NFT Comic Reader &middot; Self Custody</div>
-      <div class="connect-desc">Connect your Phantom wallet to read the comics you own. Ownership verified on-chain &mdash; no logins, no middlemen.</div>
-      <button id="connect-btn" onclick="connectWallet()">
-        <svg viewBox="0 0 128 128" fill="none"><rect width="128" height="128" rx="32" fill="#9945ff"/><path fill-rule="evenodd" clip-rule="evenodd" d="M110 65c0 24.853-20.147 45-45 45S20 89.853 20 65s20.147-45 45-45 45 20.147 45 45zm-62 0c0 9.389 7.611 17 17 17s17-7.611 17-17-7.611-17-17-17-17 7.611-17 17z" fill="white"/></svg>
-        Connect Phantom
-      </button>
-      <p id="no-phantom">Phantom not detected. <a href="https://phantom.app" target="_blank">Install it here</a> then refresh.</p>
-      <div class="connect-features">
-        <div class="feature"><div class="feature-icon">&#128273;</div>Self Custody</div>
-        <div class="feature"><div class="feature-icon">&#9935;&#65039;</div>On-chain Verify</div>
-        <div class="feature"><div class="feature-icon">&#128218;</div>All Collections</div>
-        <div class="feature"><div class="feature-icon">&#128274;</div>No Account</div>
-      </div>
-    </div>
-  </div>
+<!-- LOADING -->
+<div id="loading">
+  <div class="load-ring"></div>
+  <div class="load-text" id="load-text">Fetching NFTs</div>
+</div>
 
-  <div class="view" id="view-collection">
-    <div id="col-header">
-      <div id="col-header-left">
-        <h2>Your Library</h2>
-        <p id="col-meta">&#8212;</p>
-      </div>
-    </div>
-    <div id="filter-row">
-      <button class="chip on" onclick="setFilter('all',this)">All</button>
-      <button class="chip" onclick="setFilter('comic',this)">Comics</button>
-    </div>
-    <div id="nft-grid">
-      <div class="grid-state"><div class="spinner"></div><p>Fetching your NFTs&#8230;</p></div>
-    </div>
+<!-- NAV -->
+<div id="nav">
+  <a class="nav-logo" href="viewer.html"><span>Zur</span>Vault</a>
+  <div class="nav-sep"></div>
+  <div id="search-wrap">
+    <span class="search-icon">⌕</span>
+    <input id="search" type="text" placeholder="Search by name…" oninput="filterGrid()">
   </div>
+  <select class="nav-sort" id="sort-sel" onchange="filterGrid()">
+    <option value="default">Default</option>
+    <option value="name-asc">Name A→Z</option>
+    <option value="name-desc">Name Z→A</option>
+    <option value="coll">Collection</option>
+  </select>
+  <div class="grid-toggle">
+    <div class="gt-btn active" id="gt-4" onclick="setGrid(4,'gt-4')" title="4 columns">⊞</div>
+    <div class="gt-btn" id="gt-6" onclick="setGrid(6,'gt-6')" title="6 columns">⊟</div>
+    <div class="gt-btn" id="gt-list" onclick="setGrid('list','gt-list')" title="List view">☰</div>
+  </div>
+  <a class="nav-frame" href="index.html">Frame ↗</a>
+</div>
 
-  <div class="view" id="view-reader">
-    <div id="r-sidebar">
-      <div id="r-sidebar-top">
-        <div id="r-meta-name">—</div>
-        <div id="r-meta-coll">—</div>
-        <div id="r-meta-body"></div>
-      </div>
-      <div id="r-page-list"></div>
-    </div>
-    <div id="r-main">
-      <div id="canvas" onwheel="handleWheel(event)" onmousedown="startDrag(event)" ondblclick="dblZoom()">
-        <div id="page-wrap"><img id="page-img" src="" alt=""></div>
-        <div id="cover-only">
-          <img id="cover-only-img" src="" alt="">
-          <h3>Cover NFT</h3>
-          <p>This is your cover art NFT. Full multi-page reading arrives when Candy.io opens their content layer.</p>
-          <div class="tbd-pill"><div class="tbd-dot"></div>Awaiting Candy.io &middot; Chain TBD</div>
-        </div>
-      </div>
-      <div id="r-bottom">
-        <div class="nav-row">
-          <button class="nbtn" id="nb-first" onclick="pages.length ? goPage(0) : openNFT(0)">&#9198;</button>
-          <button class="nbtn" id="nb-prev" onclick="prevPage()">&#9664;</button>
-          <div id="pgcount">&#8212; / &#8212;</div>
-          <button class="nbtn" id="nb-next" onclick="nextPage()">&#9654;</button>
-          <button class="nbtn" id="nb-last" onclick="pages.length ? goPage(pages.length-1) : openNFT(filtered.length-1)">&#9197;</button>
-        </div>
-        <div id="progbar" onclick="seekProg(event)"><div id="progfill"></div></div>
-        <div class="zoom-row">
-          <button class="zbtn" onclick="zoomOut()">&#8722;</button>
-          <div id="zpct">100%</div>
-          <button class="zbtn" onclick="zoomIn()">+</button>
-          <button class="zbtn" onclick="resetZoom()" style="font-size:.52rem;width:auto;padding:0 6px;">FIT</button>
-        </div>
+<!-- LAYOUT -->
+<div id="layout">
+  <div id="sidebar">
+    <div class="sb-head">Collections</div>
+    <div id="sb-list"></div>
+  </div>
+  <div id="main">
+    <div id="stats-bar">
+      <div>
+        <div class="sb-coll-name" id="coll-title">All NFTs</div>
+        <div class="sb-item-count" id="coll-count"></div>
       </div>
     </div>
+    <div id="empty"><div class="em-icon">◇</div><div class="em-text">No NFTs match your search</div></div>
+    <div id="grid-container"></div>
   </div>
 </div>
-<div id="toast"></div>
+
+<!-- LIGHTBOX -->
+<div id="lightbox" onclick="lbBgClick(event)">
+  <div id="lb-bg"></div>
+  <div id="lb-inner">
+    <div id="lb-art-side"><img id="lb-img" src="" alt=""></div>
+    <div id="lb-info">
+      <div class="lb-coll" id="lb-coll"></div>
+      <div class="lb-name" id="lb-name"></div>
+      <div class="lb-traits-head">Traits</div>
+      <div class="lb-traits" id="lb-traits"></div>
+      <div class="lb-spacer"></div>
+      <div class="lb-actions">
+        <a class="lb-btn lb-btn-primary" id="lb-me" href="#" target="_blank" rel="noopener">View on Magic Eden ↗</a>
+        <button class="lb-btn lb-btn-sec" onclick="closeLb()">Close</button>
+      </div>
+    </div>
+  </div>
+  <div class="lb-nav" id="lb-prev" onclick="lbNav(-1)">‹</div>
+  <div class="lb-nav" id="lb-next" onclick="lbNav(1)">›</div>
+  <div id="lb-close" onclick="closeLb()">✕</div>
+</div>
 
 <script>
-// ════════════════════════════════════════════
-// CONFIG — paste your free Helius key here
-// Sign up at https://helius.dev (no credit card)
-// Leave blank and it will use standard RPC instead
-// ════════════════════════════════════════════
 var HELIUS_KEY = '36ed4b8e-218e-4f34-a367-4d75185dea34';
+var RPC = 'https://mainnet.helius-rpc.com/?api-key=' + HELIUS_KEY;
 
-// ════════════════════════════════════════════
-// STATE
-// ════════════════════════════════════════════
-var walletPubkey = null;
-var allNFTs = [];
+var wallet   = null;
+var allNFTs  = [];
 var filtered = [];
-var activeFilter = 'all';
-var currentNFT = null;
-var currentNFTIdx = 0;
-var pages = [];
-var curPage = 0;
-var zoom = 1;
-var pan = { x: 0, y: 0 };
-var dragging = false;
-var dragOrigin = { x: 0, y: 0 };
-var coverCache = {};
+var activeColl = 'all';
+var lbIdx    = 0;
+var cols     = 4;
 
-var RPCS = [
-  HELIUS_KEY ? 'https://mainnet.helius-rpc.com/?api-key=' + HELIUS_KEY : null,
-  'https://solana-mainnet.rpc.extrnode.com',
-  'https://rpc.ankr.com/solana',
-  'https://api.mainnet-beta.solana.com',
-  'https://solana.public-rpc.com',
-].filter(Boolean);
+var navEl     = document.getElementById('nav');
+var layoutEl  = document.getElementById('layout');
+var connectEl = document.getElementById('connect-wrap');
+var loadEl    = document.getElementById('loading');
+var loadTxt   = document.getElementById('load-text');
+var gridEl    = document.getElementById('grid-container');
+var emptyEl   = document.getElementById('empty');
 
-// ════════════════════════════════════════════
-// DEMOS
-// ════════════════════════════════════════════
-var DEMO_CONFIGS = [
-  { mint:'demo1', title:'IRON\nFIST',    sub:'The Living Weapon',        publisher:'ZUR', issue:'#1', year:'2024', bg1:'#1a0a2e', bg2:'#0d0014', accent:'#c9a84c', shape:'circle',  pubColor:'#000', isComic:true, collectionName:'ZurVault Demo', symbol:'ZUR', demo:true },
-  { mint:'demo2', title:'VOID\nRAIDER',  sub:'Beyond the Singularity',   publisher:'ZUR', issue:'#2', year:'2024', bg1:'#0a1a2e', bg2:'#000d14', accent:'#4c9ac9', shape:'diamond', pubColor:'#000', isComic:true, collectionName:'ZurVault Demo', symbol:'ZUR', demo:true },
-  { mint:'demo3', title:'NEON\nSHADOW', sub:'City of Forgotten Dreams',  publisher:'ZUR', issue:'#3', year:'2024', bg1:'#1a2e0a', bg2:'#0d1400', accent:'#6ac94c', shape:'circle',  pubColor:'#000', isComic:true, collectionName:'ZurVault Demo', symbol:'ZUR', demo:true },
-  { mint:'demo4', title:'CHROME\nWITCH',sub:'Rise of the Machine God',   publisher:'ZUR', issue:'#4', year:'2024', bg1:'#2e0a0a', bg2:'#140000', accent:'#c94c4c', shape:'diamond', pubColor:'#000', isComic:true, collectionName:'ZurVault Demo', symbol:'ZUR', demo:true },
-];
-
-function makeCover(cfg) {
-  var parts = cfg.title.split('\n');
-  var line1 = parts[0] || '', line2 = parts[1] || '';
-  var sub = (cfg.sub||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
-  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600" viewBox="0 0 400 600">'
-    + '<defs><linearGradient id="g' + cfg.mint + '" x1="0" y1="0" x2="0" y2="1">'
-    + '<stop offset="0%" stop-color="' + cfg.bg1 + '"/><stop offset="100%" stop-color="' + cfg.bg2 + '"/>'
-    + '</linearGradient></defs>'
-    + '<rect width="400" height="600" fill="url(#g' + cfg.mint + ')"/>'
-    + (cfg.shape==='circle'
-        ? '<circle cx="200" cy="280" r="160" fill="' + cfg.accent + '" opacity="0.15"/>'
-        : '<polygon points="200,60 360,280 200,500 40,280" fill="' + cfg.accent + '" opacity="0.15"/>')
-    + '<rect x="0" y="0" width="400" height="50" fill="' + cfg.accent + '"/>'
-    + '<text x="14" y="34" font-family="Impact,sans-serif" font-size="22" font-weight="bold" fill="' + cfg.pubColor + '">' + cfg.publisher + '</text>'
-    + '<text x="386" y="22" font-family="monospace" font-size="13" fill="' + cfg.pubColor + '" text-anchor="end">' + cfg.issue + '</text>'
-    + '<text x="386" y="40" font-family="monospace" font-size="10" fill="' + cfg.pubColor + '" text-anchor="end">' + cfg.year + '</text>'
-    + '<rect x="2" y="2" width="396" height="596" fill="none" stroke="' + cfg.accent + '" stroke-width="3"/>'
-    + '<text x="20" y="400" font-family="Impact,sans-serif" font-size="68" font-weight="900" fill="white">' + line1 + '</text>'
-    + (line2 ? '<text x="20" y="462" font-family="Impact,sans-serif" font-size="48" font-weight="900" fill="' + cfg.accent + '">' + line2 + '</text>' : '')
-    + '<text x="20" y="' + (line2?'492':'442') + '" font-family="serif" font-size="14" font-style="italic" fill="rgba(255,255,255,0.5)">' + sub + '</text>'
-    + '<text x="20" y="583" font-family="monospace" font-size="11" fill="' + cfg.accent + '">$4.99  NFT EDITION</text>'
-    + '</svg>';
-  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
-}
-function getCover(cfg) {
-  if (!coverCache[cfg.mint]) coverCache[cfg.mint] = makeCover(cfg);
-  return coverCache[cfg.mint];
-}
-
-// ════════════════════════════════════════════
-// RPC — tries each endpoint, returns first success
-// ════════════════════════════════════════════
-async function rpcCall(method, params, preferDAS) {
-  var endpoints = (preferDAS && HELIUS_KEY)
-    ? ['https://mainnet.helius-rpc.com/?api-key=' + HELIUS_KEY].concat(RPCS)
-    : RPCS;
-
-  var lastErr;
-  for (var i = 0; i < endpoints.length; i++) {
-    var url = endpoints[i];
-    try {
-      var resp = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: method, params: params }),
-        signal: AbortSignal.timeout(15000),
-      });
-      // 403/429 = rate limited, try next endpoint immediately
-      if (resp.status === 403 || resp.status === 429) {
-        lastErr = new Error('HTTP ' + resp.status);
-        console.warn('[' + url + '] rate limited, trying next');
-        continue;
-      }
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      var json = await resp.json();
-      if (json.error) throw new Error(json.error.message || 'RPC error');
-      return json.result;
-    } catch (e) {
-      console.warn('[' + url + '] ' + method + ' failed:', e.message);
-      lastErr = e;
-    }
-  }
-  throw lastErr || new Error('All RPC endpoints failed — add a free Helius key at helius.dev');
-}
-
-// ════════════════════════════════════════════
-// WALLET
-// ════════════════════════════════════════════
-function getPhantom() { return (window.phantom && window.phantom.solana) || window.solana || null; }
-function isMobile() { return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent); }
-
+// ── WALLET ──────────────────────────────────────────
 async function connectWallet() {
+  var ph = window.solana;
+  if (!ph || !ph.isPhantom) { document.getElementById('no-ph').style.display='block'; return; }
   try {
-    var ph = getPhantom();
-    if (ph && ph.isPhantom) {
-      var r = await ph.connect();
-      walletPubkey = r.publicKey.toString();
-      onConnected();
-      return;
-    }
-    document.getElementById('no-phantom').style.display = 'block';
-  } catch(e) {
-    toast('Wallet error: ' + e.message);
-  }
-}
-
-function checkDeeplinkReturn() {
-  var params = new URLSearchParams(window.location.search);
-  var pk = params.get('phantom_encryption_public_key') || params.get('pubkey') || params.get('public_key');
-  if (pk) { walletPubkey = pk; cleanUrl(); onConnected(); return true; }
-  var hash = new URLSearchParams(window.location.hash.replace('#',''));
-  var hk = hash.get('pubkey') || hash.get('public_key');
-  if (hk) { walletPubkey = hk; cleanUrl(); onConnected(); return true; }
-  return false;
-}
-function cleanUrl() { window.history.replaceState({}, '', location.origin + location.pathname); }
-
-async function toggleWallet() {
-  if (walletPubkey) {
-    var ph = getPhantom();
-    if (ph && ph.disconnect) ph.disconnect();
-    walletPubkey = null; allNFTs = [];
-    setWalletUI(false);
-    showView('view-connect');
-    document.getElementById('topbar-sub').textContent = 'Connect your Phantom wallet to begin';
-    document.getElementById('back-btn').classList.remove('show');
-  } else {
-    await connectWallet();
-  }
-}
-
-function onConnected() {
-  setWalletUI(true);
-  document.getElementById('topbar-sub').textContent = short(walletPubkey);
-  showView('view-collection');
-  fetchNFTs();
-}
-function setWalletUI(on) {
-  document.getElementById('wallet-pill').classList.toggle('on', on);
-  document.getElementById('wpill-label').textContent = on ? short(walletPubkey) : 'Connect Phantom';
-}
-function short(a) { return a ? a.slice(0,4) + '\u2026' + a.slice(-4) : ''; }
-
-// ════════════════════════════════════════════
-// NFT FETCHING
-// ════════════════════════════════════════════
-async function fetchNFTs() {
-  setGrid('<div class="grid-state"><div class="spinner"></div><p>Fetching your NFTs&#8230;</p><small>Reading the blockchain&#8230;</small></div>');
-  try {
-    var nfts = [];
-    if (HELIUS_KEY) {
-      try { nfts = await fetchViaDAS(); }
-      catch(e) {
-        console.warn('DAS failed, trying token accounts:', e.message);
-        nfts = await fetchViaTokenAccounts();
-      }
-    } else {
-      nfts = await fetchViaTokenAccounts();
-    }
-
-    if (nfts.length === 0) {
-      nfts = DEMO_CONFIGS.map(function(cfg){ return Object.assign({}, cfg, { image: getCover(cfg) }); });
-      toast('No NFTs found \u2014 showing demo library');
-    }
-
-    allNFTs = nfts;
-    buildFilterRow();
-    applyFilter();
-    var real = allNFTs.filter(function(n){ return !n.demo; }).length;
-    var demo = allNFTs.filter(function(n){ return n.demo; }).length;
-    var meta = real + ' NFT' + (real!==1?'s':'') + ' \u00b7 ' + short(walletPubkey);
-    if (demo) meta += '  +' + demo + ' demo';
-    document.getElementById('col-meta').textContent = meta;
-  } catch(e) {
-    console.error('fetchNFTs failed:', e);
-    setGrid('<div class="grid-state"><p>Could not load NFTs</p><small>' + esc(e.message) + '</small><button class="retry-btn" onclick="fetchNFTs()">Retry</button></div>');
-  }
-}
-
-// Strategy A: Metaplex DAS (needs Helius key)
-async function fetchViaDAS() {
-  var limit = 100, page = 1, collected = [];
-  while (true) {
-    var result = await rpcCall('getAssetsByOwner', {
-      ownerAddress: walletPubkey, page: page, limit: limit,
-      displayOptions: { showUnverifiedCollections: true, showCollectionMetadata: true, showNativeBalance: false }
-    }, true);
-    var items = (result && result.items) ? result.items : [];
-    for (var i = 0; i < items.length; i++) {
-      var a = items[i];
-      if (['V1_NFT','ProgrammableNFT','V1_PRINT','MplCoreAsset'].indexOf(a.interface) >= 0) {
-        collected.push(parseDASAsset(a));
-      }
-    }
-    if (items.length < limit || ++page > 20) break;
-  }
-  return collected;
-}
-
-function parseDASAsset(a) {
-  var meta  = (a.content && a.content.metadata) || {};
-  var links = (a.content && a.content.links) || {};
-  var files = (a.content && a.content.files) || [];
-  var grp   = (a.grouping || []).find(function(g){ return g.group_key === 'collection'; });
-  var imgFile = files.find(function(f){ return f.mime && f.mime.startsWith('image/'); }) || files[0] || {};
-  var image = links.image || imgFile.cdn_uri || imgFile.uri || '';
-  var name = meta.name || 'Unnamed NFT';
-  var collectionName = (meta.collection && meta.collection.name) || (grp && grp.collection_metadata && grp.collection_metadata.name) || '';
-  var symbol = meta.symbol || '';
-  var description = meta.description || '';
-  var attributes = meta.attributes || [];
-  var rank = (a.rarity && a.rarity.rank) || null;
-  var royalty = (a.royalty && a.royalty.basis_points) ? (a.royalty.basis_points / 100).toFixed(1) + '%' : null;
-  return { mint: a.id, name: name, collectionName: collectionName, symbol: symbol, image: image,
-    description: description, attributes: attributes, rank: rank, royalty: royalty,
-    isComic: isComic({ name: name, collectionName: collectionName, symbol: symbol, description: description }), real: true, demo: false };
-}
-
-// Strategy B: standard getTokenAccountsByOwner + metadata fetch (no key needed)
-async function fetchViaTokenAccounts() {
-  setGrid('<div class="grid-state"><div class="spinner"></div><p>Fetching your NFTs&#8230;</p><small>Reading token accounts&#8230;</small></div>');
-  var res = await rpcCall('getTokenAccountsByOwner', [
-    walletPubkey,
-    { programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' },
-    { encoding: 'jsonParsed' }
-  ]);
-
-  var mints = ((res && res.value) || [])
-    .filter(function(a) {
-      var info = a.account && a.account.data && a.account.data.parsed && a.account.data.parsed.info;
-      return info && info.tokenAmount && info.tokenAmount.uiAmount === 1 && info.tokenAmount.decimals === 0;
-    })
-    .map(function(a){ return a.account.data.parsed.info.mint; })
-    .slice(0, 80);
-
-  if (!mints.length) return [];
-
-  var nfts = [];
-  var BATCH = 8;
-  for (var i = 0; i < mints.length; i += BATCH) {
-    var batch = mints.slice(i, i + BATCH);
-    var results = await Promise.allSettled(batch.map(fetchMintMeta));
-    for (var j = 0; j < results.length; j++) {
-      if (results[j].status === 'fulfilled' && results[j].value) nfts.push(results[j].value);
-    }
-    setGrid('<div class="grid-state"><div class="spinner"></div><p>Loading metadata&#8230;</p><small>' + nfts.length + ' of ' + mints.length + ' NFTs loaded</small></div>');
-  }
-  return nfts;
-}
-
-async function fetchMintMeta(mint) {
-  try {
-    // Use getAsset via standard RPC (supported by most providers without DAS)
-    // Falls back to minimal entry if unavailable
-    var info = await rpcCall('getAsset', { id: mint });
-    if (info) return parseDASAsset(info);
-  } catch(e) {
-    // getAsset not supported, try token metadata URI approach
-    try {
-      var acct = await rpcCall('getAccountInfo', [mint, { encoding: 'jsonParsed' }]);
-      if (acct && acct.value) {
-        return { mint: mint, name: short(mint), collectionName: 'Solana NFT', symbol: '', image: '', description: '', isComic: false, real: true, demo: false };
-      }
-    } catch {}
-  }
-  return { mint: mint, name: short(mint), collectionName: 'Solana NFT', symbol: '', image: '', description: '', isComic: false, real: true, demo: false };
-}
-
-// ════════════════════════════════════════════
-// FILTER & GRID
-// ════════════════════════════════════════════
-var COMIC_KW = ['spawn','comic','batman','superman','dc','marvel','manga','drip','oddkey','issue','#','cover','image comics','panel','chapter','vol','volume','webtoon'];
-function isComic(n) {
-  var h = (n.name + n.collectionName + n.symbol + (n.description||'')).toLowerCase();
-  return COMIC_KW.some(function(k){ return h.indexOf(k) >= 0; });
-}
-
-function buildFilterRow() {
-  var collMap = {};
-  allNFTs.forEach(function(n) {
-    var key = n.collectionName || n.symbol || "Other";
-    collMap[key] = (collMap[key] || 0) + 1;
-  });
-  var colls = Object.keys(collMap).sort(function(a,b){ return collMap[b]-collMap[a]; });
-  var html = "<button class=\"chip " + (activeFilter==='all'?"on":"") + "\" onclick=\"setFilter('all',this)\">All (" + allNFTs.length + ")</button>";
-  colls.forEach(function(coll) {
-    var id = "coll_" + colls.indexOf(coll);
-    html += "<button class=\"chip " + (activeFilter===coll?"on":"") + "\" onclick=\"setCollFilter(" + colls.indexOf(coll) + ")\">"
-      + esc(coll) + " (" + collMap[coll] + ")</button>";
-  });
-  document.getElementById("filter-row").innerHTML = html;
-  window._collKeys = colls;
-}
-function setCollFilter(idx) {
-  var coll = window._collKeys[idx];
-  activeFilter = coll;
-  document.querySelectorAll(".chip").forEach(function(c){ c.classList.remove("on"); });
-  var chips = document.querySelectorAll(".chip");
-  if (chips[idx+1]) chips[idx+1].classList.add("on");
-  applyFilter();
-}
-function setFilter(f, btn) {
-  activeFilter = f;
-  document.querySelectorAll('.chip').forEach(function(c){ c.classList.remove('on'); });
-  btn.classList.add('on');
-  applyFilter();
-}
-function applyFilter() {
-  if (activeFilter === 'all') {
-    filtered = allNFTs;
-  } else {
-    filtered = allNFTs.filter(function(n){
-      return (n.collectionName || n.symbol || 'Other') === activeFilter;
-    });
-  }
-  renderGrid();
-}
-function renderGrid() {
-  if (!filtered.length) { setGrid('<div class="grid-state"><p>No NFTs found</p><small>Try the "All" filter</small></div>'); return; }
-  setGrid(filtered.map(function(n, i) {
-    return '<div class="nft-card" style="animation-delay:' + (i*20) + 'ms" onclick="openNFT(' + i + ')">'
-      + '<div class="nft-cover">'
-      + (n.image ? '<img src="' + esc(n.image) + '" alt="' + esc(n.name) + '" loading="lazy" onerror="this.parentNode.innerHTML=\'<div class=nft-cover-placeholder>&#128196;</div>\'">'
-                 : '<div class="nft-cover-placeholder">&#128196;</div>')
-      + (n.isComic ? '<div class="comic-badge">COMIC</div>' : '')
-      + (n.demo   ? '<div class="demo-badge">DEMO</div>'   : '')
-      + '</div>'
-      + '<div class="nft-info"><div class="nft-name">' + esc(n.name) + '</div>'
-      + '<div class="nft-coll">' + esc(n.collectionName || n.symbol || short(n.mint)) + '</div></div>'
-      + '</div>';
-  }).join(''));
-}
-function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
-function setGrid(html) { document.getElementById('nft-grid').innerHTML = html; }
-
-// ════════════════════════════════════════════
-// READER
-// ════════════════════════════════════════════
-function openNFT(idx) {
-  currentNFTIdx = idx;
-  currentNFT = filtered[idx];
-  pages = []; curPage = 0;
-
-  // Sidebar metadata
-  document.getElementById('r-meta-name').textContent = currentNFT.name;
-  document.getElementById('r-meta-coll').textContent = currentNFT.collectionName || currentNFT.symbol || short(currentNFT.mint);
-  document.getElementById('r-meta-body').innerHTML = buildSidebarMeta(currentNFT);
-
-  document.getElementById('topbar-sub').textContent = currentNFT.name;
-  document.getElementById('back-btn').classList.add('show');
-  showView('view-reader');
-  buildPageList();
-  showCoverOnly();
-
-  // Preload neighbors so next/prev feels instant
-  [idx - 1, idx + 1].forEach(function(i) {
-    if (filtered[i] && filtered[i].image) {
-      var img = new Image(); img.src = filtered[i].image;
-    }
-  });
-}
-
-function buildSidebarMeta(nft) {
-  var html = '';
-
-  // Traits
-  var attrs = nft.attributes || [];
-  if (attrs.length) {
-    html += '<div class="meta-section-label">Traits</div>';
-    html += '<div class="meta-traits">';
-    attrs.forEach(function(a) {
-      html += '<div class="meta-trait">'
-        + '<div class="meta-trait-type">' + esc(String(a.trait_type || '')) + '</div>'
-        + '<div class="meta-trait-val">' + esc(String(a.value || '—')) + '</div>'
-        + '</div>';
-    });
-    html += '</div>';
-  }
-
-  // Rank
-  if (nft.rank) {
-    html += '<div class="meta-section-label">Rarity</div>';
-    html += '<div class="meta-trait" style="margin-bottom:10px"><div class="meta-trait-type">Rank</div><div class="meta-trait-val">#' + esc(String(nft.rank)) + '</div></div>';
-  }
-
-  // Mint address
-  html += '<div class="meta-section-label">On-Chain</div>';
-  html += '<div class="meta-mint"><b>Mint Address</b>'
-    + nft.mint.slice(0,8) + '...' + nft.mint.slice(-6) + '</div>';
-
-  // Links
-  html += '<div class="meta-links">'
-    + '<a class="meta-link" href="https://magiceden.io/item-details/' + nft.mint + '" target="_blank">Magic Eden ↗</a>'
-    + '<a class="meta-link" href="https://solscan.io/token/' + nft.mint + '" target="_blank">Solscan ↗</a>'
-    + '</div>';
-
-  return html;
-}
-function showCoverOnly() {
-  document.getElementById('cover-only-img').src = currentNFT.image || '';
-  document.getElementById('cover-only').classList.add('show');
-  document.getElementById('page-wrap').style.visibility = 'hidden';
-  resetZoom();
-  updateNav();
-}
-function buildPageList() {
-  document.getElementById('r-page-list').innerHTML = pages.length
-    ? pages.map(function(p,i){ return '<div class="pitem ' + (i===curPage?'on':'') + '" onclick="goPage(' + i + ')"><div class="pnum">' + (i+1) + '</div><div class="pthumb"><img src="' + p.src + '" alt=""></div><div class="plabel">' + (p.label||'Page '+(i+1)) + '</div></div>'; }).join('')
-    : '<div style="padding:14px;text-align:center"><p style="font-size:.62rem;color:var(--muted);line-height:1.7">Cover NFT<br>Multi-page content coming<br>via Candy.io</p></div>';
-}
-function showCollection() {
-  showView('view-collection');
-  document.getElementById('back-btn').classList.remove('show');
-  document.getElementById('topbar-sub').textContent = short(walletPubkey||'');
-}
-function goPage(i) {
-  if (!pages.length) return;
-  curPage = Math.max(0, Math.min(i, pages.length-1));
-  document.getElementById('page-img').src = pages[curPage].src;
-  document.getElementById('cover-only').classList.remove('show');
-  document.getElementById('page-wrap').style.visibility = '';
-  resetZoom(); updateNav(); buildPageList();
-}
-function nextPage() {
-  if (pages.length) { goPage(curPage + 1); return; }
-  if (currentNFTIdx < filtered.length - 1) openNFT(currentNFTIdx + 1);
-}
-function prevPage() {
-  if (pages.length) { goPage(curPage - 1); return; }
-  if (currentNFTIdx > 0) openNFT(currentNFTIdx - 1);
-}
-function updateNav() {
-  var n = pages.length;
-  if (n) {
-    document.getElementById('pgcount').textContent = (curPage + 1) + ' / ' + n;
-    document.getElementById('nb-first').disabled = curPage === 0;
-    document.getElementById('nb-prev').disabled  = curPage === 0;
-    document.getElementById('nb-next').disabled  = curPage === n - 1;
-    document.getElementById('nb-last').disabled  = curPage === n - 1;
-    document.getElementById('progfill').style.width = n > 1 ? (curPage / (n - 1) * 100) + '%' : '0%';
-  } else {
-    document.getElementById('pgcount').textContent = (currentNFTIdx + 1) + ' / ' + filtered.length;
-    document.getElementById('nb-first').disabled = currentNFTIdx === 0;
-    document.getElementById('nb-prev').disabled  = currentNFTIdx === 0;
-    document.getElementById('nb-next').disabled  = currentNFTIdx === filtered.length - 1;
-    document.getElementById('nb-last').disabled  = currentNFTIdx === filtered.length - 1;
-    document.getElementById('progfill').style.width = filtered.length > 1
-      ? (currentNFTIdx / (filtered.length - 1) * 100) + '%' : '0%';
-  }
-}
-function seekProg(e) {
-  if (!pages.length) return;
-  var r = e.currentTarget.getBoundingClientRect();
-  goPage(Math.round((e.clientX-r.left)/r.width*(pages.length-1)));
-}
-
-// ════════════════════════════════════════════
-// ZOOM / PAN
-// ════════════════════════════════════════════
-function applyT() {
-  var t = 'translate('+pan.x+'px,'+pan.y+'px) scale('+zoom+')';
-  document.getElementById('page-wrap').style.transform = t;
-  // Also apply zoom/pan to cover image when in cover-only mode
-  var coverImg = document.getElementById('cover-only-img');
-  if (coverImg) coverImg.style.transform = t;
-  document.getElementById('zpct').textContent = Math.round(zoom*100)+'%';
-}
-function zoomIn()  { zoom = Math.min(zoom*1.25,5); applyT(); }
-function zoomOut() { zoom = Math.max(zoom/1.25,.25); applyT(); }
-function resetZoom() { zoom=1; pan={x:0,y:0}; applyT(); }
-function handleWheel(e) { e.preventDefault(); zoom=Math.max(.25,Math.min(5,zoom*(e.deltaY>0?.9:1.1))); applyT(); }
-function dblZoom() { zoom=zoom>1.5?1:2; applyT(); }
-function startDrag(e) {
-  if (e.button!==0) return;
-  dragging=true; dragOrigin={x:e.clientX-pan.x,y:e.clientY-pan.y};
-  document.getElementById('canvas').classList.add('dragging');
-  window.addEventListener('mousemove',onDrag); window.addEventListener('mouseup',endDrag);
-}
-function onDrag(e) { if(!dragging)return; pan.x=e.clientX-dragOrigin.x; pan.y=e.clientY-dragOrigin.y; applyT(); }
-function endDrag() { dragging=false; document.getElementById('canvas').classList.remove('dragging'); window.removeEventListener('mousemove',onDrag); window.removeEventListener('mouseup',endDrag); }
-
-document.addEventListener('keydown', function(e) {
-  if (!document.getElementById('view-reader').classList.contains('active')) return;
-  if (e.key==='ArrowRight'||e.key===' ') { e.preventDefault(); nextPage(); }
-  if (e.key==='ArrowLeft') { e.preventDefault(); prevPage(); }
-  if (e.key==='+'||e.key==='=') zoomIn();
-  if (e.key==='-') zoomOut();
-  if (e.key==='f'||e.key==='F') resetZoom();
-  if (e.key==='Escape') showCollection();
-});
-
-function showView(id) { document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); }); document.getElementById(id).classList.add('active'); }
-var toastT;
-function toast(msg) {
-  var el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show');
-  clearTimeout(toastT); toastT=setTimeout(function(){ el.classList.remove('show'); },2800);
+    var r = await ph.connect();
+    wallet = r.publicKey.toString();
+    connectEl.classList.add('hide');
+    loadEl.classList.add('show');
+    await fetchAll();
+  } catch(e) { console.error(e); }
 }
 
 window.addEventListener('load', async function() {
-  if (checkDeeplinkReturn()) return;
-  var ph = getPhantom();
-  if (ph && ph.isConnected && ph.publicKey) { walletPubkey=ph.publicKey.toString(); onConnected(); return; }
-  if (isMobile() && !(ph && ph.isPhantom)) {
-    document.getElementById('connect-btn').innerHTML = '<svg viewBox="0 0 128 128" fill="none" width="24" height="24"><rect width="128" height="128" rx="32" fill="#9945ff"/><path fill-rule="evenodd" clip-rule="evenodd" d="M110 65c0 24.853-20.147 45-45 45S20 89.853 20 65s20.147-45 45-45 45 20.147 45 45zm-62 0c0 9.389 7.611 17 17 17s17-7.611 17-17-7.611-17-17-17-17 7.611-17 17z" fill="white"/></svg> Open in Phantom';
+  var ph = window.solana;
+  if (ph && ph.isPhantom) {
+    try {
+      var r = await ph.connect({ onlyIfTrusted: true });
+      wallet = r.publicKey.toString();
+      connectEl.classList.add('hide');
+      loadEl.classList.add('show');
+      await fetchAll();
+    } catch(e) {}
   }
 });
+
+// ── FETCH ────────────────────────────────────────────
+async function fetchAll() {
+  allNFTs = [];
+  try {
+    var page = 1;
+    while (true) {
+      loadTxt.textContent = 'Fetching page ' + page + '…';
+      var result = await rpc('getAssetsByOwner', {
+        ownerAddress: wallet, page: page, limit: 1000,
+        displayOptions: { showUnverifiedCollections:true, showCollectionMetadata:true, showNativeBalance:false }
+      });
+      var items = (result && result.items) || [];
+      for (var i = 0; i < items.length; i++) {
+        var a = items[i];
+        if (['V1_NFT','ProgrammableNFT','V1_PRINT','MplCoreAsset','Custom'].indexOf(a.interface) >= 0
+            || (a.interface && a.interface.toLowerCase().includes('nft'))) {
+          var n = parseNFT(a);
+          if (n.image) allNFTs.push(n);
+        }
+      }
+      if (items.length < 1000 || ++page > 10) break;
+    }
+    loadEl.classList.remove('show');
+    boot();
+  } catch(e) {
+    console.error(e);
+    loadEl.classList.remove('show');
+    connectEl.classList.remove('hide');
+  }
+}
+
+function parseNFT(a) {
+  var meta  = (a.content && a.content.metadata) || {};
+  var links = (a.content && a.content.links)    || {};
+  var files = (a.content && a.content.files)    || [];
+  var grp   = (a.grouping || []).find(function(g){ return g.group_key==='collection'; });
+  var image = links.image || links.animation_url || '';
+  if (!image) {
+    for (var i=0;i<files.length;i++) {
+      var f=files[i]; var uri=f.cdn_uri||f.uri||'';
+      if (!uri) continue;
+      if (f.mime&&f.mime.startsWith('image/')){ image=uri; break; }
+      if (!image&&uri.match(/\.(png|jpg|jpeg|gif|webp|svg)/i)) image=uri;
+      if (!image) image=uri;
+    }
+  }
+  var collName = (grp&&grp.collection_metadata&&grp.collection_metadata.name)
+    || (meta.collection&&meta.collection.name) || meta.symbol || '';
+  return {
+    mint: a.id, name: meta.name || a.id.slice(0,8),
+    collection: collName, image: image, attributes: meta.attributes || [],
+  };
+}
+
+// ── BOOT ─────────────────────────────────────────────
+function boot() {
+  navEl.style.display = 'flex';
+  layoutEl.style.display = 'flex';
+  buildSidebar();
+  selectColl('all');
+}
+
+// ── SIDEBAR ──────────────────────────────────────────
+function buildSidebar() {
+  var collMap = {};
+  allNFTs.forEach(function(n) {
+    var k = n.collection || '(No Collection)';
+    if (!collMap[k]) collMap[k] = { name:k, items:[], thumb:n.image };
+    collMap[k].items.push(n);
+  });
+  var colls = Object.values(collMap).sort(function(a,b){ return b.items.length-a.items.length; });
+  var sbList = document.getElementById('sb-list');
+  sbList.innerHTML = '';
+  sbList.appendChild(mkSbItem('⬡', null, 'All NFTs', allNFTs.length, 'all'));
+  colls.forEach(function(c) { sbList.appendChild(mkSbItem(null, c.thumb, c.name, c.items.length, c.name)); });
+}
+
+function mkSbItem(icon, thumb, name, count, key) {
+  var el = document.createElement('div');
+  el.className = 'sb-item' + (key===activeColl?' active':'');
+  el.dataset.key = key;
+  el.onclick = function() { selectColl(key); };
+  var thumbEl;
+  if (icon) {
+    thumbEl = document.createElement('div');
+    thumbEl.className = 'sb-all-thumb'; thumbEl.textContent = icon;
+  } else {
+    thumbEl = document.createElement('img');
+    thumbEl.className = 'sb-thumb'; thumbEl.src = thumb; thumbEl.alt = '';
+  }
+  var info = document.createElement('div'); info.className = 'sb-info';
+  info.innerHTML = '<div class="sb-name">' + esc(name) + '</div>'
+    + '<div class="sb-count">' + count + '</div>';
+  el.appendChild(thumbEl); el.appendChild(info);
+  return el;
+}
+
+function selectColl(key) {
+  activeColl = key;
+  document.querySelectorAll('.sb-item').forEach(function(el) {
+    el.classList.toggle('active', el.dataset.key===key);
+  });
+  document.getElementById('coll-title').textContent = key==='all' ? 'All NFTs' : key;
+  filterGrid();
+}
+
+// ── FILTER + RENDER ───────────────────────────────────
+function filterGrid() {
+  var q = document.getElementById('search').value.trim().toLowerCase();
+  var sort = document.getElementById('sort-sel').value;
+  var base = activeColl==='all'
+    ? allNFTs.slice()
+    : allNFTs.filter(function(n){ return (n.collection||'(No Collection)')===activeColl; });
+  if (q) base = base.filter(function(n){ return n.name.toLowerCase().includes(q); });
+  if (sort==='name-asc')  base.sort(function(a,b){ return a.name.localeCompare(b.name); });
+  if (sort==='name-desc') base.sort(function(a,b){ return b.name.localeCompare(a.name); });
+  if (sort==='coll')      base.sort(function(a,b){ return (a.collection||'').localeCompare(b.collection||''); });
+  filtered = base;
+  document.getElementById('coll-count').textContent = filtered.length + ' item' + (filtered.length!==1?'s':'');
+  emptyEl.classList.toggle('show', filtered.length===0);
+  renderGrid();
+}
+
+function renderGrid() {
+  gridEl.innerHTML = '';
+  if (cols==='list') {
+    filtered.forEach(function(n,i){ gridEl.appendChild(mkListCard(n,i)); });
+  } else {
+    gridEl.style.setProperty('--cols', cols);
+    filtered.forEach(function(n,i){ gridEl.appendChild(mkCard(n,i)); });
+  }
+}
+
+function mkCard(n, i) {
+  var el = document.createElement('div');
+  el.className = 'nft-card';
+  el.style.animationDelay = Math.min(i*20,300) + 'ms';
+  el.innerHTML =
+    '<div class="nft-card-skel"></div>'
+    + '<img class="nft-card-img" src="' + esc(n.image) + '" alt="" '
+    + 'onload="this.previousElementSibling.remove()" onerror="this.previousElementSibling.remove()">'
+    + '<div class="nft-card-over">'
+    + '<div class="nft-over-name">' + esc(n.name) + '</div>'
+    + '<div class="nft-over-coll">' + esc(n.collection||'—') + '</div>'
+    + '</div>';
+  el.onclick = function(){ openLb(i); };
+  return el;
+}
+
+function mkListCard(n, i) {
+  var el = document.createElement('div');
+  el.className = 'nft-card';
+  el.innerHTML =
+    '<img class="nft-card-img" src="' + esc(n.image) + '" alt="">'
+    + '<div class="nft-card-text">'
+    + '<div class="nft-list-name">' + esc(n.name) + '</div>'
+    + '<div class="nft-list-coll">' + esc(n.collection||'—') + '</div>'
+    + '</div>';
+  el.onclick = function(){ openLb(i); };
+  return el;
+}
+
+// ── GRID MODE ─────────────────────────────────────────
+function setGrid(size, btnId) {
+  cols = size;
+  document.querySelectorAll('.gt-btn').forEach(function(b){ b.classList.remove('active'); });
+  document.getElementById(btnId).classList.add('active');
+  document.getElementById('main').classList.toggle('grid-list', size==='list');
+  if (size!=='list') gridEl.style.setProperty('--cols', size);
+  renderGrid();
+}
+
+// ── LIGHTBOX ─────────────────────────────────────────
+function openLb(i) {
+  lbIdx = i;
+  showLb(filtered[i]);
+  document.getElementById('lightbox').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function showLb(n) {
+  document.getElementById('lb-bg').style.backgroundImage = 'url(' + n.image + ')';
+  var img = document.getElementById('lb-img');
+  img.style.opacity = '0';
+  img.src = n.image;
+  img.onload = function(){ img.style.transition='opacity .3s'; img.style.opacity='1'; };
+  img.onerror = function(){ img.style.opacity='1'; };
+  document.getElementById('lb-coll').textContent = n.collection || '';
+  document.getElementById('lb-name').textContent = n.name;
+  document.getElementById('lb-me').href = 'https://magiceden.io/item-details/' + n.mint;
+  var traits = document.getElementById('lb-traits');
+  if (n.attributes && n.attributes.length) {
+    traits.innerHTML = n.attributes.map(function(a) {
+      return '<div class="lb-trait">'
+        + '<span class="lb-trait-type">' + esc(String(a.trait_type||'')) + '</span>'
+        + '<span class="lb-trait-val">' + esc(String(a.value||'—')) + '</span>'
+        + '</div>';
+    }).join('');
+  } else {
+    traits.innerHTML = '<div style="font-size:.44rem;letter-spacing:.1em;color:rgba(255,255,255,.15)">No traits</div>';
+  }
+}
+
+function lbNav(dir) {
+  lbIdx = (lbIdx+dir+filtered.length) % filtered.length;
+  showLb(filtered[lbIdx]);
+}
+
+function closeLb() {
+  document.getElementById('lightbox').classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+function lbBgClick(e) {
+  if (e.target===document.getElementById('lightbox')) closeLb();
+}
+
+document.addEventListener('keydown', function(e) {
+  if (!document.getElementById('lightbox').classList.contains('show')) return;
+  if (e.key==='ArrowRight') lbNav(1);
+  if (e.key==='ArrowLeft')  lbNav(-1);
+  if (e.key==='Escape') closeLb();
+});
+
+// ── HELPERS ──────────────────────────────────────────
+async function rpc(method, params) {
+  var r = await fetch(RPC, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({jsonrpc:'2.0',id:1,method:method,params:params})
+  });
+  var j = await r.json();
+  return j.result;
+}
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 </script>
 </body>
 </html>

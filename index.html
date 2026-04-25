@@ -13,14 +13,125 @@
   --gold:  #c9a84c;
   --dim:   rgba(255,255,255,0.18);
   --faint: rgba(255,255,255,0.07);
+  --border: rgba(255,255,255,0.07);
 }
 
 html, body {
   width: 100%; height: 100%;
   background: var(--ink);
   overflow: hidden;
-  cursor: none;
 }
+
+/* ── GRAIN ── */
+#grain {
+  position: fixed; inset: 0; z-index: 200;
+  pointer-events: none; opacity: 0.028;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ── CONNECT SCREEN ── */
+#connect {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-end;
+  padding-bottom: 12vh;
+  z-index: 100;
+  cursor: default;
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     SWAP THIS URL — paste your Spawn cowl image address.
+     Easiest way: right-click the NFT on Magic Eden →
+     "Copy image address" and paste it here.
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  background-image: url('YOUR_SPAWN_COWL_URL_HERE');
+  background-size: cover;
+  background-position: center top;
+  background-color: var(--ink);
+}
+#connect::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(0,0,0,0.12) 0%,
+    rgba(0,0,0,0.32) 40%,
+    rgba(0,0,0,0.80) 68%,
+    rgba(0,0,0,0.96) 100%
+  );
+}
+#connect > * { position: relative; z-index: 1; }
+#connect.hide { display: none; }
+
+.c-wordmark {
+  font-family: 'DM Mono', monospace;
+  font-size: .52rem; letter-spacing: .55em;
+  color: rgba(255,255,255,0.22);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.c-tagline {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(1.8rem, 5vw, 2.6rem);
+  font-weight: 300; letter-spacing: .04em;
+  color: rgba(255,255,255,0.92);
+  margin-bottom: 26px;
+  text-align: center; line-height: 1.1;
+}
+
+/* Trust pills */
+.c-trust {
+  display: flex; flex-wrap: wrap; gap: 7px;
+  justify-content: center;
+  margin-bottom: 26px; max-width: 360px;
+}
+.c-pill {
+  display: flex; align-items: center; gap: 5px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 100px; padding: 5px 12px;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(8px);
+}
+.c-pill-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #4ade80; flex-shrink: 0;
+}
+.c-pill-text {
+  font-family: 'DM Mono', monospace;
+  font-size: .44rem; letter-spacing: .14em;
+  color: rgba(255,255,255,0.5);
+  text-transform: uppercase; white-space: nowrap;
+}
+
+.c-btn {
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: rgba(255,255,255,0.7);
+  font-family: 'DM Mono', monospace;
+  font-size: .62rem; letter-spacing: .25em;
+  padding: 14px 36px; border-radius: 2px;
+  cursor: pointer; text-transform: uppercase;
+  backdrop-filter: blur(12px);
+  transition: border-color .2s, color .2s;
+  margin-bottom: 14px;
+}
+.c-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+.c-readonly {
+  font-family: 'DM Mono', monospace;
+  font-size: .46rem; letter-spacing: .13em;
+  color: rgba(255,255,255,0.22);
+  text-align: center; line-height: 1.8;
+  max-width: 300px;
+}
+.c-readonly strong { color: rgba(255,255,255,0.4); font-weight: 400; }
+
+.c-note {
+  margin-top: 10px;
+  font-family: 'DM Mono', monospace;
+  font-size: .5rem; letter-spacing: .12em;
+  color: rgba(255,255,255,0.12);
+}
+.c-note a { color: rgba(201,168,76,0.5); text-decoration: none; }
 
 /* ── COLLECTION PICKER ── */
 #picker {
@@ -30,6 +141,7 @@ html, body {
   gap: 0; z-index: 100;
   background: var(--ink);
   padding: 40px 24px;
+  cursor: default;
 }
 #picker.show { display: flex; }
 
@@ -55,7 +167,7 @@ html, body {
 
 .p-card {
   position: relative;
-  border: 1px solid rgba(255,255,255,0.07);
+  border: 1px solid var(--border);
   border-radius: 4px;
   overflow: hidden;
   cursor: pointer;
@@ -63,16 +175,11 @@ html, body {
   aspect-ratio: 1/1;
   transition: border-color .18s, transform .18s;
 }
-.p-card:hover {
-  border-color: var(--gold);
-  transform: translateY(-2px);
-}
+.p-card:hover { border-color: var(--gold); transform: translateY(-2px); }
 .p-card img {
   width: 100%; height: 100%;
-  object-fit: cover;
-  display: block;
-  opacity: 0.7;
-  transition: opacity .2s;
+  object-fit: cover; display: block;
+  opacity: 0.7; transition: opacity .2s;
 }
 .p-card:hover img { opacity: 1; }
 .p-card-foot {
@@ -89,24 +196,19 @@ html, body {
 .p-card-count {
   font-family: 'DM Mono', monospace;
   font-size: .44rem; letter-spacing: .1em;
-  color: rgba(255,255,255,0.3);
-  margin-top: 1px;
+  color: rgba(255,255,255,0.3); margin-top: 1px;
 }
 .p-card-all {
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  gap: 6px;
-  border: 1px dashed rgba(255,255,255,0.1);
+  gap: 6px; border: 1px dashed rgba(255,255,255,0.1);
 }
 .p-card-all:hover { border-color: rgba(201,168,76,0.4); }
-.p-all-icon {
-  font-size: 1.4rem; opacity: 0.3;
-}
+.p-all-icon { font-size: 1.4rem; opacity: 0.3; }
 .p-all-label {
   font-family: 'DM Mono', monospace;
   font-size: .52rem; letter-spacing: .15em;
-  color: rgba(255,255,255,0.3);
-  text-transform: uppercase;
+  color: rgba(255,255,255,0.3); text-transform: uppercase;
 }
 .p-card-skel {
   position: absolute; inset: 0;
@@ -122,206 +224,110 @@ html, body {
   font-size: .5rem; letter-spacing: .2em;
   color: rgba(255,255,255,0.15);
   cursor: pointer; text-transform: uppercase;
-  background: none; border: none;
-  transition: color .15s;
+  background: none; border: none; transition: color .15s;
 }
 .p-back:hover { color: rgba(255,255,255,0.4); }
 
-/* ── CONNECT SCREEN ── */
-#connect {
-  position: fixed; inset: 0;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 28px; z-index: 100;
-  background: var(--ink);
-}
-#connect.hide { display: none; }
-
-.c-wordmark {
-  font-family: 'DM Mono', monospace;
-  font-size: .65rem; letter-spacing: .4em;
-  color: rgba(255,255,255,0.2);
-  text-transform: uppercase;
-}
-
-.c-btn {
-  background: none;
-  border: 1px solid rgba(255,255,255,0.12);
-  color: rgba(255,255,255,0.5);
-  font-family: 'DM Mono', monospace;
-  font-size: .62rem; letter-spacing: .25em;
-  padding: 12px 28px; border-radius: 2px;
-  cursor: pointer; text-transform: uppercase;
-  transition: border-color .2s, color .2s;
-}
-.c-btn:hover {
-  border-color: var(--gold);
-  color: var(--gold);
-}
-
-.c-note {
-  font-family: 'DM Mono', monospace;
-  font-size: .52rem; letter-spacing: .15em;
-  color: rgba(255,255,255,0.12);
-}
-.c-note a { color: rgba(201,168,76,0.5); text-decoration: none; }
-
 /* ── FRAME ── */
-#frame {
-  position: fixed; inset: 0;
-  display: none;
-}
+#frame { position: fixed; inset: 0; display: none; cursor: none; }
 #frame.show { display: block; }
 
-/* Full-bleed blurred background */
 #bg {
   position: absolute; inset: -40px;
-  background-size: cover;
-  background-position: center;
+  background-size: cover; background-position: center;
   filter: blur(60px) brightness(0.25) saturate(1.6);
-  transition: background-image 1.2s ease;
-  z-index: 0;
+  transition: background-image 1.2s ease; z-index: 0;
 }
 
-/* Art image — centered, contained */
 #art-wrap {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
-  z-index: 1;
-  padding: 48px 48px 110px; /* leave room at bottom for meta */
+  z-index: 1; padding: 48px 48px 110px;
 }
 #art {
   max-width: 100%; max-height: 100%;
   object-fit: contain;
   box-shadow: 0 32px 80px rgba(0,0,0,0.7);
-  transition: opacity .7s ease;
-  display: block;
+  transition: opacity .7s ease; display: block;
 }
 #art.fade { opacity: 0; }
 
-/* ── METADATA — bottom left ── */
+/* ── METADATA ── */
 #meta {
-  position: absolute;
-  bottom: 0; left: 0;
-  width: 100%;
-  z-index: 2;
-  padding: 60px 36px 28px;
+  position: absolute; bottom: 0; left: 0; width: 100%;
+  z-index: 2; padding: 60px 36px 28px;
   background: linear-gradient(transparent, rgba(0,0,0,0.72) 40%, rgba(0,0,0,0.88));
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
+  display: flex; align-items: flex-end;
+  justify-content: space-between; gap: 24px;
   transition: opacity .5s ease;
 }
 #meta.hide { opacity: 0; }
 
 .meta-left { min-width: 0; }
-
 .meta-name {
   font-family: 'Cormorant Garamond', serif;
-  font-size: clamp(1.4rem, 3vw, 2.2rem);
-  font-weight: 300;
-  color: #fff;
-  letter-spacing: .02em;
-  line-height: 1.1;
-  margin-bottom: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 70vw;
+  font-size: clamp(1.4rem, 3vw, 2.2rem); font-weight: 300;
+  color: #fff; letter-spacing: .02em; line-height: 1.1;
+  margin-bottom: 4px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; max-width: 70vw;
 }
-
 .meta-coll {
   font-family: 'DM Mono', monospace;
   font-size: .58rem; letter-spacing: .22em;
-  color: var(--gold);
-  text-transform: uppercase;
-  margin-bottom: 14px;
+  color: var(--gold); text-transform: uppercase; margin-bottom: 14px;
 }
-
-.meta-traits {
-  display: flex; gap: 10px; flex-wrap: wrap;
-}
-
+.meta-traits { display: flex; gap: 10px; flex-wrap: wrap; }
 .trait {
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 2px;
-  padding: 4px 10px;
-  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 2px;
+  padding: 4px 10px; backdrop-filter: blur(4px);
   background: rgba(255,255,255,0.04);
 }
 .trait-type {
   font-family: 'DM Mono', monospace;
   font-size: .42rem; letter-spacing: .18em;
-  color: rgba(255,255,255,0.35);
-  text-transform: uppercase;
-  margin-bottom: 1px;
+  color: rgba(255,255,255,0.35); text-transform: uppercase; margin-bottom: 1px;
 }
 .trait-val {
   font-family: 'Cormorant Garamond', serif;
-  font-size: .82rem; font-weight: 400;
-  color: rgba(255,255,255,0.8);
+  font-size: .82rem; font-weight: 400; color: rgba(255,255,255,0.8);
 }
 
 .meta-right {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 10px;
+  flex-shrink: 0; display: flex;
+  flex-direction: column; align-items: flex-end; gap: 10px;
 }
-
 .me-link {
   font-family: 'DM Mono', monospace;
   font-size: .52rem; letter-spacing: .2em;
-  color: rgba(201,168,76,0.6);
-  text-decoration: none;
-  text-transform: uppercase;
-  border: 1px solid rgba(201,168,76,0.2);
+  color: rgba(201,168,76,0.6); text-decoration: none;
+  text-transform: uppercase; border: 1px solid rgba(201,168,76,0.2);
   padding: 6px 14px; border-radius: 2px;
-  transition: color .2s, border-color .2s;
-  cursor: pointer;
-  white-space: nowrap;
+  transition: color .2s, border-color .2s; cursor: pointer; white-space: nowrap;
 }
-.me-link:hover {
-  color: var(--gold);
-  border-color: rgba(201,168,76,0.5);
-}
-
-/* Counter + progress */
+.me-link:hover { color: var(--gold); border-color: rgba(201,168,76,0.5); }
 .meta-counter {
   font-family: 'DM Mono', monospace;
-  font-size: .48rem; letter-spacing: .2em;
-  color: rgba(255,255,255,0.18);
+  font-size: .48rem; letter-spacing: .2em; color: rgba(255,255,255,0.18);
 }
 
 /* Progress bar */
 #progress {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  height: 1px;
-  background: rgba(255,255,255,0.06);
-  z-index: 3;
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 1px; background: rgba(255,255,255,0.06); z-index: 3;
 }
 #progress-fill {
-  height: 100%;
-  background: var(--gold);
-  width: 0%;
-  transition: width linear;
-  opacity: 0.5;
+  height: 100%; background: var(--gold);
+  width: 0%; transition: width linear; opacity: 0.5;
 }
 
-/* ── CONTROLS (appear on hover) ── */
+/* Controls */
 #controls {
-  position: absolute;
-  top: 20px; right: 20px;
-  z-index: 10;
-  display: flex; gap: 8px;
-  opacity: 0;
-  transition: opacity .3s;
+  position: absolute; top: 20px; right: 20px;
+  z-index: 10; display: flex; gap: 8px;
+  opacity: 0; transition: opacity .3s;
 }
-body:hover #controls { opacity: 1; }
-body:hover { cursor: default; }
+#frame:hover #controls { opacity: 1; }
+#frame:hover { cursor: default; }
 
 .ctrl-btn {
   background: rgba(0,0,0,0.5);
@@ -331,31 +337,29 @@ body:hover { cursor: default; }
   font-size: .52rem; letter-spacing: .12em;
   padding: 6px 12px; border-radius: 2px;
   cursor: pointer; text-transform: uppercase;
-  transition: all .15s;
-  backdrop-filter: blur(8px);
+  transition: all .15s; backdrop-filter: blur(8px);
+  text-decoration: none; display: inline-flex; align-items: center;
 }
 .ctrl-btn:hover { border-color: var(--gold); color: var(--gold); }
 
-/* Grain overlay */
-#grain {
-  position: fixed; inset: 0; z-index: 20;
-  pointer-events: none; opacity: 0.028;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-/* Loading state */
+/* Loading */
 #loading {
-  position: fixed; inset: 0; z-index: 50;
+  position: fixed; inset: 0; z-index: 150;
   display: none; align-items: center; justify-content: center;
-  background: var(--ink);
+  flex-direction: column; gap: 14px;
+  background: var(--ink); cursor: default;
 }
 #loading.show { display: flex; }
 .load-ring {
   width: 28px; height: 28px;
   border: 1px solid rgba(255,255,255,0.08);
   border-top-color: var(--gold);
-  border-radius: 50%;
-  animation: spin .9s linear infinite;
+  border-radius: 50%; animation: spin .9s linear infinite;
+}
+.load-text {
+  font-family: 'DM Mono', monospace;
+  font-size: .5rem; letter-spacing: .25em;
+  color: rgba(255,255,255,0.2); text-transform: uppercase;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 </style>
@@ -363,24 +367,44 @@ body:hover { cursor: default; }
 <body>
 <div id="grain"></div>
 
+<!-- CONNECT -->
+<div id="connect">
+  <div class="c-wordmark">ZurVault</div>
+  <div class="c-tagline">Your collection.<br>Your frame.</div>
+
+  <div class="c-trust">
+    <div class="c-pill"><div class="c-pill-dot"></div><div class="c-pill-text">View only</div></div>
+    <div class="c-pill"><div class="c-pill-dot"></div><div class="c-pill-text">No signing</div></div>
+    <div class="c-pill"><div class="c-pill-dot"></div><div class="c-pill-text">Cannot transfer</div></div>
+    <div class="c-pill"><div class="c-pill-dot"></div><div class="c-pill-text">Cannot approve</div></div>
+  </div>
+
+  <button class="c-btn" onclick="connectWallet()">Connect Phantom</button>
+
+  <div class="c-readonly">
+    Only your <strong>public wallet address</strong> is read to fetch NFT images.<br>
+    No transactions, signatures, or approvals — ever.
+  </div>
+  <div class="c-note" id="no-ph" style="display:none">
+    Phantom not found — <a href="https://phantom.app" target="_blank">install it</a>
+  </div>
+  <div class="c-note" style="margin-top:8px">
+    Browse your collection in <a href="viewer.html">Viewer ↗</a>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div id="loading">
+  <div class="load-ring"></div>
+  <div class="load-text" id="load-text">Fetching NFTs</div>
+</div>
+
 <!-- COLLECTION PICKER -->
 <div id="picker">
   <div class="p-label">Choose a collection</div>
   <div class="p-grid" id="p-grid"></div>
   <button class="p-back" onclick="backToConnect()">← Disconnect</button>
 </div>
-
-<!-- CONNECT -->
-<div id="connect">
-  <div class="c-wordmark">NFT Frame</div>
-  <button class="c-btn" onclick="connectWallet()">Connect Phantom</button>
-  <div class="c-note" id="no-ph" style="display:none">
-    Phantom not found — <a href="https://phantom.app" target="_blank">install it</a>
-  </div>
-</div>
-
-<!-- LOADING -->
-<div id="loading"><div class="load-ring"></div></div>
 
 <!-- FRAME -->
 <div id="frame">
@@ -401,10 +425,11 @@ body:hover { cursor: default; }
   </div>
   <div id="progress"><div id="progress-fill"></div></div>
   <div id="controls">
+    <button class="ctrl-btn" onclick="switchCollection()">Collections</button>
     <button class="ctrl-btn" id="pause-btn" onclick="togglePause()">Pause</button>
     <button class="ctrl-btn" onclick="prevNFT()">&#8592;</button>
     <button class="ctrl-btn" onclick="nextNFT()">&#8594;</button>
-    <a class="ctrl-btn" href="viewer.html" style="text-decoration:none;">Viewer</a>
+    <a class="ctrl-btn" href="viewer.html">Viewer</a>
     <button class="ctrl-btn" onclick="disconnect()" style="opacity:.4">Disconnect</button>
   </div>
 </div>
@@ -415,8 +440,8 @@ var INTERVAL   = 15000;
 var MAX_TRAITS = 5;
 
 var wallet   = null;
-var allNFTs  = [];   // every NFT from wallet
-var nfts     = [];   // active filtered set
+var allNFTs  = [];
+var nfts     = [];
 var idx      = 0;
 var paused   = false;
 var timer    = null;
@@ -425,6 +450,7 @@ var connectEl = document.getElementById('connect');
 var pickerEl  = document.getElementById('picker');
 var frameEl   = document.getElementById('frame');
 var loadingEl = document.getElementById('loading');
+var loadText  = document.getElementById('load-text');
 var bgEl      = document.getElementById('bg');
 var artEl     = document.getElementById('art');
 var mName     = document.getElementById('m-name');
@@ -436,7 +462,7 @@ var progFill  = document.getElementById('progress-fill');
 var pauseBtn  = document.getElementById('pause-btn');
 var RPC       = 'https://mainnet.helius-rpc.com/?api-key=' + HELIUS_KEY;
 
-// ── WALLET ───────────────────────────────────────────
+// ── WALLET ──────────────────────────────────────────
 async function connectWallet() {
   var ph = window.solana;
   if (!ph || !ph.isPhantom) { document.getElementById('no-ph').style.display = 'block'; return; }
@@ -462,6 +488,12 @@ function disconnect() {
   connectEl.classList.remove('hide');
 }
 
+function switchCollection() {
+  clearTimeout(timer);
+  frameEl.classList.remove('show');
+  showPicker();
+}
+
 window.addEventListener('load', async function() {
   var ph = window.solana;
   if (ph && ph.isPhantom) {
@@ -475,12 +507,13 @@ window.addEventListener('load', async function() {
   }
 });
 
-// ── FETCH ALL NFTs ────────────────────────────────────
+// ── FETCH ────────────────────────────────────────────
 async function fetchAllNFTs() {
   allNFTs = [];
   try {
     var page = 1;
     while (true) {
+      loadText.textContent = 'Fetching page ' + page;
       var result = await rpc('getAssetsByOwner', {
         ownerAddress: wallet, page: page, limit: 1000,
         displayOptions: {
@@ -492,7 +525,6 @@ async function fetchAllNFTs() {
       var items = (result && result.items) || [];
       for (var i = 0; i < items.length; i++) {
         var a = items[i];
-        // Accept all NFT-like interfaces
         if (['V1_NFT','ProgrammableNFT','V1_PRINT','MplCoreAsset','Custom'].indexOf(a.interface) >= 0
             || (a.interface && a.interface.toLowerCase().includes('nft'))) {
           var n = parse(a);
@@ -511,44 +543,33 @@ async function fetchAllNFTs() {
 }
 
 function parse(a) {
-  var meta    = (a.content && a.content.metadata) || {};
-  var links   = (a.content && a.content.links)    || {};
-  var files   = (a.content && a.content.files)    || [];
-  var grp     = (a.grouping || []).find(function(g){ return g.group_key === 'collection'; });
-
-  // Image: try multiple sources in priority order
+  var meta  = (a.content && a.content.metadata) || {};
+  var links = (a.content && a.content.links)    || {};
+  var files = (a.content && a.content.files)    || [];
+  var grp   = (a.grouping || []).find(function(g){ return g.group_key === 'collection'; });
   var image = links.image || links.animation_url || '';
   if (!image) {
-    // Walk files: prefer image mime, then cdn_uri, then uri
     for (var i = 0; i < files.length; i++) {
-      var f = files[i];
-      var uri = f.cdn_uri || f.uri || '';
+      var f = files[i]; var uri = f.cdn_uri || f.uri || '';
       if (!uri) continue;
       if (f.mime && f.mime.startsWith('image/')) { image = uri; break; }
       if (!image && uri.match(/\.(png|jpg|jpeg|gif|webp|svg)/i)) image = uri;
-      if (!image) image = uri; // last resort: take first file with any uri
+      if (!image) image = uri;
     }
   }
-  // Also try json_uri as absolute last resort (arweave json often has image inside)
-  var jsonUri = (a.content && a.content.json_uri) || '';
-
   var collName = (grp && grp.collection_metadata && grp.collection_metadata.name)
-    || (meta.collection && meta.collection.name)
-    || meta.symbol || '';
-
+    || (meta.collection && meta.collection.name) || meta.symbol || '';
   return {
-    mint:       a.id,
-    name:       meta.name || a.id.slice(0,8),
+    mint: a.id,
+    name: meta.name || a.id.slice(0,8),
     collection: collName,
-    image:      image,
-    jsonUri:    jsonUri,
+    image: image,
     attributes: meta.attributes || [],
   };
 }
 
-// ── COLLECTION PICKER ─────────────────────────────────
+// ── PICKER ───────────────────────────────────────────
 function showPicker() {
-  // Build collection map: name → { nfts:[], thumb }
   var collMap = {};
   for (var i = 0; i < allNFTs.length; i++) {
     var n = allNFTs[i];
@@ -556,24 +577,19 @@ function showPicker() {
     if (!collMap[key]) collMap[key] = { name: key, items: [], thumb: n.image };
     collMap[key].items.push(n);
   }
-
-  // Sort by count desc
   var colls = Object.values(collMap).sort(function(a,b){ return b.items.length - a.items.length; });
-
   var grid = document.getElementById('p-grid');
   grid.innerHTML = '';
 
-  // "All NFTs" card first
   var allCard = document.createElement('div');
   allCard.className = 'p-card p-card-all';
   allCard.innerHTML = '<div class="p-all-icon">⬡</div>'
     + '<div class="p-all-label">All NFTs</div>'
-    + '<div class="p-card-count" style="color:rgba(255,255,255,0.25);font-size:.44rem;font-family:DM Mono,monospace;letter-spacing:.1em;margin-top:2px">'
+    + '<div class="p-card-count" style="color:rgba(255,255,255,0.25);font-size:.44rem;font-family:\'DM Mono\',monospace;letter-spacing:.1em;margin-top:2px">'
     + allNFTs.length + ' items</div>';
   allCard.onclick = function() { startFrame(allNFTs); };
   grid.appendChild(allCard);
 
-  // One card per collection
   colls.forEach(function(c) {
     var card = document.createElement('div');
     card.className = 'p-card';
@@ -590,9 +606,9 @@ function showPicker() {
   pickerEl.classList.add('show');
 }
 
-// ── START FRAME WITH CHOSEN SET ───────────────────────
+// ── FRAME ────────────────────────────────────────────
 function startFrame(items) {
-  nfts = shuffle(items.slice()); // copy + shuffle
+  nfts = shuffle(items.slice());
   idx = 0;
   pickerEl.classList.remove('show');
   frameEl.classList.add('show');
@@ -600,22 +616,18 @@ function startFrame(items) {
   schedule();
 }
 
-// ── DISPLAY ──────────────────────────────────────────
 function show(i) {
   var n = nfts[i];
   if (!n) return;
-
   artEl.classList.add('fade');
   setTimeout(function() {
     artEl.src = n.image;
     artEl.onload  = function() { artEl.classList.remove('fade'); };
     artEl.onerror = function() { artEl.classList.remove('fade'); };
   }, 350);
-
   bgEl.style.backgroundImage = 'url(' + n.image + ')';
   mName.textContent = n.name;
   mColl.textContent = n.collection;
-
   var attrs = (n.attributes || []).slice(0, MAX_TRAITS);
   mTraits.innerHTML = attrs.map(function(a) {
     return '<div class="trait">'
@@ -623,7 +635,6 @@ function show(i) {
       + '<div class="trait-val">'  + esc(String(a.value      || '—')) + '</div>'
       + '</div>';
   }).join('');
-
   mMeLink.href = 'https://magiceden.io/item-details/' + n.mint;
   mCounter.textContent = (i + 1) + ' / ' + nfts.length;
   if (nfts[i + 1]) { var pre = new Image(); pre.src = nfts[i + 1].image; }
@@ -646,16 +657,6 @@ function togglePause() {
   pauseBtn.textContent = paused ? 'Play' : 'Pause';
   if (paused) { clearTimeout(timer); progFill.style.transition = 'none'; }
   else schedule();
-}
-
-// Change collection — go back to picker without disconnecting
-document.getElementById('controls').insertAdjacentHTML('afterbegin',
-  '<button class="ctrl-btn" onclick="switchCollection()" style="margin-right:4px">Collections</button>'
-);
-function switchCollection() {
-  clearTimeout(timer);
-  frameEl.classList.remove('show');
-  showPicker();
 }
 
 document.getElementById('frame').addEventListener('click', function(e) {
