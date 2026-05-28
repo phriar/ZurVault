@@ -686,6 +686,69 @@ function showHint() {
   clearTimeout(hintTimeout);
   hintTimeout = setTimeout(() => hint.classList.remove('show'), 4000);
 }
+
+// ── ARWEAVE / NFT LOADING ──
+async function loadFromArweaveUrl(url, title) {
+  showLoading('Fetching comic…');
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const contentType = res.headers.get('content-type') || '';
+    const buf = await res.arrayBuffer();
+
+    // Try as zip archive (CDZ / CBZ) unless URL is clearly an image
+    if (!/\.(jpg|jpeg|png|gif|webp)$/i.test(url)) {
+      try {
+        const zip = await JSZip.loadAsync(buf);
+        const imageExts = /\.(jpg|jpeg|png|gif|webp|bmp)$/i;
+        const entries = [];
+        zip.forEach((path, entry) => {
+          if (!entry.dir && imageExts.test(path) && !path.includes('__MACOSX'))
+            entries.push({ path, entry });
+        });
+        if (entries.length) {
+          entries.sort((a, b) => naturalSort(a.path, b.path));
+          const total = entries.length;
+          const newPages = [];
+          for (let i = 0; i < entries.length; i++) {
+            updateLoadingProgress(i + 1, total);
+            const blob = await entries[i].entry.async('blob');
+            const mimeType = getMimeType(entries[i].path);
+            newPages.push({
+              url: URL.createObjectURL(new Blob([blob], { type: mimeType })),
+              name: entries[i].path.split('/').pop()
+            });
+          }
+          pages.forEach(p => URL.revokeObjectURL(p.url));
+          pages = newPages;
+          initReader(title);
+          hideLoading();
+          return;
+        }
+      } catch (e) { /* not a valid zip — fall through */ }
+    }
+
+    // Fall back: display as a single image
+    const blobType = contentType.startsWith('image/') ? contentType : 'image/jpeg';
+    const imgUrl = URL.createObjectURL(new Blob([buf], { type: blobType }));
+    pages.forEach(p => URL.revokeObjectURL(p.url));
+    pages = [{ url: imgUrl, name: title }];
+    initReader(title);
+    hideLoading();
+  } catch (err) {
+    hideLoading();
+    showError('Could not load comic: ' + err.message);
+    console.error(err);
+  }
+}
+
+// Auto-load when opened from viewer with ?url= param
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const comicUrl = params.get('url');
+  if (!comicUrl) return;
+  loadFromArweaveUrl(comicUrl, params.get('title') || 'Comic');
+})();
 </script>
 </body>
 </html>

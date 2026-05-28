@@ -534,6 +534,7 @@ body {
       <div class="lb-traits" id="lb-traits"></div>
       <div class="lb-spacer"></div>
       <div class="lb-actions">
+        <a class="lb-btn lb-btn-primary" id="lb-read" href="#" target="_blank" rel="noopener" style="display:none">Read Comic ↗</a>
         <a class="lb-btn lb-btn-primary" id="lb-me" href="#" target="_blank" rel="noopener">View on Magic Eden ↗</a>
         <button class="lb-btn lb-btn-sec" onclick="closeLb()">Close</button>
       </div>
@@ -650,7 +651,27 @@ function parseNFT(a) {
   return {
     mint: a.id, name: meta.name || a.id.slice(0,8),
     collection: collName, image: image, attributes: meta.attributes || [],
+    comicUrl: detectComicUrl(links, files),
+    jsonUri: (a.content && a.content.json_uri) || null
   };
+}
+
+function detectComicUrl(links, files) {
+  var comicExts = /\.(cdz|cbz)$/i;
+  var linkFields = ['animation_url', 'content', 'file'];
+  for (var i = 0; i < linkFields.length; i++) {
+    var u = links[linkFields[i]];
+    if (u && comicExts.test(u)) return u;
+  }
+  for (var j = 0; j < files.length; j++) {
+    var f = files[j];
+    var uri = f.cdn_uri || f.uri || '';
+    if (!uri) continue;
+    if (comicExts.test(uri)) return uri;
+    var mime = (f.mime || '').toLowerCase();
+    if (mime === 'application/zip' || mime === 'application/x-cbz' || mime === 'application/cdz') return uri;
+  }
+  return null;
 }
 
 // ── BOOT ─────────────────────────────────────────────
@@ -789,6 +810,16 @@ function showLb(n) {
   document.getElementById('lb-coll').textContent = n.collection || '';
   document.getElementById('lb-name').textContent = n.name;
   document.getElementById('lb-me').href = 'https://magiceden.io/item-details/' + n.mint;
+
+  var readBtn = document.getElementById('lb-read');
+  if (n.comicUrl) {
+    readBtn.href = 'comics.html?url=' + encodeURIComponent(n.comicUrl) + '&title=' + encodeURIComponent(n.name);
+    readBtn.style.display = 'block';
+  } else {
+    readBtn.style.display = 'none';
+    if (n.jsonUri && !n._jsonFetched) fetchComicMeta(n);
+  }
+
   var traits = document.getElementById('lb-traits');
   if (n.attributes && n.attributes.length) {
     traits.innerHTML = n.attributes.map(function(a) {
@@ -800,6 +831,36 @@ function showLb(n) {
   } else {
     traits.innerHTML = '<div style="font-size:.44rem;letter-spacing:.1em;color:rgba(255,255,255,.15)">No traits</div>';
   }
+}
+
+async function fetchComicMeta(n) {
+  n._jsonFetched = true;
+  try {
+    var r = await fetch(n.jsonUri);
+    if (!r.ok) return;
+    var j = await r.json();
+    var comicExts = /\.(cdz|cbz)$/i;
+    var url = null;
+    var pick = function(u) { return (u && comicExts.test(u)) ? u : null; };
+    url = pick(j.animation_url) || pick(j.content) || pick(j.file);
+    if (!url && j.properties && j.properties.files) {
+      for (var i = 0; i < j.properties.files.length; i++) {
+        var f = j.properties.files[i];
+        var u = f.uri || f.url || '';
+        var mime = (f.type || f.mime || '').toLowerCase();
+        if (comicExts.test(u) || mime === 'application/zip' || mime === 'application/x-cbz' || mime === 'application/cdz') {
+          url = u; break;
+        }
+      }
+    }
+    if (!url) return;
+    n.comicUrl = url;
+    if (filtered[lbIdx] && filtered[lbIdx].mint === n.mint) {
+      var readBtn = document.getElementById('lb-read');
+      readBtn.href = 'comics.html?url=' + encodeURIComponent(url) + '&title=' + encodeURIComponent(n.name);
+      readBtn.style.display = 'block';
+    }
+  } catch(e) {}
 }
 
 function lbNav(dir) {
