@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🍬 Candy Migration Watcher</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0a0a0f; color: #e0e0e0; font-family: 'Courier New', monospace; min-height: 100vh; }
+  a { color: #00aaff; text-decoration: none; transition: opacity 0.15s; }
+  a:hover { opacity: 0.7; }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: #0a0a0f; }
+  ::-webkit-scrollbar-thumb { background: #222; border-radius: 2px; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  #header {
+    border-bottom: 1px solid #1a1a2e; padding: 16px 22px 12px;
+    background: linear-gradient(180deg,#0d0d1a 0%,#0a0a0f 100%);
+    display: flex; align-items: flex-start; justify-content: space-between;
+    flex-wrap: wrap; gap: 10px;
+  }
+  #status-dot {
+    width:9px;height:9px;border-radius:50%;background:#444;
+    display:inline-block;margin-right:6px;transition:background .3s;
+  }
+  #status-dot.live{background:#00ff88;box-shadow:0 0 8px #00ff88;animation:pulse 1.4s infinite;}
+  #status-dot.paused{background:#ffa500;}
+  #status-label{font-size:10px;color:#666;letter-spacing:3px;text-transform:uppercase;}
+  h1{font-size:19px;font-weight:700;color:#fff;letter-spacing:-0.5px;margin:4px 0 2px;}
+  #subtitle{font-size:11px;color:#555;}
+
+  /* Alert banner */
+  #alert-banner {
+    margin: 12px 18px 0;
+    padding: 10px 14px;
+    background: linear-gradient(135deg,#1a0f00,#110a00);
+    border: 1px solid #ffa50066;
+    border-radius: 6px;
+    font-size: 11px; color: #ffa500; line-height: 1.6;
+  }
+  #alert-banner strong { color: #ffcc00; }
+
+  #controls{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:4px;}
+  #api-input{
+    background:#111;border:1px solid #333;border-radius:5px;
+    padding:7px 11px;color:#fff;font-size:12px;font-family:'Courier New',monospace;
+    width:200px;outline:none;transition:border-color .2s;
+  }
+  #api-input.valid{border-color:#00ff88;}
+  #api-input.invalid{border-color:#ff4444;}
+  #api-input.cors-warn{border-color:#ffa500;}
+  #api-input:disabled{opacity:.5;}
+  #key-status{font-size:11px;min-width:100px;}
+  #key-status.ok{color:#00ff88;}
+  #key-status.error{color:#ff4444;}
+  #key-status.cors-warn{color:#ffa500;}
+  #key-status.testing{color:#888;}
+
+  .btn{
+    background:transparent;border-radius:5px;cursor:pointer;
+    font-size:12px;font-family:'Courier New',monospace;
+    letter-spacing:1px;padding:7px 13px;transition:opacity .15s;
+  }
+  .btn:hover{opacity:.75;}
+  .btn:disabled{opacity:.35;cursor:not-allowed;}
+  #btn-eye{border:1px solid #444;color:#666;padding:7px 9px;}
+  #btn-test{border:1px solid #666;color:#666;}
+  #btn-start{border:1px solid #00ff88;color:#00ff88;}
+  #btn-pause{border:1px solid #ffa500;color:#ffa500;display:none;}
+  #btn-reset{border:1px solid #444;color:#444;}
+
+  #stats{display:flex;border-bottom:1px solid #1a1a2e;flex-wrap:wrap;}
+  .stat{flex:1 1 120px;padding:12px 18px;border-right:1px solid #1a1a2e;}
+  .stat-label{font-size:10px;color:#555;letter-spacing:2px;text-transform:uppercase;}
+  .stat-value{font-size:19px;font-weight:700;color:#fff;margin-top:2px;}
+  .stat-value.green{color:#00ff88;}
+  .stat-value.blue{color:#00aaff;}
+
+  /* Seed authority panel */
+  #seed-panel {
+    margin: 12px 18px;
+    padding: 12px 14px;
+    background: #0d0d1a;
+    border: 1px solid #1a1a2e;
+    border-radius: 6px;
+  }
+  #seed-panel-title{font-size:10px;color:#555;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;}
+  #seed-input{
+    background:#111;border:1px solid #333;border-radius:5px;
+    padding:6px 10px;color:#fff;font-size:12px;font-family:monospace;
+    width:340px;max-width:100%;outline:none;
+  }
+  #seed-input:focus{border-color:#00aaff;}
+  #btn-seed{border:1px solid #00aaff;color:#00aaff;margin-left:8px;}
+  #seed-list{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;}
+  .seed-tag{
+    font-size:11px;background:#0a1a2e;border:1px solid #00aaff33;
+    color:#00aaff;padding:3px 9px;border-radius:10px;
+    display:flex;align-items:center;gap:6px;
+  }
+  .seed-remove{cursor:pointer;color:#ff4444;font-size:13px;line-height:1;}
+
+  #top-auth-banner{
+    margin:12px 18px;padding:12px 14px;
+    background:linear-gradient(135deg,#001a00,#0a1a00);
+    border:1px solid #00ff8844;border-radius:8px;
+    display:none;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;
+  }
+  #top-auth-label{font-size:10px;color:#00ff88;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;}
+  #top-auth-addr{font-size:13px;color:#fff;word-break:break-all;font-family:monospace;}
+  #top-auth-count{font-size:11px;color:#666;margin-top:2px;}
+  #top-auth-links{display:flex;gap:8px;flex-shrink:0;}
+  .auth-link{border-radius:5px;font-size:11px;padding:5px 11px;font-family:'Courier New',monospace;display:inline-block;}
+  .auth-link.green{border:1px solid #00ff8844;color:#00ff88;}
+  .auth-link.blue{border:1px solid #00aaff44;color:#00aaff;}
+
+  #main{display:flex;}
+  #sidebar{
+    width:250px;flex-shrink:0;border-right:1px solid #1a1a2e;
+    padding:14px 0;height:calc(100vh - 300px);overflow-y:auto;
+  }
+  .sidebar-title{font-size:10px;color:#555;letter-spacing:2px;text-transform:uppercase;padding:0 14px 10px;}
+  .auth-row{padding:7px 14px;border-bottom:1px solid #111;display:flex;justify-content:space-between;align-items:center;}
+  .auth-row.top-row{background:#001100;}
+  .auth-addr{color:#00aaff;font-size:12px;}
+  .auth-top-badge{margin-left:5px;font-size:9px;color:#00ff88;}
+  .auth-seeded-badge{margin-left:5px;font-size:9px;color:#00aaff;}
+  .auth-count{font-size:11px;background:#002200;color:#00ff88;padding:2px 7px;border-radius:10px;}
+  #sidebar-empty{padding:12px 14px;font-size:11px;color:#444;}
+
+  #feed-wrap{flex:1;overflow:hidden;}
+  #feed-title{font-size:10px;color:#555;letter-spacing:2px;text-transform:uppercase;padding:14px 18px 10px;}
+  #feed-title span{color:#00ff88;}
+  #feed{height:calc(100vh - 320px);overflow-y:auto;}
+
+  .mint-row{padding:9px 18px;border-bottom:1px solid #111;display:flex;gap:10px;align-items:flex-start;}
+  .mint-row.candy{background:linear-gradient(90deg,#001a00 0%,transparent 60%);}
+  .mint-row.seeded{background:linear-gradient(90deg,#00001a 0%,transparent 60%);}
+  .mint-icon{flex-shrink:0;padding-top:2px;font-size:14px;color:#333;}
+  .mint-name{font-size:13px;color:#666;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .mint-name.candy{color:#fff;font-weight:600;}
+  .mint-name.seeded{color:#aad4ff;font-weight:600;}
+  .mint-time{font-size:10px;color:#444;flex-shrink:0;}
+  .mint-meta{margin-top:3px;display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:#555;}
+  .mint-uri{margin-top:3px;font-size:10px;color:#00ff8866;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:380px;}
+  .mint-uri.arweave{color:#00aaff66;}
+
+  #empty-state{padding:46px 18px;text-align:center;}
+  #empty-state .icon{font-size:36px;margin-bottom:10px;}
+  #empty-state .msg{color:#555;font-size:13px;line-height:1.6;}
+  #empty-state .hint{margin-top:14px;font-size:11px;color:#333;line-height:1.7;}
+
+  #footer{border-top:1px solid #1a1a2e;padding:8px 18px;font-size:10px;color:#333;display:flex;gap:18px;flex-wrap:wrap;}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div>
+    <div><span id="status-dot"></span><span id="status-label">STANDBY</span></div>
+    <h1>🍬 Candy Migration Watcher</h1>
+    <div id="subtitle">Tracking Candy.io → Solana (Metaplex Core) • Arweave storage • Active now</div>
+  </div>
+  <div id="controls">
+    <input id="api-input" type="password" placeholder="Helius API key…" />
+    <button class="btn" id="btn-eye" onclick="toggleKeyVis()">👁</button>
+    <button class="btn" id="btn-test" onclick="testKey()">Test</button>
+    <span id="key-status"></span>
+    <button class="btn" id="btn-start" onclick="startPolling()">▶ Start</button>
+    <button class="btn" id="btn-pause" onclick="stopPolling()">⏸ Pause</button>
+    <button class="btn" id="btn-reset" onclick="reset()">↺ Reset</button>
+  </div>
+</div>
+
+<div id="alert-banner">
+  📡 <strong>Intel update:</strong> Candy is using <strong>Arweave</strong> for NFT storage (not candy.io CDN).
+  Migration batches start rolling <strong>June 1</strong> with public on-chain wallet links going live.
+  Tool now watches for Arweave URIs + lets you seed known authority wallets below.
+</div>
+
+<div id="stats">
+  <div class="stat"><div class="stat-label">Txns Scanned</div><div class="stat-value" id="s-scanned">0</div></div>
+  <div class="stat"><div class="stat-label">Candy Hits</div><div class="stat-value green" id="s-hits">0</div></div>
+  <div class="stat"><div class="stat-label">Seeded Hits</div><div class="stat-value blue" id="s-seeded">0</div></div>
+  <div class="stat"><div class="stat-label">Unique Authorities</div><div class="stat-value" id="s-auths">0</div></div>
+  <div class="stat"><div class="stat-label">Last Slot</div><div class="stat-value" id="s-slot">—</div></div>
+</div>
+
+<!-- Seed known authority wallets -->
+<div id="seed-panel">
+  <div id="seed-panel-title">🎯 Seed Known Authority Wallets — any tx from these wallets will be flagged</div>
+  <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;">
+    <input id="seed-input" type="text" placeholder="Paste a Solana wallet address to watch…" />
+    <button class="btn" id="btn-seed" onclick="addSeed()">+ Add</button>
+  </div>
+  <div id="seed-list"><span style="font-size:11px;color:#333;">No seeds yet — add a wallet to target it directly</span></div>
+</div>
+
+<div id="top-auth-banner">
+  <div>
+    <div id="top-auth-label">🎯 Top Candy Update Authority Detected</div>
+    <div id="top-auth-addr"></div>
+    <div id="top-auth-count"></div>
+  </div>
+  <div id="top-auth-links">
+    <a id="top-auth-solscan" class="auth-link green" target="_blank">Solscan ↗</a>
+    <a id="top-auth-xray" class="auth-link blue" target="_blank">XRAY ↗</a>
+  </div>
+</div>
+
+<div id="main">
+  <div id="sidebar">
+    <div class="sidebar-title">Detected Authorities</div>
+    <div id="sidebar-empty">None yet</div>
+    <div id="auth-list"></div>
+  </div>
+  <div id="feed-wrap">
+    <div id="feed-title">Live Mint Feed</div>
+    <div id="feed">
+      <div id="empty-state">
+        <div class="icon">🔍</div>
+        <div class="msg">Press <strong style="color:#00ff88">▶ Start</strong> to begin scanning Metaplex Core mints</div>
+        <div class="hint">
+          Now watching for: <span style="color:#00ff88">candy.io URIs</span> + <span style="color:#00aaff">arweave.net URIs</span> + <span style="color:#ffa500">seeded wallets</span><br>
+          Candy confirmed using Arweave for storage — all migrated NFTs will have arweave.net metadata<br>
+          June 1 = first public on-chain links visible — expect hits today or tomorrow
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="footer">
+  <span>MPL Core: CoRE…hX7d</span>
+  <span id="footer-key">Key: demo</span>
+  <span>Polling every 8s</span>
+</div>
+
+<script>
+const MPL_CORE = "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d";
+
+// Detection patterns - candy.io CDN OR arweave (their confirmed storage)
+const CANDY_PATTERNS = ["candy.io", "api.candy.io", "cdn.candy.io", "assets.candy.io"];
+const ARWEAVE_PATTERN = "arweave.net";
+
+let pollingInterval = null;
+let beforeSig = null;
+let totalScanned = 0;
+let candyHits = 0;
+let seededHits = 0;
+let mints = [];
+let authorities = {};
+let seedWallets = new Set(); // manually seeded authority wallets
+let isPolling = false;
+
+function getKey() { return document.getElementById('api-input').value.trim(); }
+function rpc() { return `https://mainnet.helius-rpc.com/?api-key=${getKey() || 'demo'}`; }
+
+function isCandyUri(uri) {
+  if (!uri) return false;
+  return CANDY_PATTERNS.some(d => uri.includes(d));
+}
+function isArweaveUri(uri) {
+  return !!(uri && uri.includes(ARWEAVE_PATTERN));
+}
+function isSuspectUri(uri) {
+  return isCandyUri(uri) || isArweaveUri(uri);
+}
+function isSeededAuth(addr) {
+  return seedWallets.has(addr);
+}
+
+function shortAddr(a) {
+  if (!a) return '—';
+  return a.slice(0,5) + '…' + a.slice(-4);
+}
+function timeAgo(ts) {
+  if (!ts) return '';
+  const s = Math.floor(Date.now()/1000 - ts);
+  if (s < 60) return s + 's ago';
+  if (s < 3600) return Math.floor(s/60) + 'm ago';
+  return Math.floor(s/3600) + 'h ago';
+}
+
+// Seed wallet management
+function addSeed() {
+  const input = document.getElementById('seed-input');
+  const addr = input.value.trim();
+  if (!addr || addr.length < 32) return;
+  seedWallets.add(addr);
+  input.value = '';
+  renderSeeds();
+}
+function removeSeed(addr) {
+  seedWallets.delete(addr);
+  renderSeeds();
+}
+function renderSeeds() {
+  const list = document.getElementById('seed-list');
+  if (seedWallets.size === 0) {
+    list.innerHTML = '<span style="font-size:11px;color:#333;">No seeds yet — add a wallet to target it directly</span>';
+    return;
+  }
+  list.innerHTML = [...seedWallets].map(addr => `
+    <div class="seed-tag">
+      <a href="https://solscan.io/account/${addr}" target="_blank" style="color:#00aaff">${shortAddr(addr)}</a>
+      <span class="seed-remove" onclick="removeSeed('${addr}')">×</span>
+    </div>
+  `).join('');
+}
+document.getElementById('seed-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addSeed();
+});
+
+async function testKey() {
+  const key = getKey();
+  const input = document.getElementById('api-input');
+  const ks = document.getElementById('key-status');
+  ks.textContent = 'checking…'; ks.className = 'testing'; input.className = '';
+  try {
+    const res = await fetch(`https://mainnet.helius-rpc.com/?api-key=${key || 'demo'}`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({jsonrpc:'2.0',id:1,method:'getBlockHeight',params:[]})
+    });
+    const d = await res.json();
+    if (d?.result !== undefined || d?.error?.code) {
+      ks.textContent = '✓ Key OK'; ks.className = 'ok'; input.className = 'valid';
+    } else {
+      ks.textContent = '✗ Invalid'; ks.className = 'error'; input.className = 'invalid';
+    }
+  } catch(e) {
+    ks.innerHTML = '⚠ CORS — <strong style="color:#00ff88;cursor:pointer" onclick="startPolling()">Start anyway ▶</strong>';
+    ks.className = 'cors-warn'; input.className = 'cors-warn';
+  }
+}
+
+function toggleKeyVis() {
+  const input = document.getElementById('api-input');
+  const btn = document.getElementById('btn-eye');
+  input.type = input.type === 'password' ? 'text' : 'password';
+  btn.textContent = input.type === 'password' ? '👁' : '🙈';
+}
+
+function updateStats() {
+  document.getElementById('s-scanned').textContent = totalScanned.toLocaleString();
+  document.getElementById('s-hits').textContent = candyHits;
+  document.getElementById('s-seeded').textContent = seededHits;
+  document.getElementById('s-auths').textContent = Object.keys(authorities).length;
+  const key = getKey();
+  document.getElementById('footer-key').textContent = key ? 'Key: ' + key.slice(0,6) + '…' : 'Key: demo';
+}
+
+function updateAuthSidebar() {
+  const sorted = Object.entries(authorities).sort((a,b)=>b[1]-a[1]);
+  const empty = document.getElementById('sidebar-empty');
+  const list = document.getElementById('auth-list');
+  if (!sorted.length) { empty.style.display=''; list.innerHTML=''; return; }
+  empty.style.display = 'none';
+  list.innerHTML = sorted.map(([addr, count], i) => `
+    <div class="auth-row ${i===0?'top-row':''}">
+      <div>
+        <a class="auth-addr" href="https://solscan.io/account/${addr}" target="_blank">${shortAddr(addr)}</a>
+        ${i===0 ? '<span class="auth-top-badge">TOP</span>' : ''}
+        ${isSeededAuth(addr) ? '<span class="auth-seeded-badge">SEEDED</span>' : ''}
+      </div>
+      <span class="auth-count">${count}</span>
+    </div>
+  `).join('');
+
+  const [topAddr, topCount] = sorted[0];
+  const banner = document.getElementById('top-auth-banner');
+  banner.style.display = 'flex';
+  document.getElementById('top-auth-addr').textContent = topAddr;
+  document.getElementById('top-auth-count').textContent = topCount + ' NFT' + (topCount!==1?'s':'') + ' under this authority';
+  document.getElementById('top-auth-solscan').href = 'https://solscan.io/account/' + topAddr;
+  document.getElementById('top-auth-xray').href = 'https://xray.helius.xyz/account/' + topAddr;
+}
+
+function addMintRow(m) {
+  const feed = document.getElementById('feed');
+  const empty = document.getElementById('empty-state');
+  if (empty) empty.remove();
+
+  const isSeeded = isSeededAuth(m.updateAuth);
+  const rowClass = m.isCandy ? 'candy' : (isSeeded ? 'seeded' : '');
+  const icon = m.isCandy ? '🍬' : (isSeeded ? '🎯' : (isArweaveUri(m.uri) ? '🔵' : '·'));
+  const nameClass = m.isCandy ? 'candy' : (isSeeded ? 'seeded' : '');
+  const uriClass = isArweaveUri(m.uri) ? 'arweave' : '';
+
+  const row = document.createElement('div');
+  row.className = 'mint-row ' + rowClass;
+  row.innerHTML = `
+    <div class="mint-icon">${icon}</div>
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <span class="mint-name ${nameClass}">${m.name}</span>
+        <span class="mint-time">${timeAgo(m.blockTime)}</span>
+      </div>
+      <div class="mint-meta">
+        ${m.assetAddr ? `<span>Asset: <a href="https://solscan.io/token/${m.assetAddr}" target="_blank">${shortAddr(m.assetAddr)}</a></span>` : ''}
+        ${m.updateAuth ? `<span>Authority: <a href="https://solscan.io/account/${m.updateAuth}" target="_blank" style="color:${m.isCandy?'#00ff88':isSeeded?'#00aaff':'#555'}">${shortAddr(m.updateAuth)}</a></span>` : ''}
+        ${m.sig ? `<span>Tx: <a href="https://solscan.io/tx/${m.sig}" target="_blank" style="color:#555">${shortAddr(m.sig)}</a></span>` : ''}
+        ${isArweaveUri(m.uri) ? '<span style="color:#00aaff88;font-size:10px">⬡ arweave</span>' : ''}
+        ${isCandyUri(m.uri) ? '<span style="color:#00ff8888;font-size:10px">🍬 candy.io</span>' : ''}
+        ${isSeeded ? '<span style="color:#ffa50088;font-size:10px">🎯 seeded</span>' : ''}
+      </div>
+      ${m.uri ? `<div class="mint-uri ${uriClass}">${m.uri}</div>` : ''}
+    </div>
+  `;
+  feed.insertBefore(row, feed.firstChild);
+  while (feed.children.length > 200) feed.removeChild(feed.lastChild);
+}
+
+async function fetchRecentMints() {
+  try {
+    const sigRes = await fetch(rpc(), {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        jsonrpc:'2.0',id:1,method:'getSignaturesForAddress',
+        params:[MPL_CORE, {limit:25, ...(beforeSig?{before:beforeSig}:{})}]
+      })
+    });
+    const sigData = await sigRes.json();
+    const sigs = sigData?.result ?? [];
+    if (!sigs.length) return;
+    beforeSig = sigs[sigs.length-1].signature;
+    totalScanned += sigs.length;
+
+    const txRes = await fetch(rpc(), {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        jsonrpc:'2.0',id:2,method:'getTransactions',
+        params:[sigs.map(s=>s.signature),{encoding:'jsonParsed',maxSupportedTransactionVersion:0}]
+      })
+    });
+    const txData = await txRes.json();
+    const txs = txData?.result ?? [];
+
+    for (const tx of txs) {
+      if (!tx || tx.meta?.err) continue;
+      document.getElementById('s-slot').textContent = '#'+(tx.slot||0).toLocaleString();
+
+      const accounts = tx.transaction?.message?.accountKeys ?? [];
+      const logs = tx.meta?.logMessages ?? [];
+      const isCreate = logs.some(l => l.includes('Instruction: Create') || l.includes('Program log: Create'));
+      if (!isCreate) continue;
+
+      const updateAuth = accounts[1]?.pubkey || accounts[0]?.pubkey;
+      const assetAddr = accounts[2]?.pubkey;
+
+      let uri = null, name = null;
+      for (const inner of (tx.meta?.innerInstructions ?? [])) {
+        for (const ix of (inner.instructions ?? [])) {
+          if (ix.parsed?.info?.uri) uri = ix.parsed.info.uri;
+          if (ix.parsed?.info?.name) name = ix.parsed.info.name;
+        }
+      }
+      if (!uri) {
+        const m = logs.join(' ').match(/https?:\/\/[^\s"]+/);
+        if (m) uri = m[0];
+      }
+
+      const isCandy = isCandyUri(uri);
+      const isArweave = isArweaveUri(uri);
+      const isSeeded = isSeededAuth(updateAuth);
+
+      // Show if: candy URI, arweave URI, or seeded wallet
+      if (isCandy || isArweave || isSeeded) {
+        const mintObj = {
+          sig: tx.transaction?.signatures?.[0],
+          slot: tx.slot, blockTime: tx.blockTime,
+          updateAuth, assetAddr, uri,
+          name: name || 'Unknown Asset', isCandy
+        };
+        addMintRow(mintObj);
+
+        if (updateAuth && (isCandy || isSeeded)) {
+          authorities[updateAuth] = (authorities[updateAuth]||0) + 1;
+          updateAuthSidebar();
+        }
+        if (isCandy) candyHits++;
+        if (isSeeded) seededHits++;
+      }
+    }
+    updateStats();
+  } catch(e) { console.error('Fetch error:',e); }
+}
+
+// Search DAS for newest Metaplex Core assets - now checking arweave too
+async function searchCandyAssets() {
+  try {
+    const res = await fetch(rpc(), {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        jsonrpc:'2.0',id:3,method:'searchAssets',
+        params:{interface:'MplCoreAsset',page:1,limit:50,sortBy:{sortBy:'created',sortDirection:'desc'}}
+      })
+    });
+    const data = await res.json();
+    const assets = data?.result?.items ?? [];
+
+    for (const asset of assets) {
+      const uri = asset?.content?.json_uri || '';
+      const isCandy = isCandyUri(uri);
+      const isArweave = isArweaveUri(uri);
+      const auth = asset?.authorities?.[0]?.address;
+      const name = asset?.content?.metadata?.name || 'Unknown';
+      const assetId = asset.id;
+      const isSeeded = isSeededAuth(auth);
+
+      if (!isCandy && !isArweave && !isSeeded) continue;
+      if (mints.some(m=>m.assetAddr===assetId)) continue;
+
+      const m = {sig:null,slot:null,blockTime:null,updateAuth:auth,assetAddr:assetId,uri,name,isCandy};
+      mints.push(m);
+      addMintRow(m);
+
+      if (isCandy) candyHits++;
+      if (isSeeded) seededHits++;
+      if (auth && (isCandy || isSeeded)) {
+        authorities[auth] = (authorities[auth]||0) + 1;
+        updateAuthSidebar();
+      }
+    }
+    updateStats();
+  } catch(e) { console.error('Search error:',e); }
+}
+
+// Watch seeded wallets directly - get their recent transactions
+async function watchSeededWallets() {
+  for (const wallet of seedWallets) {
+    try {
+      const res = await fetch(rpc(), {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          jsonrpc:'2.0',id:4,method:'getSignaturesForAddress',
+          params:[wallet, {limit:10}]
+        })
+      });
+      const data = await res.json();
+      const sigs = data?.result ?? [];
+      if (!sigs.length) continue;
+
+      // Get the assets owned/created by this wallet via DAS
+      const dasRes = await fetch(rpc(), {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          jsonrpc:'2.0',id:5,method:'getAssetsByAuthority',
+          params:{authorityAddress:wallet,page:1,limit:20,sortBy:{sortBy:'created',sortDirection:'desc'}}
+        })
+      });
+      const dasData = await dasRes.json();
+      const assets = dasData?.result?.items ?? [];
+
+      for (const asset of assets) {
+        const uri = asset?.content?.json_uri || '';
+        const assetId = asset.id;
+        const name = asset?.content?.metadata?.name || 'Unknown';
+        if (mints.some(m=>m.assetAddr===assetId)) continue;
+
+        const m = {sig:null,slot:null,blockTime:null,updateAuth:wallet,assetAddr:assetId,uri,name,isCandy:isCandyUri(uri)};
+        mints.push(m);
+        addMintRow(m);
+        seededHits++;
+        authorities[wallet] = (authorities[wallet]||0) + 1;
+        updateAuthSidebar();
+      }
+      updateStats();
+    } catch(e) { console.error('Seeded wallet watch error:',e); }
+  }
+}
+
+function setUIPolling(active) {
+  isPolling = active;
+  document.getElementById('btn-start').style.display = active ? 'none' : '';
+  document.getElementById('btn-pause').style.display = active ? '' : 'none';
+  document.getElementById('api-input').disabled = active;
+  document.getElementById('btn-test').disabled = active;
+  const dot = document.getElementById('status-dot');
+  if (active) { dot.className='live'; document.getElementById('status-label').textContent='LIVE'; }
+  else { dot.className='paused'; document.getElementById('status-label').textContent='PAUSED'; }
+}
+
+function startPolling() {
+  if (pollingInterval) return;
+  setUIPolling(true);
+  fetchRecentMints();
+  searchCandyAssets();
+  if (seedWallets.size > 0) watchSeededWallets();
+  pollingInterval = setInterval(() => {
+    fetchRecentMints();
+    searchCandyAssets();
+    if (seedWallets.size > 0) watchSeededWallets();
+  }, 8000);
+}
+
+function stopPolling() {
+  clearInterval(pollingInterval); pollingInterval = null; setUIPolling(false);
+}
+
+function reset() {
+  stopPolling();
+  beforeSig=null; totalScanned=0; candyHits=0; seededHits=0; mints=[]; authorities={};
+  ['s-scanned','s-hits','s-seeded','s-auths'].forEach(id => document.getElementById(id).textContent='0');
+  document.getElementById('s-slot').textContent='—';
+  document.getElementById('auth-list').innerHTML='';
+  document.getElementById('sidebar-empty').style.display='';
+  document.getElementById('top-auth-banner').style.display='none';
+  document.getElementById('feed').innerHTML=`
+    <div id="empty-state">
+      <div class="icon">🔍</div>
+      <div class="msg">Press <strong style="color:#00ff88">▶ Start</strong> to begin scanning Metaplex Core mints</div>
+      <div class="hint">Watching for candy.io URIs + arweave.net URIs + seeded wallets</div>
+    </div>`;
+  document.getElementById('status-dot').className='';
+  document.getElementById('status-label').textContent='STANDBY';
+  document.getElementById('btn-start').style.display='';
+  document.getElementById('btn-pause').style.display='none';
+  document.getElementById('api-input').disabled=false;
+  document.getElementById('btn-test').disabled=false;
+  updateStats();
+}
+
+document.getElementById('api-input').addEventListener('keydown', e => {
+  if (e.key==='Enter') testKey();
+  document.getElementById('key-status').textContent='';
+  document.getElementById('key-status').className='';
+  document.getElementById('api-input').className='';
+});
+</script>
+</body>
+</html>
