@@ -10,7 +10,7 @@
 
 :root {
   --ink:    #0a0a0a;
-  --gold:   #c9a84c;
+  --gold:   #8f6fe8;
   --faint:  rgba(255,255,255,0.05);
   --border: rgba(255,255,255,0.07);
 }
@@ -42,7 +42,7 @@ body {
      Easiest way: right-click the NFT on Magic Eden →
      "Copy image address" and paste it here.
      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-  background-image: url('YOUR_SPAWN_COWL_URL_HERE');
+  background-image: url('https://arweave.net/uyG3Nvb1UKTtm3q-tdHs4GNYOiEyaSTc7O0zhsc9gIQ');
   background-size: cover;
   background-position: center top;
   background-color: var(--ink);
@@ -115,7 +115,7 @@ body {
 .cw-readonly strong { color: rgba(255,255,255,0.4); font-weight: 400; }
 
 .cw-note { margin-top:10px; font-size:.5rem; letter-spacing:.12em; color:rgba(255,255,255,0.12); }
-.cw-note a { color: rgba(201,168,76,0.45); text-decoration: none; }
+.cw-note a { color: rgba(143,111,232,0.45); text-decoration: none; }
 
 /* ── LOADING ── */
 #loading {
@@ -162,7 +162,7 @@ body {
   color: rgba(255,255,255,0.6); outline: none;
   transition: border-color .15s;
 }
-#search:focus { border-color: rgba(201,168,76,0.3); }
+#search:focus { border-color: rgba(143,111,232,0.3); }
 #search::placeholder { color: rgba(255,255,255,0.18); }
 .search-icon {
   position: absolute; left: 9px; top: 50%;
@@ -178,7 +178,7 @@ body {
   outline: none; appearance: none; text-transform: uppercase;
   transition: border-color .15s, color .15s;
 }
-.nav-sort:focus, .nav-sort:hover { border-color: rgba(201,168,76,0.3); color: rgba(255,255,255,0.7); }
+.nav-sort:focus, .nav-sort:hover { border-color: rgba(143,111,232,0.3); color: rgba(255,255,255,0.7); }
 .nav-sort option { background: #111; }
 
 .grid-toggle { display: flex; gap: 4px; }
@@ -190,18 +190,18 @@ body {
   color: rgba(255,255,255,0.2); font-size: .65rem;
   transition: all .15s;
 }
-.gt-btn.active, .gt-btn:hover { border-color: rgba(201,168,76,0.4); color: var(--gold); }
+.gt-btn.active, .gt-btn:hover { border-color: rgba(143,111,232,0.4); color: var(--gold); }
 
 .nav-frame {
   margin-left: auto;
   font-family: 'DM Mono', monospace; font-size: .5rem;
   letter-spacing: .18em; text-transform: uppercase;
-  color: rgba(201,168,76,0.5); text-decoration: none;
-  border: 1px solid rgba(201,168,76,0.15);
+  color: rgba(143,111,232,0.5); text-decoration: none;
+  border: 1px solid rgba(143,111,232,0.15);
   padding: 5px 12px; border-radius: 2px;
   transition: all .15s; white-space: nowrap; flex-shrink: 0;
 }
-.nav-frame:hover { color: var(--gold); border-color: rgba(201,168,76,0.4); }
+.nav-frame:hover { color: var(--gold); border-color: rgba(143,111,232,0.4); }
 
 /* ── LAYOUT ── */
 #layout { display: flex; min-height: calc(100vh - 52px); display: none; }
@@ -227,7 +227,7 @@ body {
   transition: background .12s; position: relative;
 }
 .sb-item:hover { background: var(--faint); }
-.sb-item.active { background: rgba(201,168,76,0.06); }
+.sb-item.active { background: rgba(143,111,232,0.06); }
 .sb-item.active::before {
   content: ''; position: absolute; left:0; top:0; bottom:0;
   width: 2px; background: var(--gold); opacity: .6;
@@ -284,7 +284,7 @@ body {
   transition: border-color .18s, transform .18s;
   animation: fadeUp .3s ease both;
 }
-.nft-card:hover { border-color: rgba(201,168,76,0.35); transform: translateY(-2px); z-index: 2; }
+.nft-card:hover { border-color: rgba(143,111,232,0.35); transform: translateY(-2px); z-index: 2; }
 @keyframes fadeUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
 
 .nft-card-img {
@@ -408,8 +408,8 @@ body {
   padding:10px 16px; border-radius:2px; text-decoration:none;
   transition:all .15s;
 }
-.lb-btn-primary { background:none; border:1px solid rgba(201,168,76,0.3); color:var(--gold); }
-.lb-btn-primary:hover { background:rgba(201,168,76,0.08); border-color:var(--gold); }
+.lb-btn-primary { background:none; border:1px solid rgba(143,111,232,0.3); color:var(--gold); }
+.lb-btn-primary:hover { background:rgba(143,111,232,0.08); border-color:var(--gold); }
 .lb-btn-sec { border:1px solid rgba(255,255,255,0.08); color:rgba(255,255,255,0.3); cursor:pointer; }
 .lb-btn-sec:hover { border-color:rgba(255,255,255,0.2); color:rgba(255,255,255,0.6); }
 
@@ -420,7 +420,7 @@ body {
   background:rgba(0,0,0,0.4); color:rgba(255,255,255,0.3);
   cursor:pointer; font-size:.9rem; transition:all .15s;
 }
-.lb-nav:hover { border-color:rgba(201,168,76,0.4); color:var(--gold); }
+.lb-nav:hover { border-color:rgba(143,111,232,0.4); color:var(--gold); }
 #lb-prev { left:16px; } #lb-next { right:316px; }
 #lb-close {
   position:absolute; top:16px; right:16px; z-index:10;
@@ -484,7 +484,7 @@ body {
 
 <!-- NAV -->
 <div id="nav">
-  <a class="nav-logo" href="viewer.html"><span>Zur</span>Vault</a>
+  <a class="nav-logo" href="index.html"><span>Zur</span>Vault</a>
   <div class="nav-sep"></div>
   <div id="search-wrap">
     <span class="search-icon">⌕</span>

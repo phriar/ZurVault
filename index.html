@@ -10,7 +10,7 @@
 
   :root{
     --ink:    #0a0a0a;
-    --gold:   #c9a84c;
+    --gold:   #8f6fe8;
     --faint:  rgba(255,255,255,0.05);
     --border: rgba(255,255,255,0.07);
   }
@@ -22,9 +22,16 @@
   .serif{ font-family:'Cormorant Garamond',serif; }
 
   header{
-    padding:44px 32px 20px; border-bottom:1px solid var(--border);
-    position:sticky; top:0; background:rgba(10,10,10,0.92); backdrop-filter:blur(10px); z-index:10;
+    padding:120px 32px 20px; border-bottom:1px solid var(--border);
+    position:relative; z-index:10; overflow:hidden;
+    background-image:url('https://arweave.net/uyG3Nvb1UKTtm3q-tdHs4GNYOiEyaSTc7O0zhsc9gIQ');
+    background-size:cover; background-position:center 20%;
   }
+  header::before{
+    content:''; position:absolute; inset:0;
+    background:linear-gradient(to bottom, rgba(10,10,10,0.55) 0%, rgba(10,10,10,0.75) 45%, rgba(10,10,10,0.97) 90%);
+  }
+  header > *{ position:relative; z-index:1; }
   header .brand{ font-size:.55rem; letter-spacing:.4em; color:rgba(255,255,255,0.18); text-transform:uppercase; }
   header .brand a{ color:rgba(255,255,255,0.18); text-decoration:none; }
   header .brand a:hover{ color:var(--gold); }
@@ -36,10 +43,10 @@
 
   .back-link{
     display:inline-block; margin-top:14px; font-family:'DM Mono',monospace; font-size:.5rem;
-    letter-spacing:.2em; text-transform:uppercase; color:rgba(201,168,76,0.6); text-decoration:none;
-    border:1px solid rgba(201,168,76,0.2); padding:6px 14px; border-radius:2px; transition:all .15s;
+    letter-spacing:.2em; text-transform:uppercase; color:rgba(143,111,232,0.6); text-decoration:none;
+    border:1px solid rgba(143,111,232,0.2); padding:6px 14px; border-radius:2px; transition:all .15s;
   }
-  .back-link:hover{ color:var(--gold); border-color:rgba(201,168,76,0.5); }
+  .back-link:hover{ color:var(--gold); border-color:rgba(143,111,232,0.5); }
 
   .tabs{ display:flex; gap:0; margin-top:22px; border-bottom:1px solid var(--border); }
   .tab{
@@ -59,7 +66,7 @@
     font-family:'DM Mono',monospace; font-size:.5rem; letter-spacing:.1em; text-transform:uppercase;
     padding:9px 12px; border-radius:2px;
   }
-  select:focus{ outline:1px solid rgba(201,168,76,0.4); }
+  select:focus{ outline:1px solid rgba(143,111,232,0.4); }
 
   #status{ padding:16px 32px; font-size:.48rem; letter-spacing:.1em; color:rgba(255,255,255,0.28); text-transform:uppercase; }
   #status.err{ color:#e07a5f; }
@@ -78,7 +85,7 @@
   .card .body{ padding:12px 14px 16px; }
   .card .sub{
     font-family:'DM Mono',monospace; font-size:.4rem; letter-spacing:.14em; text-transform:uppercase;
-    color:rgba(201,168,76,0.55); margin-bottom:5px;
+    color:rgba(143,111,232,0.55); margin-bottom:5px;
   }
   .card .name{
     font-family:'Cormorant Garamond',serif; font-weight:400; font-size:1rem; line-height:1.25;
@@ -91,7 +98,7 @@
   .empty{ padding:60px 32px; text-align:center; color:rgba(255,255,255,0.25); font-family:'Cormorant Garamond',serif; font-size:1.2rem; font-weight:300; line-height:1.6; }
 
   footer{ padding:28px 32px 44px; text-align:center; font-size:.42rem; letter-spacing:.12em; color:rgba(255,255,255,0.15); text-transform:uppercase; }
-  footer a{ color:rgba(201,168,76,0.5); text-decoration:none; }
+  footer a{ color:rgba(143,111,232,0.5); text-decoration:none; }
   footer a:hover{ color:var(--gold); }
 </style>
 </head>

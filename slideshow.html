@@ -10,7 +10,7 @@
 
 :root {
   --ink:    #0a0a0a;
-  --gold:   #c9a84c;
+  --gold:   #8f6fe8;
   --border: rgba(255,255,255,0.07);
 }
 
@@ -27,7 +27,7 @@ html, body { width:100%; height:100%; background:var(--ink); overflow:hidden; }
   position:fixed; inset:0; display:flex; flex-direction:column;
   align-items:center; justify-content:flex-end;
   padding-bottom:12vh; z-index:100;
-  background-image:url('YOUR_SPAWN_COWL_URL_HERE');
+  background-image:url('https://arweave.net/uyG3Nvb1UKTtm3q-tdHs4GNYOiEyaSTc7O0zhsc9gIQ');
   background-size:cover; background-position:center top;
   background-color:var(--ink);
 }
@@ -49,7 +49,7 @@ html, body { width:100%; height:100%; background:var(--ink); overflow:hidden; }
 .c-readonly { font-family:'DM Mono',monospace; font-size:.46rem; letter-spacing:.13em; color:rgba(255,255,255,0.22); text-align:center; line-height:1.8; max-width:300px; }
 .c-readonly strong { color:rgba(255,255,255,0.4); font-weight:400; }
 .c-note { margin-top:10px; font-family:'DM Mono',monospace; font-size:.5rem; letter-spacing:.12em; color:rgba(255,255,255,0.12); }
-.c-note a { color:rgba(201,168,76,0.5); text-decoration:none; }
+.c-note a { color:rgba(143,111,232,0.5); text-decoration:none; }
 
 /* COLLECTION PICKER (text-only rows) */
 #picker { position:fixed; inset:0; display:none; flex-direction:column; z-index:100; background:var(--ink); overflow:hidden; }
@@ -70,7 +70,7 @@ html, body { width:100%; height:100%; background:var(--ink); overflow:hidden; }
 .p-row-count { font-family:'DM Mono',monospace; font-size:.44rem; letter-spacing:.15em; color:rgba(255,255,255,0.24); margin-top:4px; text-transform:uppercase; }
 .p-arrow { font-family:'DM Mono',monospace; font-size:.8rem; color:rgba(255,255,255,0.12); opacity:.4; transition:opacity .15s,color .15s; flex-shrink:0; }
 
-.p-row-all .p-row-name { color:rgba(201,168,76,0.55); }
+.p-row-all .p-row-name { color:rgba(143,111,232,0.55); }
 .p-row-all:hover .p-row-name,.p-row-all:active .p-row-name { color:var(--gold); }
 
 .p-footer { flex-shrink:0; padding:18px 32px; border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:12px; }
@@ -88,8 +88,8 @@ html, body { width:100%; height:100%; background:var(--ink); overflow:hidden; }
 .nl-coll-name { font-family:'Cormorant Garamond',serif; font-size:clamp(1.6rem,4.5vw,2.4rem); font-weight:300; color:rgba(255,255,255,0.88); letter-spacing:.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .nl-meta { display:flex; align-items:center; justify-content:space-between; margin-top:12px; gap:12px; }
 .nl-count { font-family:'DM Mono',monospace; font-size:.44rem; letter-spacing:.15em; color:rgba(255,255,255,0.22); text-transform:uppercase; }
-.nl-play-btn { font-family:'DM Mono',monospace; font-size:.48rem; letter-spacing:.18em; color:rgba(201,168,76,0.6); text-transform:uppercase; background:none; border:1px solid rgba(201,168,76,0.22); padding:6px 14px; border-radius:2px; cursor:pointer; transition:all .15s; white-space:nowrap; -webkit-tap-highlight-color:transparent; }
-.nl-play-btn:hover,.nl-play-btn:active { color:var(--gold); border-color:rgba(201,168,76,0.5); }
+.nl-play-btn { font-family:'DM Mono',monospace; font-size:.48rem; letter-spacing:.18em; color:rgba(143,111,232,0.6); text-transform:uppercase; background:none; border:1px solid rgba(143,111,232,0.22); padding:6px 14px; border-radius:2px; cursor:pointer; transition:all .15s; white-space:nowrap; -webkit-tap-highlight-color:transparent; }
+.nl-play-btn:hover,.nl-play-btn:active { color:var(--gold); border-color:rgba(143,111,232,0.5); }
 
 .nl-scroll { flex:1; overflow-y:auto; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.06) transparent; }
 
@@ -122,8 +122,8 @@ html, body { width:100%; height:100%; background:var(--ink); overflow:hidden; }
 .trait-val { font-family:'Cormorant Garamond',serif; font-size:.82rem; font-weight:400; color:rgba(255,255,255,0.8); }
 
 .meta-right { flex-shrink:0; display:flex; flex-direction:column; align-items:flex-end; gap:10px; }
-.me-link { font-family:'DM Mono',monospace; font-size:.52rem; letter-spacing:.2em; color:rgba(201,168,76,0.6); text-decoration:none; text-transform:uppercase; border:1px solid rgba(201,168,76,0.2); padding:6px 14px; border-radius:2px; transition:color .2s,border-color .2s; cursor:pointer; white-space:nowrap; }
-.me-link:hover { color:var(--gold); border-color:rgba(201,168,76,0.5); }
+.me-link { font-family:'DM Mono',monospace; font-size:.52rem; letter-spacing:.2em; color:rgba(143,111,232,0.6); text-decoration:none; text-transform:uppercase; border:1px solid rgba(143,111,232,0.2); padding:6px 14px; border-radius:2px; transition:color .2s,border-color .2s; cursor:pointer; white-space:nowrap; }
+.me-link:hover { color:var(--gold); border-color:rgba(143,111,232,0.5); }
 .meta-counter { font-family:'DM Mono',monospace; font-size:.48rem; letter-spacing:.2em; color:rgba(255,255,255,0.18); }
 
 #progress { position:absolute; bottom:0; left:0; right:0; height:1px; background:rgba(255,255,255,0.06); z-index:3; }
@@ -143,14 +143,25 @@ html, body { width:100%; height:100%; background:var(--ink); overflow:hidden; }
 .load-ring { width:28px; height:28px; border:1px solid rgba(255,255,255,0.08); border-top-color:var(--gold); border-radius:50%; animation:spin .9s linear infinite; }
 .load-text { font-family:'DM Mono',monospace; font-size:.5rem; letter-spacing:.25em; color:rgba(255,255,255,0.2); text-transform:uppercase; }
 @keyframes spin { to { transform:rotate(360deg); } }
+.home-link {
+  position:fixed; top:16px; left:16px; z-index:20;
+  font-family:'DM Mono',monospace; font-size:.5rem; letter-spacing:.35em;
+  color:rgba(255,255,255,0.3); text-transform:uppercase; text-decoration:none;
+  background:rgba(0,0,0,0.5); backdrop-filter:blur(10px);
+  border:1px solid var(--border); padding:6px 12px; border-radius:2px;
+  transition:color .15s,border-color .15s;
+}
+.home-link:hover { color:var(--gold); border-color:rgba(143,111,232,0.4); }
+.home-link span { color:var(--gold); }
 </style>
 </head>
 <body>
 <div id="grain"></div>
+<a class="home-link" href="index.html"><span>Zur</span>Vault</a>
 
 <!-- CONNECT -->
 <div id="connect">
-  <div class="c-wordmark">ZurVault</div>
+  <a href="index.html" style="text-decoration:none;"><div class="c-wordmark">ZurVault</div></a>
   <div class="c-tagline">Your collection.<br>Your frame.</div>
   <div class="c-trust">
     <div class="c-pill"><div class="c-pill-dot"></div><div class="c-pill-text">View only</div></div>
