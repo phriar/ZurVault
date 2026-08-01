@@ -10,6 +10,7 @@
   :root{
     --bg:#0a0a0a; --bg-panel:#121212; --bg-card:#161616; --border:#262626;
     --red:#e0263e; --green:#39ff6a; --text:#e8e8e8; --text-dim:#8a8a8a;
+    --deep:#6b2fd6; --cyan:#4de8ff;
   }
   *{box-sizing:border-box;}
   body{margin:0; background:var(--bg); color:var(--text); font-family:'Oswald',sans-serif;}
@@ -38,7 +39,7 @@
 
   #status{padding:14px 16px; font-size:12px; color:var(--text-dim);}
   #status.err{color:var(--red);}
-  #status .dot{display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--green); margin-right:6px;}
+  #status .dot{display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--cyan); margin-right:6px;}
 
   .results{padding:0 16px 20px;}
   .row{
@@ -63,6 +64,7 @@
 </style>
 </head>
 <body>
+<script src="site-nav.js" data-active="discover"></script>
 
 <header>
   <div class="brand mono"><a href="index.html">ZurVault</a> / Discover</div>

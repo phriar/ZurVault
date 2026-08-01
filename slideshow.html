@@ -11,6 +11,8 @@
 :root {
   --ink:    #0a0a0a;
   --gold:   #8f6fe8;
+  --deep:   #6b2fd6;
+  --cyan:   #4de8ff;
   --border: rgba(255,255,255,0.07);
 }
 
@@ -86,10 +88,20 @@ html, body { width:100%; height:100%; background:var(--ink); overflow:hidden; }
 .nl-back { font-family:'DM Mono',monospace; font-size:.48rem; letter-spacing:.2em; color:rgba(255,255,255,0.2); cursor:pointer; text-transform:uppercase; background:none; border:none; transition:color .15s; margin-bottom:14px; display:block; -webkit-tap-highlight-color:transparent; }
 .nl-back:hover,.nl-back:active { color:rgba(255,255,255,0.5); }
 .nl-coll-name { font-family:'Cormorant Garamond',serif; font-size:clamp(1.6rem,4.5vw,2.4rem); font-weight:300; color:rgba(255,255,255,0.88); letter-spacing:.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.nl-meta { display:flex; align-items:center; justify-content:space-between; margin-top:12px; gap:12px; }
+.nl-meta { display:flex; align-items:center; justify-content:space-between; margin-top:10px; gap:12px; }
 .nl-count { font-family:'DM Mono',monospace; font-size:.44rem; letter-spacing:.15em; color:rgba(255,255,255,0.22); text-transform:uppercase; }
-.nl-play-btn { font-family:'DM Mono',monospace; font-size:.48rem; letter-spacing:.18em; color:rgba(143,111,232,0.6); text-transform:uppercase; background:none; border:1px solid rgba(143,111,232,0.22); padding:6px 14px; border-radius:2px; cursor:pointer; transition:all .15s; white-space:nowrap; -webkit-tap-highlight-color:transparent; }
-.nl-play-btn:hover,.nl-play-btn:active { color:var(--gold); border-color:rgba(143,111,232,0.5); }
+.nl-play-btn {
+  display:flex; align-items:center; justify-content:center; gap:9px;
+  width:100%; margin-top:16px;
+  font-family:'DM Mono',monospace; font-size:.62rem; font-weight:500; letter-spacing:.22em;
+  color:#fff; text-transform:uppercase;
+  background:linear-gradient(135deg, var(--deep), var(--gold));
+  border:1px solid rgba(143,111,232,0.5); border-radius:3px;
+  padding:14px 16px; cursor:pointer;
+  box-shadow:0 4px 20px rgba(107,47,214,0.35);
+  transition:all .15s; -webkit-tap-highlight-color:transparent;
+}
+.nl-play-btn:hover,.nl-play-btn:active { filter:brightness(1.12); border-color:var(--cyan); box-shadow:0 4px 22px rgba(77,232,255,0.3); }
 
 .nl-scroll { flex:1; overflow-y:auto; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.06) transparent; }
 
@@ -156,6 +168,7 @@ html, body { width:100%; height:100%; background:var(--ink); overflow:hidden; }
 </style>
 </head>
 <body>
+<script src="site-nav.js" data-active="slideshow"></script>
 <div id="grain"></div>
 <a class="home-link" href="index.html"><span>Zur</span>Vault</a>
 
@@ -211,8 +224,8 @@ html, body { width:100%; height:100%; background:var(--ink); overflow:hidden; }
     <div class="nl-coll-name" id="nl-coll-name"></div>
     <div class="nl-meta">
       <div class="nl-count" id="nl-count"></div>
-      <button class="nl-play-btn" onclick="playAll()">&#9654; Shuffle All</button>
     </div>
+    <button class="nl-play-btn" onclick="playAll()">&#9654; Shuffle All</button>
   </div>
   <div class="nl-scroll" id="nl-scroll"></div>
 </div>
@@ -316,17 +329,20 @@ function disconnect() {
   pickerEl.classList.remove('show');
   nftListEl.classList.remove('show');
   connectEl.classList.remove('hide');
+  if (window.ZurVaultNav) window.ZurVaultNav.show();
 }
 
 function switchCollection() {
   clearTimeout(timer);
   frameEl.classList.remove('show');
+  if (window.ZurVaultNav) window.ZurVaultNav.show();
   showPicker();
 }
 
 function backToList() {
   clearTimeout(timer);
   frameEl.classList.remove('show');
+  if (window.ZurVaultNav) window.ZurVaultNav.show();
   if (currentItems.length > 0) showNFTList(currentItems, currentName);
   else showPicker();
 }
@@ -520,6 +536,7 @@ function startFrame(items, startIdx) {
   nftListEl.classList.remove('show');
   pickerEl.classList.remove('show');
   frameEl.classList.add('show');
+  if (window.ZurVaultNav) window.ZurVaultNav.hide();
   paused = false;
   pauseBtn.textContent = 'Pause';
   show(idx);

@@ -22,6 +22,7 @@
 
   /* ── LAYOUT ── */
   #app { display: flex; flex-direction: column; height: 100vh; }
+  body.zv-has-banner #app { height: calc(100vh - 40px); }
 
   /* ── TOP BAR ── */
   #topbar {
@@ -151,6 +152,7 @@
     opacity: 0; cursor: pointer; display: flex; align-items: center; justify-content: center;
     transition: opacity .2s;
   }
+  body.zv-has-banner #prevZone, body.zv-has-banner #nextZone { top: 140px; }
   #prevZone { left: 0; background: linear-gradient(to right, rgba(232,200,74,.08), transparent); }
   #nextZone { right: var(--thumb-w); background: linear-gradient(to left, rgba(232,200,74,.08), transparent); }
   #prevZone:hover, #nextZone:hover { opacity: 1; }
@@ -217,6 +219,7 @@
 </style>
 </head>
 <body>
+<script src="site-nav.js" data-active="comics"></script>
 
 <div id="app">
 

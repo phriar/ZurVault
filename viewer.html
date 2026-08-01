@@ -11,6 +11,8 @@
 :root {
   --ink:    #0a0a0a;
   --gold:   #8f6fe8;
+  --deep:   #6b2fd6;
+  --cyan:   #4de8ff;
   --faint:  rgba(255,255,255,0.05);
   --border: rgba(255,255,255,0.07);
 }
@@ -135,7 +137,7 @@ body {
 
 /* ── NAV ── */
 #nav {
-  position: sticky; top: 0; z-index: 100;
+  position: sticky; top: 40px; z-index: 100;
   height: 52px; display: flex; align-items: center;
   padding: 0 28px;
   border-bottom: 1px solid var(--border);
@@ -204,15 +206,15 @@ body {
 .nav-frame:hover { color: var(--gold); border-color: rgba(143,111,232,0.4); }
 
 /* ── LAYOUT ── */
-#layout { display: flex; min-height: calc(100vh - 52px); display: none; }
+#layout { display: flex; min-height: calc(100vh - 92px); display: none; }
 
 /* Sidebar */
 #sidebar {
   width: 200px; flex-shrink: 0;
   border-right: 1px solid var(--border);
   padding: 20px 0;
-  position: sticky; top: 52px;
-  height: calc(100vh - 52px);
+  position: sticky; top: 92px;
+  height: calc(100vh - 92px);
   overflow-y: auto;
   scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.05) transparent;
 }
@@ -450,6 +452,7 @@ body {
 </style>
 </head>
 <body>
+<script src="site-nav.js" data-active="viewer"></script>
 <div id="grain"></div>
 
 <!-- CONNECT -->
@@ -798,6 +801,7 @@ function openLb(i) {
   showLb(filtered[i]);
   document.getElementById('lightbox').classList.add('show');
   document.body.style.overflow = 'hidden';
+  if (window.ZurVaultNav) window.ZurVaultNav.hide();
 }
 
 function showLb(n) {
@@ -871,6 +875,7 @@ function lbNav(dir) {
 function closeLb() {
   document.getElementById('lightbox').classList.remove('show');
   document.body.style.overflow = '';
+  if (window.ZurVaultNav) window.ZurVaultNav.show();
 }
 
 function lbBgClick(e) {

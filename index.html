@@ -11,6 +11,8 @@
   :root{
     --ink:    #0a0a0a;
     --gold:   #8f6fe8;
+    --deep:   #6b2fd6;
+    --cyan:   #4de8ff;
     --faint:  rgba(255,255,255,0.05);
     --border: rgba(255,255,255,0.07);
   }
@@ -48,15 +50,6 @@
   }
   .back-link:hover{ color:var(--gold); border-color:rgba(143,111,232,0.5); }
 
-  .tabs{ display:flex; gap:0; margin-top:22px; border-bottom:1px solid var(--border); }
-  .tab{
-    flex:1; text-align:center; padding:12px 8px; font-size:.5rem; letter-spacing:.25em;
-    text-transform:uppercase; color:rgba(255,255,255,0.3); cursor:pointer;
-    border-bottom:1px solid transparent; transition:color .15s;
-  }
-  .tab.active{ color:rgba(255,255,255,0.85); border-bottom-color:var(--gold); }
-  .tab:hover{ color:rgba(255,255,255,0.6); }
-
   .controls{
     display:flex; gap:8px; padding:16px 32px; flex-wrap:wrap; border-bottom:1px solid var(--border);
     background:rgba(255,255,255,0.015);
@@ -70,7 +63,7 @@
 
   #status{ padding:16px 32px; font-size:.48rem; letter-spacing:.1em; color:rgba(255,255,255,0.28); text-transform:uppercase; }
   #status.err{ color:#e07a5f; }
-  #status .dot{ display:inline-block; width:6px; height:6px; border-radius:50%; background:#4ade80; margin-right:8px; }
+  #status .dot{ display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--cyan); margin-right:8px; }
 
   .grid{
     display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
@@ -103,6 +96,7 @@
 </style>
 </head>
 <body>
+<script src="site-nav.js" data-active="index"></script>
 <div id="grain" style="position:fixed;inset:0;z-index:200;pointer-events:none;opacity:0.025;background-image:url(&quot;data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E&quot;);"></div>
 
 <header>
@@ -111,10 +105,6 @@
   <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
     <a class="back-link" href="slideshow.html">Slideshow &#8599;</a>
     <a class="back-link" href="viewer.html">Viewer &#8599;</a>
-  </div>
-  <div class="tabs">
-    <div class="tab active" data-tab="browse">Browse All</div>
-    <div class="tab" data-tab="recent">Recently Listed</div>
   </div>
 </header>
 
@@ -352,10 +342,8 @@ const DC_COLLECTIONS = [
 // me-proxy-worker.js for deploy steps), no trailing slash.
 const ME_PROXY_BASE = "https://zurvault-proxy.stholt.workers.dev";
 const ME_BASE = ME_PROXY_BASE + "/v2";
-const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 let allListings = [];
-let currentTab = "browse";
 
 const statusEl = document.getElementById('status');
 const gridEl = document.getElementById('grid');
@@ -373,48 +361,112 @@ async function fetchCollectionListings(symbol){
   return res.json();
 }
 
-async function loadAll(){
+// The /listings endpoint carries no timestamp for when an item was listed —
+// only /activities does (as blockTime on "list" events). Build a
+// tokenMint → blockTime map from the most recent activity page so listings
+// can be given a real "listed at" time instead of always being null.
+async function fetchRecentListedTimes(symbol){
+  const res = await fetch(`${ME_BASE}/collections/${symbol}/activities?offset=0&limit=100`);
+  if(!res.ok) throw new Error(`${symbol} activities: HTTP ${res.status}`);
+  const data = await res.json();
+  const map = new Map();
+  for(const a of (Array.isArray(data) ? data : [])){
+    if(a?.type === 'list' && a?.tokenMint && !map.has(a.tokenMint)){
+      map.set(a.tokenMint, a.blockTime || null);
+    }
+  }
+  return map;
+}
+
+// Runs `worker` over `items` with at most `concurrency` in flight at once,
+// instead of one request at a time — cuts total scan time roughly in
+// proportion to the concurrency factor while still capping how hard we
+// hit the Magic Eden proxy.
+async function runPool(items, worker, concurrency){
+  let i = 0;
+  const runners = new Array(Math.min(concurrency, items.length)).fill(0).map(async () => {
+    while(i < items.length){
+      const item = items[i++];
+      await worker(item);
+    }
+  });
+  await Promise.all(runners);
+}
+
+// Coalesce bursts of near-simultaneous pool completions into a single
+// re-render per animation frame, instead of re-rendering the whole grid
+// on every individual response.
+let renderScheduled = false;
+function scheduleRender(){
+  if(renderScheduled) return;
+  renderScheduled = true;
+  requestAnimationFrame(() => { renderScheduled = false; render(); });
+}
+
+async function loadAll(isRefresh){
   if(DC_COLLECTIONS.some(c => c.symbol.startsWith('REPLACE'))){
     setStatus('Add real Magic Eden collection symbols in DC_COLLECTIONS at the top of this file.', true);
     return;
   }
-  setStatus('Fetching listings from Magic Eden…');
-  allListings = [];
-  let failed = [];
 
-  for(const col of DC_COLLECTIONS){
-    if(col.symbol.startsWith('UNRESOLVED')){
-      continue; // no confirmed ME symbol for this one yet — skip rather than waste a request
-    }
+  if(!isRefresh){
+    // populate sub-collection filter immediately — DC_COLLECTIONS is static,
+    // it doesn't need to wait on any network response.
+    subFilterEl.innerHTML = '<option value="">All sub-collections</option>' +
+      DC_COLLECTIONS.map(c => `<option value="${c.sub}">${c.sub}</option>`).join('');
+  }
+
+  setStatus(isRefresh ? 'Refreshing listings…' : 'Fetching listings from Magic Eden…');
+  // Collected into a local array rather than the shared `allListings` so a
+  // background refresh doesn't empty the grid out mid-scan — it's swapped
+  // in atomically once the whole pool finishes. The initial load still
+  // updates `allListings` progressively below, for a fast first paint.
+  const results = [];
+  let failed = [];
+  let checked = 0;
+
+  const toFetch = DC_COLLECTIONS.filter(col => !col.symbol.startsWith('UNRESOLVED'));
+  // no confirmed ME symbol yet for UNRESOLVED entries — skip rather than waste a request
+
+  await runPool(toFetch, async (col) => {
     try{
-      const data = await fetchCollectionListings(col.symbol);
-      const items = (Array.isArray(data) ? data : []).map(item => ({
-        sub: col.sub,
-        symbol: col.symbol,
-        name: item?.token?.name || 'Untitled',
-        image: item?.token?.image || item?.extra?.img || '',
-        price: item?.price ?? null,
-        mintAddress: item?.tokenMint || item?.token?.mintAddress || '',
-        listedAt: item?.updatedAt || null,
-        pdpUrl: `https://magiceden.io/item-details/${item?.tokenMint || item?.token?.mintAddress || ''}`,
-      }));
-      allListings = allListings.concat(items);
+      const [data, listedTimes] = await Promise.all([
+        fetchCollectionListings(col.symbol),
+        fetchRecentListedTimes(col.symbol).catch(() => new Map()), // best-effort — a missing timestamp shouldn't drop the listing
+      ]);
+      const items = (Array.isArray(data) ? data : []).map(item => {
+        const mint = item?.tokenMint || item?.token?.mintAddress || '';
+        return {
+          sub: col.sub,
+          symbol: col.symbol,
+          name: item?.token?.name || 'Untitled',
+          image: item?.token?.image || item?.extra?.img || '',
+          price: item?.price ?? null,
+          mintAddress: mint,
+          listedAt: listedTimes.get(mint) || null,
+          pdpUrl: `https://magiceden.io/item-details/${mint}`,
+        };
+      });
+      results.push(...items);
+      if(!isRefresh){
+        allListings = results;
+        scheduleRender();
+      }
     }catch(e){
       failed.push(col.sub);
       console.error(e);
     }
-    setStatus(`Fetching listings… ${allListings.length} found so far (${DC_COLLECTIONS.indexOf(col) + 1}/${DC_COLLECTIONS.length} collections checked)`);
-    await sleep(350); // stay under Magic Eden's public rate limit across ~190 collections
-  }
+    checked++;
+    setStatus(`${isRefresh ? 'Refreshing' : 'Fetching'} listings… ${results.length} found so far (${checked}/${toFetch.length} collections checked)`);
+  }, 8);
 
-  // populate sub-collection filter
-  subFilterEl.innerHTML = '<option value="">All sub-collections</option>' +
-    DC_COLLECTIONS.map(c => `<option value="${c.sub}">${c.sub}</option>`).join('');
+  allListings = results;
 
   if(allListings.length === 0){
     setStatus(`No listings found${failed.length ? ' (failed: ' + failed.join(', ') + ')' : ''}. If this persists, Magic Eden's API may be blocking direct browser requests (CORS) — a small proxy would fix that.`, true);
   } else {
-    setStatus(`${allListings.length} listings loaded across ${DC_COLLECTIONS.length} sub-collection(s)${failed.length ? ' · failed: ' + failed.join(', ') : ''}.`);
+    const updated = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setStatus(`${allListings.length} listings loaded across ${DC_COLLECTIONS.length} sub-collection(s)${failed.length ? ' · failed: ' + failed.join(', ') : ''} · updated ${updated}, auto-refreshes every 5 min.`);
   }
   render();
 }
@@ -431,10 +483,6 @@ function render(){
     if(sort === 'time-desc') return (b.listedAt ?? 0) - (a.listedAt ?? 0);
     return 0;
   });
-
-  if(currentTab === 'recent'){
-    items = items.filter(i => i.listedAt).sort((a,b) => (b.listedAt ?? 0) - (a.listedAt ?? 0)).slice(0, 60);
-  }
 
   if(items.length === 0){
     gridEl.innerHTML = `<div class="empty">No listings match this view yet.<br>Try a different sub-collection or check back later.</div>`;
@@ -462,18 +510,12 @@ function timeAgo(ts){
   return Math.floor(secs/86400) + 'd ago';
 }
 
-document.querySelectorAll('.tab').forEach(t => {
-  t.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-    t.classList.add('active');
-    currentTab = t.dataset.tab;
-    render();
-  });
-});
 subFilterEl.addEventListener('change', render);
 sortByEl.addEventListener('change', render);
 
+const REFRESH_INTERVAL = 5 * 60 * 1000; // re-scan every 5 minutes to pick up new listings
 loadAll();
+setInterval(() => loadAll(true), REFRESH_INTERVAL);
 </script>
 </body>
 </html>
