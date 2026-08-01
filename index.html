@@ -374,10 +374,26 @@ function shortMint(mint){
   return mint && mint.length > 8 ? mint.slice(0, 4) + '…' + mint.slice(-4) : (mint || '');
 }
 
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+// Fetching ~200 collections × 2 endpoints (listings + activities) in
+// parallel is enough to occasionally trip the proxy Worker's rate limit
+// (HTTP 429). That's transient, not fatal — retry with backoff instead of
+// dropping the collection outright.
+async function fetchJSON(url, retries = 3){
+  for(let attempt = 0; ; attempt++){
+    const res = await fetch(url);
+    if(res.ok) return res.json();
+    if(res.status === 429 && attempt < retries){
+      await sleep(500 * Math.pow(2, attempt)); // 500ms, 1s, 2s
+      continue;
+    }
+    throw new Error(`${url}: HTTP ${res.status}`);
+  }
+}
+
 async function fetchCollectionListings(symbol){
-  const res = await fetch(`${ME_BASE}/collections/${symbol}/listings?offset=0&limit=100`);
-  if(!res.ok) throw new Error(`${symbol}: HTTP ${res.status}`);
-  return res.json();
+  return fetchJSON(`${ME_BASE}/collections/${symbol}/listings?offset=0&limit=100`);
 }
 
 // The /listings endpoint carries no timestamp for when an item was listed,
@@ -386,9 +402,7 @@ async function fetchCollectionListings(symbol){
 // events. One fetch here serves both: a tokenMint → blockTime map so
 // listings can show a real "listed at" time, and a list of recent sales.
 async function fetchCollectionActivities(symbol){
-  const res = await fetch(`${ME_BASE}/collections/${symbol}/activities?offset=0&limit=100`);
-  if(!res.ok) throw new Error(`${symbol} activities: HTTP ${res.status}`);
-  return res.json();
+  return fetchJSON(`${ME_BASE}/collections/${symbol}/activities?offset=0&limit=100`);
 }
 
 function deriveListedTimes(activities){
@@ -504,7 +518,7 @@ async function loadAll(isRefresh){
     }
     checked++;
     setStatus(`${isRefresh ? 'Refreshing' : 'Fetching'}… ${results.length} listings, ${salesResults.length} sales so far (${checked}/${toFetch.length} collections checked)`);
-  }, 8);
+  }, 5); // each worker fires 2 requests (listings + activities) at once, so this is ~10 concurrent requests
 
   allListings = results;
   allSales = salesResults;
