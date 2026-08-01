@@ -4,107 +4,86 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Latest DC Listings — ZurVault</title>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-
   :root{
-    --ink:    #0a0a0a;
-    --gold:   #c9a84c;
-    --faint:  rgba(255,255,255,0.05);
-    --border: rgba(255,255,255,0.07);
+    --bg:#0a0a0a;
+    --bg-panel:#121212;
+    --bg-card:#161616;
+    --border:#262626;
+    --red:#e0263e;
+    --red-dim:#7a1420;
+    --green:#39ff6a;
+    --text:#e8e8e8;
+    --text-dim:#8a8a8a;
   }
-
+  *{box-sizing:border-box;}
   body{
-    background:var(--ink); color:#fff; min-height:100vh;
-    font-family:'DM Mono',monospace; -webkit-font-smoothing:antialiased;
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'Oswald',sans-serif; -webkit-font-smoothing:antialiased;
   }
-  .serif{ font-family:'Cormorant Garamond',serif; }
-
+  .mono{font-family:'JetBrains Mono',monospace;}
   header{
-    padding:44px 32px 20px; border-bottom:1px solid var(--border);
-    position:sticky; top:0; background:rgba(10,10,10,0.92); backdrop-filter:blur(10px); z-index:10;
+    padding:20px 16px 14px; border-bottom:1px solid var(--border);
+    position:sticky; top:0; background:rgba(10,10,10,0.95); backdrop-filter:blur(6px); z-index:10;
   }
-  header .brand{ font-size:.55rem; letter-spacing:.4em; color:rgba(255,255,255,0.18); text-transform:uppercase; }
-  header .brand a{ color:rgba(255,255,255,0.18); text-decoration:none; }
-  header .brand a:hover{ color:var(--gold); }
-  header h1{
-    font-family:'Cormorant Garamond',serif; font-weight:300; letter-spacing:.02em;
-    font-size:clamp(1.8rem,5vw,2.6rem); color:rgba(255,255,255,0.92); margin-top:10px;
-  }
-  header h1 span{ color:var(--gold); }
+  header .brand{font-size:14px; letter-spacing:2px; color:var(--text-dim); text-transform:uppercase;}
+  header .brand a{color:var(--text-dim); text-decoration:none;}
+  header h1{margin:4px 0 0; font-size:26px; font-weight:700; letter-spacing:0.5px;
+    text-transform:uppercase;}
+  header h1 span{color:var(--red);}
 
-  .back-link{
-    display:inline-block; margin-top:14px; font-family:'DM Mono',monospace; font-size:.5rem;
-    letter-spacing:.2em; text-transform:uppercase; color:rgba(201,168,76,0.6); text-decoration:none;
-    border:1px solid rgba(201,168,76,0.2); padding:6px 14px; border-radius:2px; transition:all .15s;
-  }
-  .back-link:hover{ color:var(--gold); border-color:rgba(201,168,76,0.5); }
-
-  .tabs{ display:flex; gap:0; margin-top:22px; border-bottom:1px solid var(--border); }
+  .tabs{display:flex; gap:0; margin-top:16px; border-bottom:1px solid var(--border);}
   .tab{
-    flex:1; text-align:center; padding:12px 8px; font-size:.5rem; letter-spacing:.25em;
-    text-transform:uppercase; color:rgba(255,255,255,0.3); cursor:pointer;
-    border-bottom:1px solid transparent; transition:color .15s;
+    flex:1; text-align:center; padding:10px 8px; font-size:13px; letter-spacing:1px;
+    text-transform:uppercase; color:var(--text-dim); cursor:pointer; border-bottom:2px solid transparent;
+    font-weight:500;
   }
-  .tab.active{ color:rgba(255,255,255,0.85); border-bottom-color:var(--gold); }
-  .tab:hover{ color:rgba(255,255,255,0.6); }
+  .tab.active{color:var(--text); border-bottom-color:var(--red);}
 
   .controls{
-    display:flex; gap:8px; padding:16px 32px; flex-wrap:wrap; border-bottom:1px solid var(--border);
-    background:rgba(255,255,255,0.015);
+    display:flex; gap:8px; padding:12px 16px; flex-wrap:wrap; border-bottom:1px solid var(--border);
+    background:var(--bg-panel);
   }
-  select{
-    background:rgba(0,0,0,0.5); border:1px solid var(--border); color:rgba(255,255,255,0.7);
-    font-family:'DM Mono',monospace; font-size:.5rem; letter-spacing:.1em; text-transform:uppercase;
-    padding:9px 12px; border-radius:2px;
+  select, input[type=text]{
+    background:var(--bg-card); border:1px solid var(--border); color:var(--text);
+    font-family:'JetBrains Mono',monospace; font-size:12px; padding:8px 10px; border-radius:4px;
   }
-  select:focus{ outline:1px solid rgba(201,168,76,0.4); }
+  select:focus, input:focus{outline:1px solid var(--red);}
 
-  #status{ padding:16px 32px; font-size:.48rem; letter-spacing:.1em; color:rgba(255,255,255,0.28); text-transform:uppercase; }
-  #status.err{ color:#e07a5f; }
-  #status .dot{ display:inline-block; width:6px; height:6px; border-radius:50%; background:#4ade80; margin-right:8px; }
+  #status{padding:14px 16px; font-size:12px; color:var(--text-dim);}
+  #status.err{color:var(--red);}
+  #status .dot{display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--green); margin-right:6px;}
 
   .grid{
     display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
-    gap:1px; background:var(--border); padding:1px 32px 60px; margin-top:1px;
+    gap:10px; padding:12px 16px 40px;
   }
   .card{
-    background:var(--ink); overflow:hidden; text-decoration:none; color:#fff;
-    display:flex; flex-direction:column; transition:background .15s;
+    background:var(--bg-card); border:1px solid var(--border); border-radius:6px; overflow:hidden;
+    text-decoration:none; color:var(--text); display:flex; flex-direction:column;
   }
-  .card:hover{ background:rgba(255,255,255,0.03); }
-  .card img{ width:100%; aspect-ratio:2/3; object-fit:cover; background:rgba(255,255,255,0.03); display:block; }
-  .card .body{ padding:12px 14px 16px; }
-  .card .sub{
-    font-family:'DM Mono',monospace; font-size:.4rem; letter-spacing:.14em; text-transform:uppercase;
-    color:rgba(201,168,76,0.55); margin-bottom:5px;
-  }
-  .card .name{
-    font-family:'Cormorant Garamond',serif; font-weight:400; font-size:1rem; line-height:1.25;
-    color:rgba(255,255,255,0.85); margin-bottom:8px;
-    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
-  }
-  .card .price{ font-family:'DM Mono',monospace; font-size:.56rem; letter-spacing:.05em; color:rgba(255,255,255,0.7); }
-  .card .time{ font-family:'DM Mono',monospace; font-size:.42rem; letter-spacing:.1em; color:rgba(255,255,255,0.22); margin-top:3px; text-transform:uppercase; }
+  .card img{width:100%; aspect-ratio:2/3; object-fit:cover; background:#1c1c1c; display:block;}
+  .card .body{padding:8px 10px 10px;}
+  .card .sub{font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--red); margin-bottom:3px;}
+  .card .name{font-size:12px; line-height:1.3; font-weight:500; margin-bottom:6px;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+  .card .price{font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--green); font-weight:700;}
+  .card .time{font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-dim); margin-top:2px;}
 
-  .empty{ padding:60px 32px; text-align:center; color:rgba(255,255,255,0.25); font-family:'Cormorant Garamond',serif; font-size:1.2rem; font-weight:300; line-height:1.6; }
+  .empty{padding:40px 16px; text-align:center; color:var(--text-dim); font-size:13px;}
+  .empty a{color:var(--red);}
 
-  footer{ padding:28px 32px 44px; text-align:center; font-size:.42rem; letter-spacing:.12em; color:rgba(255,255,255,0.15); text-transform:uppercase; }
-  footer a{ color:rgba(201,168,76,0.5); text-decoration:none; }
-  footer a:hover{ color:var(--gold); }
+  footer{padding:20px 16px 40px; text-align:center; font-size:11px; color:var(--text-dim);}
+  footer a{color:var(--text-dim);}
 </style>
 </head>
 <body>
-<div id="grain" style="position:fixed;inset:0;z-index:200;pointer-events:none;opacity:0.025;background-image:url(&quot;data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E&quot;);"></div>
 
 <header>
-  <div class="brand"><a href="index.html">ZurVault</a> / Latest DC Listings</div>
+  <div class="brand mono"><a href="index.html">ZurVault</a> / Latest DC Listings</div>
   <h1>Latest DC <span>Listings</span></h1>
-  <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
-    <a class="back-link" href="slideshow.html">Slideshow &#8599;</a>
-    <a class="back-link" href="viewer.html">Viewer &#8599;</a>
-  </div>
   <div class="tabs">
     <div class="tab active" data-tab="browse">Browse All</div>
     <div class="tab" data-tab="recent">Recently Listed</div>
@@ -120,10 +99,10 @@
   </select>
 </div>
 
-<div id="status"><span class="dot"></span>Loading collections…</div>
+<div id="status" class="mono"><span class="dot"></span>Loading collections…</div>
 <div id="grid" class="grid"></div>
 
-<footer>
+<footer class="mono">
   Live listing data via Magic Eden public API · <a href="index.html">zurvault.com</a>
 </footer>
 
