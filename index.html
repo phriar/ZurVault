@@ -359,6 +359,16 @@ const ME_BASE = ME_PROXY_BASE + "/v2";
 let allListings = [];
 let allSales = [];
 let currentView = 'listings';
+let isInitialLoading = false;
+let checkedSymbols = new Set();
+
+// During the initial progressive load, a sub-collection whose fetch just
+// hasn't happened yet looks identical to one that's genuinely empty. Tell
+// them apart so the empty state doesn't read as "nothing here."
+function isSubStillLoading(sub){
+  if(!isInitialLoading || !sub) return false;
+  return DC_COLLECTIONS.some(c => c.sub === sub && !c.symbol.startsWith('UNRESOLVED') && !checkedSymbols.has(c.symbol));
+}
 
 const statusEl = document.getElementById('status');
 const gridEl = document.getElementById('grid');
@@ -485,6 +495,8 @@ async function loadAll(isRefresh){
     // it doesn't need to wait on any network response.
     subFilterEl.innerHTML = '<option value="">All sub-collections</option>' +
       DC_COLLECTIONS.map(c => `<option value="${c.sub}">${c.sub}</option>`).join('');
+    isInitialLoading = true;
+    checkedSymbols = new Set();
   }
 
   setStatus(isRefresh ? 'Refreshing…' : 'Fetching listings from Magic Eden…');
@@ -532,12 +544,14 @@ async function loadAll(isRefresh){
       failed.push(col.sub);
       console.error(e);
     }
+    if(!isRefresh) checkedSymbols.add(col.symbol);
     checked++;
     setStatus(`${isRefresh ? 'Refreshing' : 'Fetching'}… ${results.length} listings, ${salesResults.length} sales so far (${checked}/${toFetch.length} collections checked)`);
   }, 4); // each worker fires 2 requests (listings + activities) at once, so this is ~8 concurrent requests
 
   allListings = results;
   allSales = salesResults;
+  if(!isRefresh) isInitialLoading = false;
 
   if(allListings.length === 0){
     setStatus(`No listings found${failed.length ? ' (failed: ' + failed.join(', ') + ')' : ''}. If this persists, Magic Eden's API may be blocking direct browser requests (CORS) — a small proxy would fix that.`, true);
@@ -567,7 +581,9 @@ function renderListings(){
   const items = sortItems(allListings.filter(i => !sub || i.sub === sub), sortByEl.value, 'listedAt');
 
   if(items.length === 0){
-    gridEl.innerHTML = `<div class="empty">No listings match this view yet.<br>Try a different sub-collection or check back later.</div>`;
+    gridEl.innerHTML = isSubStillLoading(sub)
+      ? `<div class="empty">Still scanning this sub-collection…<br>Results will appear as soon as it's checked.</div>`
+      : `<div class="empty">No listings match this view yet.<br>Try a different sub-collection or check back later.</div>`;
     return;
   }
 
@@ -589,7 +605,9 @@ function renderSales(){
   const items = sortItems(allSales.filter(i => !sub || i.sub === sub), sortByEl.value, 'soldAt').slice(0, 200);
 
   if(items.length === 0){
-    gridEl.innerHTML = `<div class="empty">No sales in the last 7 days for this view.<br>Try a different sub-collection or check back later.</div>`;
+    gridEl.innerHTML = isSubStillLoading(sub)
+      ? `<div class="empty">Still scanning this sub-collection…<br>Results will appear as soon as it's checked.</div>`
+      : `<div class="empty">No sales in the last 7 days for this view.<br>Try a different sub-collection or check back later.</div>`;
     return;
   }
 
