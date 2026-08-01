@@ -50,6 +50,15 @@
   }
   .back-link:hover{ color:var(--gold); border-color:rgba(143,111,232,0.5); }
 
+  .tabs{ display:flex; gap:0; margin-top:22px; border-bottom:1px solid var(--border); }
+  .tab{
+    flex:1; text-align:center; padding:12px 8px; font-size:.5rem; letter-spacing:.25em;
+    text-transform:uppercase; color:rgba(255,255,255,0.3); cursor:pointer;
+    border-bottom:1px solid transparent; transition:color .15s;
+  }
+  .tab.active{ color:rgba(255,255,255,0.85); border-bottom-color:var(--cyan); }
+  .tab:hover{ color:rgba(255,255,255,0.6); }
+
   .controls{
     display:flex; gap:8px; padding:16px 32px; flex-wrap:wrap; border-bottom:1px solid var(--border);
     background:rgba(255,255,255,0.015);
@@ -106,12 +115,16 @@
     <a class="back-link" href="slideshow.html">Slideshow &#8599;</a>
     <a class="back-link" href="viewer.html">Viewer &#8599;</a>
   </div>
+  <div class="tabs">
+    <div class="tab active" data-view="listings">For Sale</div>
+    <div class="tab" data-view="sales">Recent Sales</div>
+  </div>
 </header>
 
 <div class="controls">
   <select id="subFilter"><option value="">All sub-collections</option></select>
   <select id="sortBy">
-    <option value="time-desc" selected>Newest listed</option>
+    <option value="time-desc" selected>Most recent</option>
     <option value="price-asc">Price: low → high</option>
     <option value="price-desc">Price: high → low</option>
   </select>
@@ -344,6 +357,8 @@ const ME_PROXY_BASE = "https://zurvault-proxy.stholt.workers.dev";
 const ME_BASE = ME_PROXY_BASE + "/v2";
 
 let allListings = [];
+let allSales = [];
+let currentView = 'listings';
 
 const statusEl = document.getElementById('status');
 const gridEl = document.getElementById('grid');
@@ -355,27 +370,53 @@ function setStatus(msg, isErr){
   statusEl.classList.toggle('err', !!isErr);
 }
 
+function shortMint(mint){
+  return mint && mint.length > 8 ? mint.slice(0, 4) + '…' + mint.slice(-4) : (mint || '');
+}
+
 async function fetchCollectionListings(symbol){
   const res = await fetch(`${ME_BASE}/collections/${symbol}/listings?offset=0&limit=100`);
   if(!res.ok) throw new Error(`${symbol}: HTTP ${res.status}`);
   return res.json();
 }
 
-// The /listings endpoint carries no timestamp for when an item was listed —
-// only /activities does (as blockTime on "list" events). Build a
-// tokenMint → blockTime map from the most recent activity page so listings
-// can be given a real "listed at" time instead of always being null.
-async function fetchRecentListedTimes(symbol){
+// The /listings endpoint carries no timestamp for when an item was listed,
+// and has no record of completed sales at all — only /activities has both,
+// as blockTime on "list" events and "buyNow"/"acceptBid" (completed sale)
+// events. One fetch here serves both: a tokenMint → blockTime map so
+// listings can show a real "listed at" time, and a list of recent sales.
+async function fetchCollectionActivities(symbol){
   const res = await fetch(`${ME_BASE}/collections/${symbol}/activities?offset=0&limit=100`);
   if(!res.ok) throw new Error(`${symbol} activities: HTTP ${res.status}`);
-  const data = await res.json();
+  return res.json();
+}
+
+function deriveListedTimes(activities){
   const map = new Map();
-  for(const a of (Array.isArray(data) ? data : [])){
+  for(const a of activities){
     if(a?.type === 'list' && a?.tokenMint && !map.has(a.tokenMint)){
       map.set(a.tokenMint, a.blockTime || null);
     }
   }
   return map;
+}
+
+function deriveSales(activities, col){
+  const sales = [];
+  for(const a of activities){
+    if((a?.type === 'buyNow' || a?.type === 'acceptBid') && a?.tokenMint){
+      sales.push({
+        sub: col.sub,
+        symbol: col.symbol,
+        image: a.image || '',
+        price: a.price ?? null,
+        mint: a.tokenMint,
+        soldAt: a.blockTime || null,
+        pdpUrl: `https://magiceden.io/item-details/${a.tokenMint}`,
+      });
+    }
+  }
+  return sales;
 }
 
 // Runs `worker` over `items` with at most `concurrency` in flight at once,
@@ -416,12 +457,13 @@ async function loadAll(isRefresh){
       DC_COLLECTIONS.map(c => `<option value="${c.sub}">${c.sub}</option>`).join('');
   }
 
-  setStatus(isRefresh ? 'Refreshing listings…' : 'Fetching listings from Magic Eden…');
-  // Collected into a local array rather than the shared `allListings` so a
-  // background refresh doesn't empty the grid out mid-scan — it's swapped
-  // in atomically once the whole pool finishes. The initial load still
-  // updates `allListings` progressively below, for a fast first paint.
+  setStatus(isRefresh ? 'Refreshing…' : 'Fetching listings from Magic Eden…');
+  // Collected into local arrays rather than the shared `allListings`/`allSales`
+  // so a background refresh doesn't empty the grid out mid-scan — they're
+  // swapped in atomically once the whole pool finishes. The initial load
+  // still updates the shared arrays progressively below, for a fast first paint.
   const results = [];
+  const salesResults = [];
   let failed = [];
   let checked = 0;
 
@@ -430,10 +472,12 @@ async function loadAll(isRefresh){
 
   await runPool(toFetch, async (col) => {
     try{
-      const [data, listedTimes] = await Promise.all([
+      const [data, rawActivities] = await Promise.all([
         fetchCollectionListings(col.symbol),
-        fetchRecentListedTimes(col.symbol).catch(() => new Map()), // best-effort — a missing timestamp shouldn't drop the listing
+        fetchCollectionActivities(col.symbol).catch(() => []), // best-effort — a missing timestamp/sale shouldn't drop the listing
       ]);
+      const activities = Array.isArray(rawActivities) ? rawActivities : [];
+      const listedTimes = deriveListedTimes(activities);
       const items = (Array.isArray(data) ? data : []).map(item => {
         const mint = item?.tokenMint || item?.token?.mintAddress || '';
         return {
@@ -448,8 +492,10 @@ async function loadAll(isRefresh){
         };
       });
       results.push(...items);
+      salesResults.push(...deriveSales(activities, col));
       if(!isRefresh){
         allListings = results;
+        allSales = salesResults;
         scheduleRender();
       }
     }catch(e){
@@ -457,32 +503,38 @@ async function loadAll(isRefresh){
       console.error(e);
     }
     checked++;
-    setStatus(`${isRefresh ? 'Refreshing' : 'Fetching'} listings… ${results.length} found so far (${checked}/${toFetch.length} collections checked)`);
+    setStatus(`${isRefresh ? 'Refreshing' : 'Fetching'}… ${results.length} listings, ${salesResults.length} sales so far (${checked}/${toFetch.length} collections checked)`);
   }, 8);
 
   allListings = results;
+  allSales = salesResults;
 
   if(allListings.length === 0){
     setStatus(`No listings found${failed.length ? ' (failed: ' + failed.join(', ') + ')' : ''}. If this persists, Magic Eden's API may be blocking direct browser requests (CORS) — a small proxy would fix that.`, true);
   } else {
     const updated = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    setStatus(`${allListings.length} listings loaded across ${DC_COLLECTIONS.length} sub-collection(s)${failed.length ? ' · failed: ' + failed.join(', ') : ''} · updated ${updated}, auto-refreshes every 5 min.`);
+    setStatus(`${allListings.length} listings, ${allSales.length} recent sales across ${DC_COLLECTIONS.length} sub-collection(s)${failed.length ? ' · failed: ' + failed.join(', ') : ''} · updated ${updated}, auto-refreshes every 5 min.`);
   }
   render();
 }
 
-function render(){
-  const sub = subFilterEl.value;
-  const sort = sortByEl.value;
-
-  let items = allListings.filter(i => !sub || i.sub === sub);
-
-  items.sort((a,b) => {
+function sortItems(items, sort, timeField){
+  return items.slice().sort((a,b) => {
     if(sort === 'price-asc') return (a.price ?? Infinity) - (b.price ?? Infinity);
     if(sort === 'price-desc') return (b.price ?? -Infinity) - (a.price ?? -Infinity);
-    if(sort === 'time-desc') return (b.listedAt ?? 0) - (a.listedAt ?? 0);
+    if(sort === 'time-desc') return (b[timeField] ?? 0) - (a[timeField] ?? 0);
     return 0;
   });
+}
+
+function render(){
+  if(currentView === 'sales') renderSales();
+  else renderListings();
+}
+
+function renderListings(){
+  const sub = subFilterEl.value;
+  const items = sortItems(allListings.filter(i => !sub || i.sub === sub), sortByEl.value, 'listedAt');
 
   if(items.length === 0){
     gridEl.innerHTML = `<div class="empty">No listings match this view yet.<br>Try a different sub-collection or check back later.</div>`;
@@ -502,6 +554,28 @@ function render(){
   `).join('');
 }
 
+function renderSales(){
+  const sub = subFilterEl.value;
+  const items = sortItems(allSales.filter(i => !sub || i.sub === sub), sortByEl.value, 'soldAt').slice(0, 120);
+
+  if(items.length === 0){
+    gridEl.innerHTML = `<div class="empty">No recent sales tracked yet.<br>Try a different sub-collection or check back later.</div>`;
+    return;
+  }
+
+  gridEl.innerHTML = items.map(i => `
+    <a class="card" href="${i.pdpUrl}" target="_blank" rel="noopener">
+      <img src="${i.image}" loading="lazy" onerror="this.style.opacity=0.2">
+      <div class="body">
+        <div class="sub">${i.sub}</div>
+        <div class="name">Sold · ${shortMint(i.mint)}</div>
+        <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
+        ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
+      </div>
+    </a>
+  `).join('');
+}
+
 function timeAgo(ts){
   const secs = typeof ts === 'number' ? (ts > 1e12 ? (Date.now()-ts)/1000 : Date.now()/1000 - ts) : (Date.now() - new Date(ts).getTime())/1000;
   if(secs < 60) return 'just now';
@@ -512,6 +586,15 @@ function timeAgo(ts){
 
 subFilterEl.addEventListener('change', render);
 sortByEl.addEventListener('change', render);
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    currentView = t.dataset.view;
+    render();
+  });
+});
 
 const REFRESH_INTERVAL = 5 * 60 * 1000; // re-scan every 5 minutes to pick up new listings
 loadAll();
