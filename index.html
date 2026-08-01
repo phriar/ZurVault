@@ -117,7 +117,7 @@
   </div>
   <div class="tabs">
     <div class="tab active" data-view="listings">For Sale</div>
-    <div class="tab" data-view="sales">Recent Sales</div>
+    <div class="tab" data-view="sales">Recent Sales (7d)</div>
   </div>
 </header>
 
@@ -380,12 +380,12 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 // parallel is enough to occasionally trip the proxy Worker's rate limit
 // (HTTP 429). That's transient, not fatal — retry with backoff instead of
 // dropping the collection outright.
-async function fetchJSON(url, retries = 3){
+async function fetchJSON(url, retries = 5){
   for(let attempt = 0; ; attempt++){
     const res = await fetch(url);
     if(res.ok) return res.json();
     if(res.status === 429 && attempt < retries){
-      await sleep(500 * Math.pow(2, attempt)); // 500ms, 1s, 2s
+      await sleep(800 * Math.pow(2, attempt)); // 800ms, 1.6s, 3.2s, 6.4s, 12.8s — the proxy's rate-limit cooldown can outlast a couple of short retries
       continue;
     }
     throw new Error(`${url}: HTTP ${res.status}`);
@@ -396,13 +396,28 @@ async function fetchCollectionListings(symbol){
   return fetchJSON(`${ME_BASE}/collections/${symbol}/listings?offset=0&limit=100`);
 }
 
+const SALES_WINDOW_SECS = 7 * 24 * 60 * 60; // Recent Sales looks back one week
+const ACTIVITIES_MAX_PAGES = 5; // safety cap — a very active collection could otherwise page forever
+
 // The /listings endpoint carries no timestamp for when an item was listed,
 // and has no record of completed sales at all — only /activities has both,
 // as blockTime on "list" events and "buyNow"/"acceptBid" (completed sale)
 // events. One fetch here serves both: a tokenMint → blockTime map so
 // listings can show a real "listed at" time, and a list of recent sales.
+// A single 100-event page can be as shallow as a few hours for an active
+// collection, so page backwards until we've covered the sales window (or
+// run out of history / hit the page cap).
 async function fetchCollectionActivities(symbol){
-  return fetchJSON(`${ME_BASE}/collections/${symbol}/activities?offset=0&limit=100`);
+  let all = [];
+  for(let page = 0; page < ACTIVITIES_MAX_PAGES; page++){
+    const batch = await fetchJSON(`${ME_BASE}/collections/${symbol}/activities?offset=${page * 100}&limit=100`);
+    if(!Array.isArray(batch) || batch.length === 0) break;
+    all = all.concat(batch);
+    const oldest = batch[batch.length - 1];
+    const oldestAge = Date.now() / 1000 - (oldest?.blockTime || 0);
+    if(batch.length < 100 || oldestAge > SALES_WINDOW_SECS) break; // no more history, or already past the window
+  }
+  return all;
 }
 
 function deriveListedTimes(activities){
@@ -416,9 +431,10 @@ function deriveListedTimes(activities){
 }
 
 function deriveSales(activities, col){
+  const cutoff = Date.now() / 1000 - SALES_WINDOW_SECS;
   const sales = [];
   for(const a of activities){
-    if((a?.type === 'buyNow' || a?.type === 'acceptBid') && a?.tokenMint){
+    if((a?.type === 'buyNow' || a?.type === 'acceptBid') && a?.tokenMint && (a.blockTime || 0) >= cutoff){
       sales.push({
         sub: col.sub,
         symbol: col.symbol,
@@ -518,7 +534,7 @@ async function loadAll(isRefresh){
     }
     checked++;
     setStatus(`${isRefresh ? 'Refreshing' : 'Fetching'}… ${results.length} listings, ${salesResults.length} sales so far (${checked}/${toFetch.length} collections checked)`);
-  }, 5); // each worker fires 2 requests (listings + activities) at once, so this is ~10 concurrent requests
+  }, 4); // each worker fires 2 requests (listings + activities) at once, so this is ~8 concurrent requests
 
   allListings = results;
   allSales = salesResults;
@@ -570,10 +586,10 @@ function renderListings(){
 
 function renderSales(){
   const sub = subFilterEl.value;
-  const items = sortItems(allSales.filter(i => !sub || i.sub === sub), sortByEl.value, 'soldAt').slice(0, 120);
+  const items = sortItems(allSales.filter(i => !sub || i.sub === sub), sortByEl.value, 'soldAt').slice(0, 200);
 
   if(items.length === 0){
-    gridEl.innerHTML = `<div class="empty">No recent sales tracked yet.<br>Try a different sub-collection or check back later.</div>`;
+    gridEl.innerHTML = `<div class="empty">No sales in the last 7 days for this view.<br>Try a different sub-collection or check back later.</div>`;
     return;
   }
 
