@@ -417,7 +417,8 @@ async function loadAll(isRefresh){
     setStatus(`No listings found${failed.length ? ' (failed: ' + failed.join(', ') + ')' : ''}.`, true);
   } else {
     const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
-    setStatus(`${allListings.length} listings, ${allSales.length} recent sales across ${DC_COLLECTIONS.length} sub-collection(s)${failed.length ? ' · failed: ' + failed.join(', ') : ''} · updated ${updated}, auto-refreshes every 22 min.`);
+    const partialNote = data.partial ? ' · last scan was cut short, more coverage next cycle' : '';
+    setStatus(`${allListings.length} listings, ${allSales.length} recent sales across ${DC_COLLECTIONS.length} sub-collection(s)${failed.length ? ' · failed: ' + failed.join(', ') : ''}${partialNote} · updated ${updated}, auto-refreshes every 22 min.`);
   }
   render();
 }

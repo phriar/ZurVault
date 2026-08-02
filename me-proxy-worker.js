@@ -291,6 +291,7 @@ const DC_COLLECTIONS = [
 const KV_KEY = "dc-summary";
 const KV_TTL_SECONDS = 2400; // 2x the 20-min cron interval — a safety net if a cron run fails, not the real freshness window (that's the cron cadence itself)
 const BATCH_SIZE = 10; // collections processed concurrently per batch — tune based on real 429 rates / cron run duration you observe after deploying
+const RUN_DEADLINE_MS = 45000; // self-imposed budget so a slow run still writes partial results instead of nothing — if `partial: true` shows up a lot in the KV value, either this needs raising (if your plan allows longer scheduled-event execution) or the workload needs trimming (lower ACTIVITIES_MAX_PAGES / SALES_WINDOW_SECS)
 const SALES_WINDOW_SECS = 7 * 24 * 60 * 60; // Recent Sales looks back one week
 const ACTIVITIES_MAX_PAGES = 5; // safety cap — a very active collection could otherwise page forever
 
@@ -362,20 +363,39 @@ function deriveSales(activities, col) {
 // heavily-throttled near-serial loop, since this is calling Magic Eden's
 // origin directly (not through this Worker), a different constraint than
 // the caches.default logic above.
-async function runBatches(items, worker, batchSize) {
+//
+// Also self-limits to `deadlineMs` total: if a run is going slower than
+// expected (retries stacking up, Magic Eden having a slow day, or just
+// misjudging how much a single invocation can get through), it stops
+// starting new batches once the deadline passes rather than risking the
+// whole invocation getting cut off mid-flight with nothing written. Any
+// collections not reached this cycle just get picked up on the next one.
+async function runBatches(items, worker, batchSize, deadlineMs) {
+  const startedAt = Date.now();
+  let reached = 0;
   for (let i = 0; i < items.length; i += batchSize) {
+    if (Date.now() - startedAt > deadlineMs) break;
     const batch = items.slice(i, i + batchSize);
     await Promise.all(batch.map(worker));
+    reached += batch.length;
   }
+  return { reached, total: items.length };
 }
 
 async function refreshDCSummary(env) {
-  const toFetch = DC_COLLECTIONS.filter((c) => !c.symbol.startsWith("UNRESOLVED"));
+  const resolved = DC_COLLECTIONS.filter((c) => !c.symbol.startsWith("UNRESOLVED"));
+  // Rotate the starting point each run (deterministic from wall-clock time,
+  // no state needed) so that if a run gets cut short by RUN_DEADLINE_MS,
+  // it's not always the same tail end of the list that goes uncovered —
+  // coverage rotates across runs instead of permanently starving whichever
+  // collections happen to sit at the end of DC_COLLECTIONS.
+  const rotateBy = resolved.length ? Math.floor(Date.now() / (20 * 60 * 1000)) % resolved.length : 0;
+  const toFetch = resolved.slice(rotateBy).concat(resolved.slice(0, rotateBy));
   const listings = [];
   const sales = [];
   const failed = [];
 
-  await runBatches(
+  const { reached, total } = await runBatches(
     toFetch,
     async (col) => {
       try {
@@ -403,10 +423,15 @@ async function refreshDCSummary(env) {
         failed.push(col.sub);
       }
     },
-    BATCH_SIZE
+    BATCH_SIZE,
+    RUN_DEADLINE_MS
   );
 
-  const summary = { listings, sales, updatedAt: Date.now(), failed };
+  // Write unconditionally — even a partial run (some collections not
+  // reached before the deadline) produces real, mostly-fresh data, which
+  // beats the all-or-nothing pattern that was almost certainly the actual
+  // cause of the site going blank: any interruption meant zero writes.
+  const summary = { listings, sales, updatedAt: Date.now(), failed, partial: reached < total };
   await env.DC_CACHE.put(KV_KEY, JSON.stringify(summary), { expirationTtl: KV_TTL_SECONDS });
   return summary;
 }
