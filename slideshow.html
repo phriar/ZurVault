@@ -56,10 +56,19 @@ html, body { width:100%; height:100%; background:var(--ink); overflow:hidden; }
 .c-note { margin-top:10px; font-family:'DM Mono',monospace; font-size:.5rem; letter-spacing:.12em; color:rgba(255,255,255,0.12); }
 .c-note a { color:rgba(143,111,232,0.5); text-decoration:none; }
 
-.c-divider { display:flex; align-items:center; gap:10px; width:100%; max-width:280px; margin:18px 0 14px; }
-.c-divider::before, .c-divider::after { content:''; flex:1; height:1px; background:rgba(255,255,255,0.08); }
-.c-divider span { font-family:'DM Mono',monospace; font-size:.44rem; letter-spacing:.18em; color:rgba(255,255,255,0.18); text-transform:uppercase; white-space:nowrap; }
-.c-kiosk { display:flex; flex-direction:column; align-items:center; gap:8px; width:100%; max-width:280px; }
+.c-disclaimer {
+  max-width:300px; margin-top:14px; padding:10px 14px;
+  border:1px solid rgba(77,232,255,0.25); border-radius:4px; background:rgba(77,232,255,0.06);
+  font-family:'DM Mono',monospace; font-size:.48rem; letter-spacing:.03em; line-height:1.6;
+  color:rgba(255,255,255,0.6); text-align:center;
+}
+.c-toggle-link {
+  margin-top:18px; background:none; border:none; cursor:pointer; -webkit-tap-highlight-color:transparent;
+  font-family:'DM Mono',monospace; font-size:.48rem; letter-spacing:.08em; color:rgba(255,255,255,0.28);
+  text-decoration:underline; text-underline-offset:3px; transition:color .15s;
+}
+.c-toggle-link:hover { color:rgba(255,255,255,0.55); }
+.c-kiosk { display:flex; flex-direction:column; align-items:center; gap:8px; width:100%; max-width:280px; margin-top:14px; }
 .c-kiosk-input { width:100%; background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.14); color:rgba(255,255,255,0.8); font-family:'DM Mono',monospace; font-size:.55rem; letter-spacing:.05em; padding:11px 12px; border-radius:2px; outline:none; text-align:center; backdrop-filter:blur(12px); }
 .c-kiosk-input::placeholder { color:rgba(255,255,255,0.2); }
 .c-kiosk-input:focus { border-color:rgba(143,111,232,0.5); }
@@ -198,6 +207,11 @@ html, body { width:100%; height:100%; background:var(--ink); overflow:hidden; }
     <div class="c-pill"><div class="c-pill-dot"></div><div class="c-pill-text">Cannot approve</div></div>
   </div>
   <button class="c-btn" onclick="connectWallet()">Connect Phantom</button>
+
+  <div class="c-disclaimer">
+    ZurVault never asks for your seed phrase or private key &#8212; only your public wallet address, and only to look up which NFTs you own.
+  </div>
+
   <div class="c-readonly">
     Only your <strong>public wallet address</strong> is read to fetch NFT images.<br>
     No transactions, signatures, or approvals &#8212; ever.
@@ -206,11 +220,15 @@ html, body { width:100%; height:100%; background:var(--ink); overflow:hidden; }
     Phantom not found &#8212; <a href="https://phantom.app" target="_blank">install it</a>
   </div>
 
-  <div class="c-divider"><span>or, for kiosk / tablet display</span></div>
-  <div class="c-kiosk">
+  <button class="c-toggle-link" id="kiosk-toggle" type="button">Don't have Phantom? View with a public address instead</button>
+  <div class="c-kiosk" id="kiosk-section" style="display:none">
     <input class="c-kiosk-input" id="kiosk-input" type="text" placeholder="paste wallet public address" autocapitalize="off" autocorrect="off" spellcheck="false">
     <button class="c-kiosk-btn" id="kiosk-btn">View Collection</button>
     <div class="c-kiosk-err" id="kiosk-err">That doesn't look like a valid Solana address.</div>
+  </div>
+
+  <div class="c-note" style="margin-top:16px">
+    <a href="https://github.com/phriar/ZurVault" target="_blank" rel="noopener">View source on GitHub &#8599;</a>
   </div>
 </div>
 
@@ -380,9 +398,21 @@ async function startKiosk(addr) {
   await fetchAllNFTs();
 }
 
-var kioskInputEl = document.getElementById('kiosk-input');
-var kioskBtnEl   = document.getElementById('kiosk-btn');
-var kioskErrEl   = document.getElementById('kiosk-err');
+var kioskInputEl   = document.getElementById('kiosk-input');
+var kioskBtnEl     = document.getElementById('kiosk-btn');
+var kioskErrEl     = document.getElementById('kiosk-err');
+var kioskToggleEl  = document.getElementById('kiosk-toggle');
+var kioskSectionEl = document.getElementById('kiosk-section');
+
+// Manual entry is tucked behind this toggle rather than shown as a peer
+// option next to "Connect Phantom" — a visible wallet-address input sitting
+// right next to a wallet-connect button is a recognized phishing/drainer
+// pattern, even though this one only ever reads a public address.
+kioskToggleEl.addEventListener('click', function(){
+  var hidden = kioskSectionEl.style.display === 'none';
+  kioskSectionEl.style.display = hidden ? 'flex' : 'none';
+  if (hidden) kioskInputEl.focus();
+});
 
 function submitKioskInput() {
   var addr = kioskInputEl.value.trim();
