@@ -15,9 +15,11 @@
 
   var COWL_URL = 'https://arweave.net/uyG3Nvb1UKTtm3q-tdHs4GNYOiEyaSTc7O0zhsc9gIQ';
 
+  // Discover intentionally isn't listed — it's a config-generation tool for
+  // building DC_COLLECTIONS, not a visitor-facing feature. The page and its
+  // own site-nav.js include still work, it's just not linked from the banner.
   var PAGES = [
     { id: 'index',     label: 'Listings',      href: 'index.html' },
-    { id: 'discover',  label: 'Discover',      href: 'discover.html' },
     { id: 'viewer',    label: 'Viewer',        href: 'viewer.html' },
     { id: 'slideshow', label: 'Slideshow',     href: 'slideshow.html' },
     { id: 'comics',    label: 'Comics',        href: 'comics.html' },

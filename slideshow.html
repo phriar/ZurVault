@@ -193,12 +193,6 @@ html, body { width:100%; height:100%; background:var(--ink); overflow:hidden; }
   <div class="c-note" id="no-ph" style="display:none">
     Phantom not found &#8212; <a href="https://phantom.app" target="_blank">install it</a>
   </div>
-  <div class="c-note" style="margin-top:8px">
-    Browse your collection in <a href="viewer.html">Viewer &#8599;</a>
-  </div>
-  <div class="c-note" style="margin-top:6px">
-    See what's new on <a href="index.html">Latest DC Listings &#8599;</a>
-  </div>
 </div>
 
 <!-- LOADING -->
@@ -267,6 +261,7 @@ var INTERVAL   = 10000;
 var MAX_TRAITS = 5;
 
 var wallet       = null;
+var kioskAutoPlay = false; // set when arriving via ?wallet= — skips the picker and shuffles straight into playback
 var allNFTs      = [];
 var currentItems = [];
 var currentName  = '';
@@ -358,6 +353,7 @@ window.addEventListener('load', async function() {
   var urlWallet = new URLSearchParams(window.location.search).get('wallet');
   if (urlWallet) {
     wallet = urlWallet;
+    kioskAutoPlay = true;
     connectEl.classList.add('hide');
     loadingEl.classList.add('show');
     await fetchAllNFTs();
@@ -416,7 +412,8 @@ async function fetchAllNFTs() {
       if (items.length < 1000 || ++page > 10) break;
     }
     loadingEl.classList.remove('show');
-    showPicker();
+    if (kioskAutoPlay) startFrame(allNFTs, -1);
+    else showPicker();
   } catch(e) {
     console.error(e);
     loadingEl.classList.remove('show');
