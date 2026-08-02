@@ -412,9 +412,15 @@ async function loadAll(isRefresh){
   allListings = data.listings || [];
   allSales = data.sales || [];
   const failed = data.failed || [];
+  const sampleErrors = data.sampleErrors || [];
 
   if(allListings.length === 0){
-    setStatus(`No listings found${failed.length ? ' (failed: ' + failed.join(', ') + ')' : ''}.`, true);
+    // Show *why* it failed, not just how many — a wall of sub-collection
+    // names with no error detail isn't actionable.
+    const reason = sampleErrors.length
+      ? sampleErrors.join(' · ')
+      : (failed.length ? `${failed.length} collection(s) failed with no error detail captured` : 'unknown reason');
+    setStatus(`No listings found. ${reason}`, true);
   } else {
     const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
     const partialNote = data.partial ? ' · last scan was cut short, more coverage next cycle' : '';

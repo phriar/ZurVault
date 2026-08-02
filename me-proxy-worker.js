@@ -300,15 +300,26 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // Short, bounded retry — this runs inside a cron job with a real time
 // budget, unlike a one-off user-facing request, so we don't want a single
 // stubborn 429 eating tens of seconds of backoff.
+//
+// Sends a browser-like User-Agent: Cloudflare Workers' default outbound
+// fetch() doesn't send one at all, and some APIs (Magic Eden's included,
+// possibly) treat unidentified/datacenter-origin traffic more strictly
+// than they treat normal browser requests.
 async function fetchJSONDirect(url, retries = 2) {
   for (let attempt = 0; ; attempt++) {
-    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    const res = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+      },
+    });
     if (res.ok) return res.json();
     if (res.status === 429 && attempt < retries) {
       await sleep(400 * Math.pow(2, attempt)); // 400ms, 800ms
       continue;
     }
-    throw new Error(`${url}: HTTP ${res.status}`);
+    const bodySnippet = await res.text().catch(() => "");
+    throw new Error(`${url}: HTTP ${res.status}${bodySnippet ? " — " + bodySnippet.slice(0, 150) : ""}`);
   }
 }
 
@@ -394,6 +405,7 @@ async function refreshDCSummary(env) {
   const listings = [];
   const sales = [];
   const failed = [];
+  const sampleErrors = []; // first few real error messages — surfaced in the summary itself since dashboard log access isn't always handy mid-debugging
 
   const { reached, total } = await runBatches(
     toFetch,
@@ -421,6 +433,8 @@ async function refreshDCSummary(env) {
         sales.push(...deriveSales(Array.isArray(activities) ? activities : [], col));
       } catch (err) {
         failed.push(col.sub);
+        console.error(`refreshDCSummary: ${col.symbol} failed:`, err.message);
+        if (sampleErrors.length < 5) sampleErrors.push(`${col.symbol}: ${err.message}`);
       }
     },
     BATCH_SIZE,
@@ -431,7 +445,7 @@ async function refreshDCSummary(env) {
   // reached before the deadline) produces real, mostly-fresh data, which
   // beats the all-or-nothing pattern that was almost certainly the actual
   // cause of the site going blank: any interruption meant zero writes.
-  const summary = { listings, sales, updatedAt: Date.now(), failed, partial: reached < total };
+  const summary = { listings, sales, updatedAt: Date.now(), failed, partial: reached < total, sampleErrors };
   await env.DC_CACHE.put(KV_KEY, JSON.stringify(summary), { expirationTtl: KV_TTL_SECONDS });
   return summary;
 }
