@@ -266,6 +266,7 @@ html, body { width:100%; height:100%; background:var(--ink); overflow:hidden; }
     <button class="ctrl-btn" onclick="backToList()">&#8592; List</button>
     <button class="ctrl-btn" onclick="switchCollection()">Collections</button>
     <button class="ctrl-btn" id="pause-btn" onclick="togglePause()">Pause</button>
+    <button class="ctrl-btn" id="fullscreen-btn" onclick="toggleFullscreen()">&#9974; Fullscreen</button>
     <button class="ctrl-btn" onclick="prevNFT()">&#8592;</button>
     <button class="ctrl-btn" onclick="nextNFT()">&#8594;</button>
     <a class="ctrl-btn" href="viewer.html">Viewer</a>
@@ -390,6 +391,10 @@ function submitKioskInput() {
     return;
   }
   kioskErrEl.classList.remove('show');
+  // Must be requested synchronously from this click, not after the
+  // network fetch in startKiosk() — browsers only allow entering
+  // fullscreen from a direct user gesture.
+  requestFullscreenSafe();
   localStorage.setItem(KIOSK_WALLET_KEY, addr);
   startKiosk(addr);
 }
@@ -660,6 +665,31 @@ function togglePause() {
   if (paused) { clearTimeout(timer); progFill.style.transition = 'none'; }
   else schedule();
 }
+
+// ── FULLSCREEN — hides the mobile browser's URL bar for kiosk/tablet use ──
+function requestFullscreenSafe() {
+  var el = document.documentElement;
+  var req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+  if (req) { try { req.call(el); } catch(e) {} }
+}
+function exitFullscreenSafe() {
+  var exit = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+  if (exit) { try { exit.call(document); } catch(e) {} }
+}
+function isFullscreen() {
+  return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+}
+function toggleFullscreen() {
+  if (isFullscreen()) exitFullscreenSafe();
+  else requestFullscreenSafe();
+}
+function updateFullscreenBtn() {
+  var btn = document.getElementById('fullscreen-btn');
+  if (btn) btn.innerHTML = isFullscreen() ? '&#9974; Exit Fullscreen' : '&#9974; Fullscreen';
+}
+['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(function(evt){
+  document.addEventListener(evt, updateFullscreenBtn);
+});
 
 // Mobile controls: tap to reveal for 4s, swipe to navigate
 function showCtrlsBriefly() {
