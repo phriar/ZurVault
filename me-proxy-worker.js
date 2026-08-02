@@ -290,23 +290,54 @@ const DC_COLLECTIONS = [
 
 const KV_KEY = "dc-summary";
 const KV_TTL_SECONDS = 2400; // 2x the 20-min cron interval — a safety net if a cron run fails, not the real freshness window (that's the cron cadence itself)
-const BATCH_SIZE = 10; // collections processed concurrently per batch — tune based on real 429 rates / cron run duration you observe after deploying
-const RUN_DEADLINE_MS = 45000; // self-imposed budget so a slow run still writes partial results instead of nothing — if `partial: true` shows up a lot in the KV value, either this needs raising (if your plan allows longer scheduled-event execution) or the workload needs trimming (lower ACTIVITIES_MAX_PAGES / SALES_WINDOW_SECS)
+const BATCH_SIZE = 10; // how many collections' fetches are conceptually "in flight" at once — actual request pacing is controlled by throttleMagicEden() above, not this
+// ~193 collections x ~1-2 requests each (listings + however many activities pages) at MAGIC_EDEN_MAX_REQUESTS_PER_SEC=3 is a couple hundred seconds for a full pass —
+// this budget won't cover everything in one run, and that's fine: the rotation in refreshDCSummary() spreads full coverage across a couple of 20-min cycles instead.
+// If `partial: true` shows up on every run and coverage still isn't converging over a few cycles, raise this (if your plan allows longer scheduled-event execution)
+// or trim the workload (lower ACTIVITIES_MAX_PAGES / SALES_WINDOW_SECS).
+const RUN_DEADLINE_MS = 100000;
 const SALES_WINDOW_SECS = 7 * 24 * 60 * 60; // Recent Sales looks back one week
 const ACTIVITIES_MAX_PAGES = 5; // safety cap — a very active collection could otherwise page forever
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// Confirmed via a live run's captured error: Magic Eden enforces an
+// explicit "requests per minute" limit ("You have exceeded the requests in
+// 1 min limit!"), not bot/UA detection. BATCH_SIZE=10 collections firing 2
+// requests each (listings + activities) is up to 20 requests in a single
+// burst at the start of every batch — enough to trip a per-*minute* limit
+// immediately, and the short per-request retry backoff (well under a
+// second) can't possibly wait out a per-minute window. A global rate
+// limiter — pacing every actual fetch() call, independent of how many
+// batches/collections are conceptually "in flight" — is what's actually
+// needed here, the same lesson from throttling the client-side proxy
+// calls earlier. Concurrency and request *rate* are different things.
+const MAGIC_EDEN_MAX_REQUESTS_PER_SEC = 3; // conservative starting point — Magic Eden's exact limit isn't documented; tune based on 429 rates you observe in sampleErrors after deploying
+let meRequestTimestamps = [];
+async function throttleMagicEden() {
+  while (true) {
+    const now = Date.now();
+    meRequestTimestamps = meRequestTimestamps.filter((t) => now - t < 1000);
+    if (meRequestTimestamps.length < MAGIC_EDEN_MAX_REQUESTS_PER_SEC) {
+      meRequestTimestamps.push(now);
+      return;
+    }
+    await sleep(1000 - (now - meRequestTimestamps[0]) + 10);
+  }
+}
+
 // Short, bounded retry — this runs inside a cron job with a real time
 // budget, unlike a one-off user-facing request, so we don't want a single
-// stubborn 429 eating tens of seconds of backoff.
+// stubborn 429 eating tens of seconds of backoff. The throttle above is
+// what actually avoids tripping the limit in the first place; this is
+// just a safety net for whatever residual risk remains.
 //
-// Sends a browser-like User-Agent: Cloudflare Workers' default outbound
-// fetch() doesn't send one at all, and some APIs (Magic Eden's included,
-// possibly) treat unidentified/datacenter-origin traffic more strictly
-// than they treat normal browser requests.
+// Also sends a browser-like User-Agent, on the theory that unidentified
+// traffic might be treated more strictly — harmless to keep even though
+// the rate limit turned out to be the real, confirmed cause.
 async function fetchJSONDirect(url, retries = 2) {
   for (let attempt = 0; ; attempt++) {
+    await throttleMagicEden();
     const res = await fetch(url, {
       headers: {
         Accept: "application/json",
