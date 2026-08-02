@@ -12,7 +12,7 @@
  *
  * On top of that, this Worker runs a Cron Trigger (configure in the
  * Cloudflare dashboard: Worker Settings → Triggers → Cron Triggers,
- * e.g. every 5 minutes) that fetches listings + activities for every
+ * currently every 20 minutes) that fetches listings + activities for every
  * collection in DC_COLLECTIONS itself, aggregates the result, and writes it
  * to Workers KV. index.html then makes ONE request to GET /v2/dc-summary
  * instead of looping through ~200 collections × 2 endpoints itself —
@@ -31,9 +31,9 @@
  * 5. Create a KV namespace (Workers & Pages → KV → Create), bind it to this
  *    Worker as `DC_CACHE` (Worker Settings → Variables → KV Namespace
  *    Bindings), and add a Cron Trigger under Worker Settings → Triggers
- *    (e.g. every 5 minutes — cron expression: 5 stars separated by spaces,
- *    with "star-slash-5" as the first field). Without the Cron Trigger,
- *    GET /v2/dc-summary will just keep returning the notReady state —
+ *    (currently every 20 minutes — cron expression: 5 stars separated by
+ *    spaces, with "star-slash-20" as the first field). Without the Cron
+ *    Trigger, GET /v2/dc-summary will just keep returning the notReady state —
  *    nothing populates KV on its own.
  *
  * USAGE from the browser stays identical for the pass-through proxy —
@@ -289,7 +289,7 @@ const DC_COLLECTIONS = [
 // ---------------------------------------------------------------------
 
 const KV_KEY = "dc-summary";
-const KV_TTL_SECONDS = 600; // 2x the cron interval — a safety net if a cron run fails, not the real freshness window (that's the 5-min cron cadence itself)
+const KV_TTL_SECONDS = 2400; // 2x the 20-min cron interval — a safety net if a cron run fails, not the real freshness window (that's the cron cadence itself)
 const BATCH_SIZE = 10; // collections processed concurrently per batch — tune based on real 429 rates / cron run duration you observe after deploying
 const SALES_WINDOW_SECS = 7 * 24 * 60 * 60; // Recent Sales looks back one week
 const ACTIVITIES_MAX_PAGES = 5; // safety cap — a very active collection could otherwise page forever
@@ -506,8 +506,8 @@ export default {
     }
   },
 
-  // Cron Trigger expression to set in the dashboard for "every 5 minutes":
-  // */5 * * * *
+  // Cron Trigger expression set in the dashboard for "every 20 minutes":
+  // */20 * * * *
   async scheduled(event, env, ctx) {
     ctx.waitUntil(refreshDCSummary(env));
   },

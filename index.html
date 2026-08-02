@@ -417,7 +417,7 @@ async function loadAll(isRefresh){
     setStatus(`No listings found${failed.length ? ' (failed: ' + failed.join(', ') + ')' : ''}.`, true);
   } else {
     const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
-    setStatus(`${allListings.length} listings, ${allSales.length} recent sales across ${DC_COLLECTIONS.length} sub-collection(s)${failed.length ? ' · failed: ' + failed.join(', ') : ''} · updated ${updated}, auto-refreshes every 6 min.`);
+    setStatus(`${allListings.length} listings, ${allSales.length} recent sales across ${DC_COLLECTIONS.length} sub-collection(s)${failed.length ? ' · failed: ' + failed.join(', ') : ''} · updated ${updated}, auto-refreshes every 22 min.`);
   }
   render();
 }
@@ -500,7 +500,7 @@ document.querySelectorAll('.tab').forEach(t => {
   });
 });
 
-const REFRESH_INTERVAL = 6 * 60 * 1000; // trails the Worker's own 5-min cron refresh, so we're not fetching a KV entry that's mid-update
+const REFRESH_INTERVAL = 22 * 60 * 1000; // trails the Worker's own 20-min cron refresh, so we're not fetching a KV entry that's mid-update
 loadAll();
 setInterval(() => loadAll(true), REFRESH_INTERVAL);
 </script>
