@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
 <title>ZurVault</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 <style>
@@ -349,6 +352,18 @@ function backToList() {
 
 // Auto-connect — handles Phantom mobile in-app browser and desktop extension
 window.addEventListener('load', async function() {
+  // Read-only kiosk mode — a ?wallet= param bypasses Phantom entirely, so
+  // this can run as a plain tablet browser display with no wallet app
+  // involved. Takes priority over all Phantom auto-connect logic below.
+  var urlWallet = new URLSearchParams(window.location.search).get('wallet');
+  if (urlWallet) {
+    wallet = urlWallet;
+    connectEl.classList.add('hide');
+    loadingEl.classList.add('show');
+    await fetchAllNFTs();
+    return;
+  }
+
   // Delay ensures Phantom's provider is injected (critical on mobile)
   await new Promise(function(r){ setTimeout(r, 250); });
   var ph = getPhantom();

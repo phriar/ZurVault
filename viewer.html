@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
 <title>ZurVault · Viewer</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 <style>
@@ -585,6 +588,18 @@ async function connectWallet() {
 }
 
 window.addEventListener('load', async function() {
+  // Read-only kiosk mode — a ?wallet= param bypasses Phantom entirely, so
+  // this can run as a plain tablet browser display with no wallet app
+  // involved. Takes priority over all Phantom auto-connect logic below.
+  var urlWallet = new URLSearchParams(window.location.search).get('wallet');
+  if (urlWallet) {
+    wallet = urlWallet;
+    connectEl.classList.add('hide');
+    loadEl.classList.add('show');
+    await fetchAll();
+    return;
+  }
+
   var ph = getPhantom();
   if (!ph || !ph.isPhantom) return;
   try {
