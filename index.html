@@ -386,16 +386,34 @@ function shortMint(mint){
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-// Fetching ~200 collections × 2 endpoints (listings + activities) in
-// parallel is enough to occasionally trip the proxy Worker's rate limit
-// (HTTP 429). That's transient, not fatal — retry with backoff instead of
-// dropping the collection outright.
+// The proxy Worker's rate limit is tight enough that capping *concurrency*
+// isn't enough — a burst of requests (e.g. paginating activities for a busy
+// collection) can trip it even with only a handful in flight. This throttle
+// paces every actual fetch() to a fixed rate globally, across all pool
+// workers and pagination loops, which is what actually avoids tripping it.
+const MAX_REQUESTS_PER_SEC = 3;
+let requestTimestamps = [];
+async function throttle(){
+  while(true){
+    const now = Date.now();
+    requestTimestamps = requestTimestamps.filter(t => now - t < 1000);
+    if(requestTimestamps.length < MAX_REQUESTS_PER_SEC){
+      requestTimestamps.push(now);
+      return;
+    }
+    await sleep(1000 - (now - requestTimestamps[0]) + 10);
+  }
+}
+
+// A rate-limit hit (HTTP 429) is transient, not fatal — retry with backoff
+// instead of dropping the collection outright.
 async function fetchJSON(url, retries = 5){
   for(let attempt = 0; ; attempt++){
+    await throttle();
     const res = await fetch(url);
     if(res.ok) return res.json();
     if(res.status === 429 && attempt < retries){
-      await sleep(800 * Math.pow(2, attempt)); // 800ms, 1.6s, 3.2s, 6.4s, 12.8s — the proxy's rate-limit cooldown can outlast a couple of short retries
+      await sleep(800 * Math.pow(2, attempt)); // 800ms, 1.6s, 3.2s, 6.4s, 12.8s — extra backoff on top of the throttle, for whatever cooldown is already in progress
       continue;
     }
     throw new Error(`${url}: HTTP ${res.status}`);
@@ -547,7 +565,7 @@ async function loadAll(isRefresh){
     if(!isRefresh) checkedSymbols.add(col.symbol);
     checked++;
     setStatus(`${isRefresh ? 'Refreshing' : 'Fetching'}… ${results.length} listings, ${salesResults.length} sales so far (${checked}/${toFetch.length} collections checked)`);
-  }, 4); // each worker fires 2 requests (listings + activities) at once, so this is ~8 concurrent requests
+  }, 10); // actual request rate is capped by the throttle() in fetchJSON, not by this — this just controls how many collections are in flight for progressive rendering
 
   allListings = results;
   allSales = salesResults;
