@@ -13,14 +13,19 @@
  * On top of that, this Worker runs a Cron Trigger (configure in the
  * Cloudflare dashboard: Worker Settings → Triggers → Cron Triggers,
  * currently every 20 minutes) that fetches listings + activities for every
- * collection in DC_COLLECTIONS itself, aggregates the result, and writes it
- * to Workers KV. index.html then makes ONE request to GET /v2/dc-summary
- * instead of looping through ~200 collections × 2 endpoints itself —
- * that loop used to run client-side on every page load and every 5-minute
- * refresh, which is what was actually driving Worker request count against
- * the free tier (caching alone doesn't reduce request *count*, since the
- * Worker still executes once per incoming client request regardless of
- * whether it's served from cache internally).
+ * collection in DC_COLLECTIONS itself and writes each collection's result
+ * to its own Workers KV entry (`collection:{symbol}`) — independently, as
+ * soon as that one collection succeeds, not accumulated into one shared
+ * blob written at the end. That means one collection getting rate-limited
+ * by Magic Eden has zero effect on any other collection: it just keeps
+ * serving its last-known-good KV entry until a future cron cycle succeeds
+ * for it. GET /v2/dc-summary lists every `collection:*` KV entry and merges
+ * them into one response — index.html makes ONE request instead of looping
+ * through ~200 collections × 2 endpoints itself client-side, which is what
+ * was actually driving Worker request count against the free tier (caching
+ * alone doesn't reduce request *count*, since the Worker still executes
+ * once per incoming client request regardless of whether it's served from
+ * cache internally).
  *
  * DEPLOY:
  * 1. Go to https://dash.cloudflare.com → Workers & Pages → Create → Worker
@@ -40,9 +45,12 @@
  * just call:
  *   {WORKER_URL}/v2/tokens/{mint}
  *   {WORKER_URL}/v2/collections/{symbol}/listings
- * etc. This Worker forwards the path 1:1 to Magic Eden. The one exception
- * is {WORKER_URL}/v2/dc-summary, which is served entirely from KV (see
- * above) and never touches Magic Eden in the request path at all.
+ * etc. This Worker forwards the path 1:1 to Magic Eden. The exceptions are
+ * {WORKER_URL}/v2/dc-summary (served entirely from KV, never touches Magic
+ * Eden in the request path) and {WORKER_URL}/v2/__trigger-refresh?key=
+ * {symbol} — a debug endpoint that refreshes one collection's KV entry
+ * on demand and returns the result directly, for testing a specific
+ * collection without waiting for or re-running the full cron batch.
  */
 
 const ME_ORIGIN = "https://api-mainnet.magiceden.dev";
@@ -288,14 +296,14 @@ const DC_COLLECTIONS = [
 // SCHEDULED AGGREGATION (cron) — populates KV, read by GET /v2/dc-summary
 // ---------------------------------------------------------------------
 
-const KV_KEY = "dc-summary";
-const KV_TTL_SECONDS = 2400; // 2x the 20-min cron interval — a safety net if a cron run fails, not the real freshness window (that's the cron cadence itself)
-const BATCH_SIZE = 10; // how many collections' fetches are conceptually "in flight" at once — actual request pacing is controlled by throttleMagicEden() above, not this
-// ~193 collections x ~1-2 requests each (listings + however many activities pages) at MAGIC_EDEN_MAX_REQUESTS_PER_SEC=3 is a couple hundred seconds for a full pass —
-// this budget won't cover everything in one run, and that's fine: the rotation in refreshDCSummary() spreads full coverage across a couple of 20-min cycles instead.
-// If `partial: true` shows up on every run and coverage still isn't converging over a few cycles, raise this (if your plan allows longer scheduled-event execution)
-// or trim the workload (lower ACTIVITIES_MAX_PAGES / SALES_WINDOW_SECS).
-const RUN_DEADLINE_MS = 100000;
+// Each collection gets its own KV entry (collection:{symbol}) instead of
+// one shared blob — see the file header for why. 30-60 min is generous
+// relative to the 20-min cron cadence: a collection that fails one or two
+// cycles in a row still serves its last-known-good data instead of
+// disappearing from results.
+const collectionKey = (symbol) => `collection:${symbol}`;
+const KV_TTL_SECONDS = 2400; // 40 min
+const BATCH_SIZE = 5; // collections processed concurrently per batch — kept conservative given the 429s we saw; the real rate gate is throttleMagicEden() below, this just bounds how many writes are in flight at once
 const SALES_WINDOW_SECS = 7 * 24 * 60 * 60; // Recent Sales looks back one week
 const ACTIVITIES_MAX_PAGES = 5; // safety cap — a very active collection could otherwise page forever
 
@@ -312,7 +320,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // batches/collections are conceptually "in flight" — is what's actually
 // needed here, the same lesson from throttling the client-side proxy
 // calls earlier. Concurrency and request *rate* are different things.
-const MAGIC_EDEN_MAX_REQUESTS_PER_SEC = 3; // conservative starting point — Magic Eden's exact limit isn't documented; tune based on 429 rates you observe in sampleErrors after deploying
+const MAGIC_EDEN_MAX_REQUESTS_PER_SEC = 3; // conservative starting point — Magic Eden's exact limit isn't documented; tune based on the failed/ok counts refreshAllCollections logs on each run
 let meRequestTimestamps = [];
 async function throttleMagicEden() {
   while (true) {
@@ -400,85 +408,95 @@ function deriveSales(activities, col) {
   return sales;
 }
 
-// Processes `items` in concurrent batches of `batchSize`, awaiting each
-// batch before starting the next — bounded parallelism instead of a
-// heavily-throttled near-serial loop, since this is calling Magic Eden's
-// origin directly (not through this Worker), a different constraint than
-// the caches.default logic above.
-//
-// Also self-limits to `deadlineMs` total: if a run is going slower than
-// expected (retries stacking up, Magic Eden having a slow day, or just
-// misjudging how much a single invocation can get through), it stops
-// starting new batches once the deadline passes rather than risking the
-// whole invocation getting cut off mid-flight with nothing written. Any
-// collections not reached this cycle just get picked up on the next one.
-async function runBatches(items, worker, batchSize, deadlineMs) {
-  const startedAt = Date.now();
-  let reached = 0;
-  for (let i = 0; i < items.length; i += batchSize) {
-    if (Date.now() - startedAt > deadlineMs) break;
-    const batch = items.slice(i, i + batchSize);
-    await Promise.all(batch.map(worker));
-    reached += batch.length;
+// Fetches one collection's listings + activities and writes its own KV
+// entry — fully independent of every other collection. A failure here
+// (429, network error, whatever) just means this collection's existing KV
+// entry (from whenever it last succeeded) is left untouched; it has zero
+// effect on any other collection's data or on whether GET /v2/dc-summary
+// returns anything. Returns a small result object rather than throwing, so
+// callers (the batch loop below, and the debug trigger endpoint) don't need
+// their own try/catch.
+async function refreshOneCollection(col, env) {
+  try {
+    const [data, activities] = await Promise.all([
+      fetchCollectionListingsDirect(col.symbol),
+      fetchCollectionActivitiesDirect(col.symbol).catch(() => []),
+    ]);
+    const listedTimes = deriveListedTimes(Array.isArray(activities) ? activities : []);
+    const listings = (Array.isArray(data) ? data : []).map((item) => {
+      const mint = item?.tokenMint || item?.token?.mintAddress || "";
+      return {
+        sub: col.sub,
+        symbol: col.symbol,
+        name: item?.token?.name || "Untitled",
+        image: item?.token?.image || item?.extra?.img || "",
+        price: item?.price ?? null,
+        mintAddress: mint,
+        listedAt: listedTimes.get(mint) || null,
+        pdpUrl: `https://magiceden.io/item-details/${mint}`,
+      };
+    });
+    const sales = deriveSales(Array.isArray(activities) ? activities : [], col);
+    const entry = { symbol: col.symbol, sub: col.sub, listings, sales, updatedAt: Date.now() };
+    await env.DC_CACHE.put(collectionKey(col.symbol), JSON.stringify(entry), { expirationTtl: KV_TTL_SECONDS });
+    return { ok: true, symbol: col.symbol, listingCount: listings.length, saleCount: sales.length };
+  } catch (err) {
+    console.error(`refreshOneCollection: ${col.symbol} failed:`, err.message);
+    return { ok: false, symbol: col.symbol, error: err.message };
   }
-  return { reached, total: items.length };
 }
 
-async function refreshDCSummary(env) {
-  const resolved = DC_COLLECTIONS.filter((c) => !c.symbol.startsWith("UNRESOLVED"));
-  // Rotate the starting point each run (deterministic from wall-clock time,
-  // no state needed) so that if a run gets cut short by RUN_DEADLINE_MS,
-  // it's not always the same tail end of the list that goes uncovered —
-  // coverage rotates across runs instead of permanently starving whichever
-  // collections happen to sit at the end of DC_COLLECTIONS.
-  const rotateBy = resolved.length ? Math.floor(Date.now() / (20 * 60 * 1000)) % resolved.length : 0;
-  const toFetch = resolved.slice(rotateBy).concat(resolved.slice(0, rotateBy));
+// Loops every resolved collection in concurrent batches of BATCH_SIZE,
+// refreshing each independently. No deadline, no rotation — each
+// collection's write already lands the moment it succeeds, so there's
+// nothing to lose if this loop takes a while or the invocation ends before
+// reaching the end of the list; whatever wasn't reached this cycle just
+// gets picked up on the next one, same as any collection that failed.
+async function refreshAllCollections(env) {
+  const toFetch = DC_COLLECTIONS.filter((c) => !c.symbol.startsWith("UNRESOLVED"));
+  let ok = 0;
+  let failed = 0;
+  for (let i = 0; i < toFetch.length; i += BATCH_SIZE) {
+    const batch = toFetch.slice(i, i + BATCH_SIZE);
+    const results = await Promise.all(batch.map((col) => refreshOneCollection(col, env)));
+    for (const r of results) {
+      if (r.ok) ok++;
+      else failed++;
+    }
+  }
+  console.log(`refreshAllCollections: ${ok} succeeded, ${failed} failed (of ${toFetch.length})`);
+}
+
+// Lists every collection:* KV entry and merges them into the aggregate
+// shape the frontend expects. Each entry has its own updatedAt (from
+// whenever it last successfully refreshed); the top-level updatedAt is the
+// oldest of those, i.e. "everything here is at least this fresh" — more
+// honest than Date.now(), since individual collections can legitimately
+// lag behind by a cycle or two without that being a problem worth hiding.
+async function buildDCSummary(env) {
+  const list = await env.DC_CACHE.list({ prefix: "collection:" });
+  if (list.keys.length === 0) {
+    return JSON.stringify({ listings: [], sales: [], updatedAt: null, failed: [], notReady: true });
+  }
+  const entries = await Promise.all(list.keys.map((k) => env.DC_CACHE.get(k.name)));
   const listings = [];
   const sales = [];
-  const failed = [];
-  const sampleErrors = []; // first few real error messages — surfaced in the summary itself since dashboard log access isn't always handy mid-debugging
-
-  const { reached, total } = await runBatches(
-    toFetch,
-    async (col) => {
-      try {
-        const [data, activities] = await Promise.all([
-          fetchCollectionListingsDirect(col.symbol),
-          fetchCollectionActivitiesDirect(col.symbol).catch(() => []),
-        ]);
-        const listedTimes = deriveListedTimes(Array.isArray(activities) ? activities : []);
-        const items = (Array.isArray(data) ? data : []).map((item) => {
-          const mint = item?.tokenMint || item?.token?.mintAddress || "";
-          return {
-            sub: col.sub,
-            symbol: col.symbol,
-            name: item?.token?.name || "Untitled",
-            image: item?.token?.image || item?.extra?.img || "",
-            price: item?.price ?? null,
-            mintAddress: mint,
-            listedAt: listedTimes.get(mint) || null,
-            pdpUrl: `https://magiceden.io/item-details/${mint}`,
-          };
-        });
-        listings.push(...items);
-        sales.push(...deriveSales(Array.isArray(activities) ? activities : [], col));
-      } catch (err) {
-        failed.push(col.sub);
-        console.error(`refreshDCSummary: ${col.symbol} failed:`, err.message);
-        if (sampleErrors.length < 5) sampleErrors.push(`${col.symbol}: ${err.message}`);
-      }
-    },
-    BATCH_SIZE,
-    RUN_DEADLINE_MS
-  );
-
-  // Write unconditionally — even a partial run (some collections not
-  // reached before the deadline) produces real, mostly-fresh data, which
-  // beats the all-or-nothing pattern that was almost certainly the actual
-  // cause of the site going blank: any interruption meant zero writes.
-  const summary = { listings, sales, updatedAt: Date.now(), failed, partial: reached < total, sampleErrors };
-  await env.DC_CACHE.put(KV_KEY, JSON.stringify(summary), { expirationTtl: KV_TTL_SECONDS });
-  return summary;
+  let oldestUpdatedAt = null;
+  for (const raw of entries) {
+    if (!raw) continue;
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      continue;
+    }
+    if (Array.isArray(parsed.listings)) listings.push(...parsed.listings);
+    if (Array.isArray(parsed.sales)) sales.push(...parsed.sales);
+    if (parsed.updatedAt && (oldestUpdatedAt === null || parsed.updatedAt < oldestUpdatedAt)) {
+      oldestUpdatedAt = parsed.updatedAt;
+    }
+  }
+  return JSON.stringify({ listings, sales, updatedAt: oldestUpdatedAt, failed: [] });
 }
 
 // ---------------------------------------------------------------------
@@ -499,15 +517,58 @@ export default {
 
     const url = new URL(request.url);
 
-    // Served entirely from KV — populated by the scheduled() cron handler
-    // below, never by a visitor's own request. Checked before the generic
-    // proxy-through logic since Magic Eden has no such path itself.
+    // Served from KV — populated by the scheduled() cron handler and by
+    // /v2/__trigger-refresh below, never computed live from a visitor's own
+    // request. Checked before the generic proxy-through logic since Magic
+    // Eden has no such path itself.
+    //
+    // Merging ~193 individual collection:* KV entries on every request is a
+    // lot more KV reads than the old single-key design (which was exactly
+    // one read) — a short edge cache keeps repeat visitor requests cheap
+    // without giving up the per-collection resilience this is for. 30s is
+    // well under the per-collection entries' own refresh cadence, so it's
+    // not adding meaningfully stale data on top of what already exists.
     if (url.pathname === "/v2/dc-summary") {
-      const raw = await env.DC_CACHE.get(KV_KEY);
-      const body = raw || JSON.stringify({ listings: [], sales: [], updatedAt: null, failed: [], notReady: true });
+      const cache = caches.default;
+      const summaryCacheKey = new Request(url.origin + "/__dc-summary-merged", { method: "GET" });
+      const cachedSummary = await cache.match(summaryCacheKey);
+      const body = cachedSummary ? await cachedSummary.text() : await buildDCSummary(env);
+      if (!cachedSummary) {
+        const toCache = new Response(body, {
+          status: 200,
+          headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=30" },
+        });
+        ctx.waitUntil(cache.put(summaryCacheKey, toCache));
+      }
       return new Response(body, {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" },
+      });
+    }
+
+    // Debug endpoint: refresh one collection's KV entry on demand and
+    // return the real result directly in the response — for testing a
+    // specific collection without waiting for or re-running the full cron
+    // batch. Not meant to be permanent; remove once things have settled.
+    if (url.pathname === "/v2/__trigger-refresh") {
+      const symbol = url.searchParams.get("key");
+      if (!symbol) {
+        return new Response(JSON.stringify({ error: "missing ?key=<symbol>" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const col = DC_COLLECTIONS.find((c) => c.symbol === symbol);
+      if (!col) {
+        return new Response(JSON.stringify({ error: `no DC_COLLECTIONS entry with symbol "${symbol}"` }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const result = await refreshOneCollection(col, env);
+      return new Response(JSON.stringify(result), {
+        status: result.ok ? 200 : 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -579,6 +640,6 @@ export default {
   // Cron Trigger expression set in the dashboard for "every 20 minutes":
   // */20 * * * *
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(refreshDCSummary(env));
+    ctx.waitUntil(refreshAllCollections(env));
   },
 };
