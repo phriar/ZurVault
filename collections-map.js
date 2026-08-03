@@ -38,10 +38,28 @@
    `highlights` in character-map.js — collection.html renders it the same
    way.
 
+   "Bat Cowl" (first entry, deliberately, per site feedback) is different
+   in kind from everything else here — it's not a comic-issue run at all,
+   just the two symbols whose `sub` is literally "Bat Cowl" or starts with
+   "THE DC BAT COWL COLLECTION" (a generative/PFP-style collection, not
+   individual issues), so it has no `history`/`keyIssues` fields. Left out
+   on purpose: "Batman: The Legacy Cowl" and its siblings (batman_the_
+   legacy_cowl_2022_2/3, batman_the_legacy_cowl, the_legacy_cowl_
+   collection, batman_the_legacy_cowl_the_deluxe_edition, catwoman_the_
+   legacy_cowl_1, catwoman_the_legacy_cowl_convention_exclusive) — despite
+   the name similarity, "Legacy Cowl" is a separate, unrelated collection.
+
    To add a new series: add an entry below (id should be url-safe), then
-   link to it from collections.html.
+   link to it from collections.html. Object key order is render order on
+   collections.html, so whichever entry should show first goes first.
    ============================================================ */
 const COLLECTIONS_MAP = {
+  "bat-cowl": {
+    name: "Bat Cowl",
+    blurb:
+      "A generative Bat Cowl collection, not tied to any single comic issue — grouping the original \"Bat Cowl\" set with its \"Year 1\" companion collection.",
+    symbols: ["the_bat_cowl_collection", "the_dc_bat_cowl_collection_year_1_2023"],
+  },
   "absolute-batman": {
     name: "Absolute Batman",
     blurb:
