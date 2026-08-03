@@ -19,11 +19,12 @@
   // building DC_COLLECTIONS, not a visitor-facing feature. The page and its
   // own site-nav.js include still work, it's just not linked from the banner.
   var PAGES = [
-    { id: 'index',     label: 'Listings',      href: 'index.html' },
-    { id: 'viewer',    label: 'Viewer',        href: 'viewer.html' },
-    { id: 'slideshow', label: 'Slideshow',     href: 'slideshow.html' },
-    { id: 'comics',    label: 'Comics',        href: 'comics.html' },
-    { id: 'candy',     label: 'Candy Watcher', href: 'candy-watcher.html' }
+    { id: 'index',      label: 'Listings',      href: 'index.html' },
+    { id: 'characters', label: 'Characters',    href: 'characters.html' },
+    { id: 'viewer',     label: 'Viewer',        href: 'viewer.html' },
+    { id: 'slideshow',  label: 'Slideshow',     href: 'slideshow.html' },
+    { id: 'comics',     label: 'Comics',        href: 'comics.html' },
+    { id: 'candy',      label: 'Candy Watcher', href: 'candy-watcher.html' }
   ];
 
   var style = document.createElement('style');

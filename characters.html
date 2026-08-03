@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Browse by Character — ZurVault</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  :root{
+    --ink:    #0a0a0a;
+    --gold:   #8f6fe8;
+    --deep:   #6b2fd6;
+    --cyan:   #4de8ff;
+    --faint:  rgba(255,255,255,0.05);
+    --border: rgba(255,255,255,0.07);
+  }
+
+  body{
+    background:var(--ink); color:#fff; min-height:100vh;
+    font-family:'DM Mono',monospace; -webkit-font-smoothing:antialiased;
+  }
+  .serif{ font-family:'Cormorant Garamond',serif; }
+
+  header{
+    padding:120px 32px 20px; border-bottom:1px solid var(--border);
+    position:relative; z-index:10; overflow:hidden;
+    background-image:url('https://arweave.net/uyG3Nvb1UKTtm3q-tdHs4GNYOiEyaSTc7O0zhsc9gIQ');
+    background-size:cover; background-position:center 20%;
+  }
+  header::before{
+    content:''; position:absolute; inset:0;
+    background:linear-gradient(to bottom, rgba(10,10,10,0.55) 0%, rgba(10,10,10,0.75) 45%, rgba(10,10,10,0.97) 90%);
+  }
+  header > *{ position:relative; z-index:1; }
+  header .brand{ font-size:.55rem; letter-spacing:.4em; color:rgba(255,255,255,0.18); text-transform:uppercase; }
+  header .brand a{ color:rgba(255,255,255,0.18); text-decoration:none; }
+  header .brand a:hover{ color:var(--gold); }
+  header h1{
+    font-family:'Cormorant Garamond',serif; font-weight:300; letter-spacing:.02em;
+    font-size:clamp(1.8rem,5vw,2.6rem); color:rgba(255,255,255,0.92); margin-top:10px;
+  }
+  header h1 span{ color:var(--gold); }
+  header p.sub{
+    margin-top:10px; max-width:480px; font-size:.6rem; line-height:1.7;
+    color:rgba(255,255,255,0.35); letter-spacing:.03em;
+  }
+
+  .quick-links{ display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
+  .back-link{
+    display:inline-block; font-family:'DM Mono',monospace; font-size:.5rem;
+    letter-spacing:.2em; text-transform:uppercase; color:rgba(143,111,232,0.6); text-decoration:none;
+    border:1px solid rgba(143,111,232,0.2); padding:6px 14px; border-radius:2px; transition:all .15s;
+  }
+  .back-link:hover{ color:var(--gold); border-color:rgba(143,111,232,0.5); }
+
+  .section-label{
+    padding:24px 32px 12px; font-size:.5rem; letter-spacing:.3em; text-transform:uppercase;
+    color:rgba(255,255,255,0.2);
+  }
+
+  .char-grid{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+    gap:1px; background:var(--border); padding:1px 32px 40px;
+  }
+  .char-tile{
+    background:var(--ink); overflow:hidden; text-decoration:none; color:#fff;
+    display:flex; flex-direction:column; transition:background .15s;
+  }
+  .char-tile:hover{ background:rgba(255,255,255,0.03); }
+  .char-tile img{ width:100%; aspect-ratio:1/1; object-fit:cover; background:rgba(255,255,255,0.03); display:block; }
+  .char-tile .body{ padding:12px 14px 16px; }
+  .char-tile .name{
+    font-family:'Cormorant Garamond',serif; font-weight:400; font-size:1.05rem; line-height:1.25;
+    color:rgba(255,255,255,0.88); margin-bottom:5px;
+  }
+  .char-tile .count{
+    font-family:'DM Mono',monospace; font-size:.42rem; letter-spacing:.14em; text-transform:uppercase;
+    color:rgba(143,111,232,0.55);
+  }
+
+  .spotlight-card{
+    margin:0 32px 32px; padding:18px 20px; border:1px solid rgba(143,111,232,0.2);
+    border-radius:4px; background:rgba(143,111,232,0.05); display:flex; gap:16px; align-items:center;
+    text-decoration:none; color:#fff; transition:border-color .15s;
+  }
+  .spotlight-card:hover{ border-color:rgba(143,111,232,0.5); }
+  .spotlight-card img{ width:56px; height:56px; object-fit:cover; border-radius:3px; flex-shrink:0; }
+  .spotlight-card .eyebrow{ font-size:.42rem; letter-spacing:.25em; text-transform:uppercase; color:var(--cyan); margin-bottom:4px; }
+  .spotlight-card .title{ font-family:'Cormorant Garamond',serif; font-size:1.1rem; color:rgba(255,255,255,0.9); }
+
+  footer{ padding:28px 32px 44px; text-align:center; font-size:.42rem; letter-spacing:.12em; color:rgba(255,255,255,0.15); text-transform:uppercase; }
+  footer a{ color:rgba(143,111,232,0.5); text-decoration:none; }
+  footer a:hover{ color:var(--gold); }
+</style>
+</head>
+<body>
+<script src="site-nav.js" data-active="characters"></script>
+<script src="character-map.js"></script>
+<script src="spotlights-data.js"></script>
+<div id="grain" style="position:fixed;inset:0;z-index:200;pointer-events:none;opacity:0.025;background-image:url(&quot;data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E&quot;);"></div>
+
+<header>
+  <div class="brand"><a href="index.html">ZurVault</a> / Characters</div>
+  <h1>Browse by <span>Character</span></h1>
+  <p class="sub">Every tracked DC collection, grouped by who's on the cover — pick a character to see what's currently for sale and what's recently sold.</p>
+  <div class="quick-links">
+    <a class="back-link" href="guide.html">How to Buy &amp; Read &#8599;</a>
+    <a class="back-link" href="index.html">Latest DC Listings &#8599;</a>
+  </div>
+</header>
+
+<div class="section-label">Characters</div>
+<div class="char-grid" id="charGrid"></div>
+
+<div id="spotlightSlot"></div>
+
+<footer>
+  A ZurVault companion to <a href="https://candy.io" target="_blank" rel="noopener">candy.io</a> · <a href="index.html">zurvault.com</a>
+</footer>
+
+<script>
+const ME_PROXY_BASE = "https://zurvault-proxy.stholt.workers.dev";
+const ME_BASE = ME_PROXY_BASE + "/v2";
+
+const gridEl = document.getElementById('charGrid');
+const spotlightSlot = document.getElementById('spotlightSlot');
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+
+// Populate tiles immediately from the static character map — no network
+// wait needed for names/counts, same pattern index.html uses for its
+// sub-collection filter dropdown.
+function renderTiles(images){
+  gridEl.innerHTML = Object.entries(CHARACTER_MAP).map(([id, c]) => `
+    <a class="char-tile" href="character.html?c=${encodeURIComponent(id)}">
+      <img src="${images[id] || ''}" loading="lazy" onerror="this.style.opacity=0.15">
+      <div class="body">
+        <div class="name">${esc(c.name)}</div>
+        <div class="count">${c.symbols.length} collection${c.symbols.length === 1 ? '' : 's'}</div>
+      </div>
+    </a>
+  `).join('');
+}
+renderTiles({});
+
+// Then fetch the live aggregate once and backfill a representative image
+// per character from whichever of its collections has one — purely a
+// visual nicety, the tiles already work without it.
+fetch(`${ME_BASE}/dc-summary`)
+  .then(r => r.json())
+  .then(data => {
+    if (data.notReady) return;
+    const items = [...(data.listings || []), ...(data.sales || [])];
+    const images = {};
+    for (const [id, c] of Object.entries(CHARACTER_MAP)) {
+      const symbolSet = new Set(c.symbols);
+      const match = items.find(i => symbolSet.has(i.symbol) && i.image);
+      if (match) images[id] = match.image;
+    }
+    renderTiles(images);
+  })
+  .catch(() => {}); // tiles already render fine without images
+
+// Spotlight teaser — latest entry, if any.
+if (typeof SPOTLIGHTS !== 'undefined' && SPOTLIGHTS.length) {
+  const s = SPOTLIGHTS[0];
+  spotlightSlot.innerHTML = `
+    <a class="spotlight-card" href="spotlight.html?id=${encodeURIComponent(s.id)}">
+      <img src="${s.heroImage || ''}" onerror="this.style.opacity=0.2">
+      <div>
+        <div class="eyebrow">Spotlight</div>
+        <div class="title">${esc(s.title)}</div>
+      </div>
+    </a>
+  `;
+}
+</script>
+</body>
+</html>

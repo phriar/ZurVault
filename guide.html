@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How to Buy &amp; Read — ZurVault</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  :root{
+    --ink:    #0a0a0a;
+    --gold:   #8f6fe8;
+    --deep:   #6b2fd6;
+    --cyan:   #4de8ff;
+    --faint:  rgba(255,255,255,0.05);
+    --border: rgba(255,255,255,0.07);
+  }
+
+  body{
+    background:var(--ink); color:#fff; min-height:100vh;
+    font-family:'DM Mono',monospace; -webkit-font-smoothing:antialiased;
+  }
+
+  .wrap{ max-width:640px; margin:0 auto; padding:96px 24px 60px; }
+
+  .back-link{
+    display:inline-block; margin-bottom:24px; font-family:'DM Mono',monospace; font-size:.5rem;
+    letter-spacing:.2em; text-transform:uppercase; color:rgba(143,111,232,0.6); text-decoration:none;
+    border:1px solid rgba(143,111,232,0.2); padding:6px 14px; border-radius:2px; transition:all .15s;
+  }
+  .back-link:hover{ color:var(--gold); border-color:rgba(143,111,232,0.5); }
+
+  .eyebrow{ font-size:.48rem; letter-spacing:.3em; text-transform:uppercase; color:var(--cyan); margin-bottom:12px; }
+  h1{
+    font-family:'Cormorant Garamond',serif; font-weight:300; letter-spacing:.01em;
+    font-size:clamp(1.8rem,5vw,2.8rem); line-height:1.15; color:rgba(255,255,255,0.94); margin-bottom:14px;
+  }
+  .intro{ font-family:'Cormorant Garamond',serif; font-size:1.1rem; line-height:1.7; color:rgba(255,255,255,0.6); margin-bottom:40px; }
+
+  h2{
+    font-family:'Cormorant Garamond',serif; font-weight:400; font-size:1.6rem; color:var(--gold);
+    margin:44px 0 18px; padding-bottom:10px; border-bottom:1px solid var(--border);
+  }
+
+  ol{ list-style:none; counter-reset:step; }
+  ol li{
+    counter-increment:step; position:relative; padding-left:38px; margin-bottom:20px;
+    font-family:'Cormorant Garamond',serif; font-size:1.1rem; line-height:1.6; color:rgba(255,255,255,0.8);
+  }
+  ol li::before{
+    content:counter(step); position:absolute; left:0; top:0;
+    width:24px; height:24px; border-radius:50%; border:1px solid rgba(143,111,232,0.4);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'DM Mono',monospace; font-size:.6rem; color:var(--gold);
+  }
+  ol li strong{ color:#fff; font-weight:500; }
+
+  .note{
+    margin-top:16px; padding:14px 16px; border:1px solid rgba(77,232,255,0.25); border-radius:4px;
+    background:rgba(77,232,255,0.06); font-family:'DM Mono',monospace; font-size:.5rem; letter-spacing:.03em;
+    line-height:1.7; color:rgba(255,255,255,0.55);
+  }
+
+  .cta-row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
+  .cta-btn{
+    font-family:'DM Mono',monospace; font-size:.5rem; letter-spacing:.15em; text-transform:uppercase;
+    color:#fff; background:linear-gradient(135deg, var(--deep), var(--gold)); padding:10px 18px;
+    border-radius:3px; text-decoration:none; white-space:nowrap;
+  }
+  .cta-btn.secondary{ background:none; border:1px solid rgba(143,111,232,0.3); color:rgba(255,255,255,0.7); }
+
+  footer{ padding:28px 32px 44px; text-align:center; font-size:.42rem; letter-spacing:.12em; color:rgba(255,255,255,0.15); text-transform:uppercase; }
+  footer a{ color:rgba(143,111,232,0.5); text-decoration:none; }
+  footer a:hover{ color:var(--gold); }
+</style>
+</head>
+<body>
+<script src="site-nav.js" data-active="characters"></script>
+
+<div class="wrap">
+  <a class="back-link" href="characters.html">&#8592; All Characters</a>
+  <div class="eyebrow">Getting Started</div>
+  <h1>How to Buy &amp; Read</h1>
+  <p class="intro">ZurVault is a front end, not a marketplace — every listing here links out to <strong>Magic Eden</strong> to buy, and every comic reads on <strong>candy.io</strong> once it's in your wallet. Here's the whole path, start to finish.</p>
+
+  <h2>1. Get a wallet</h2>
+  <ol>
+    <li>Install <strong>Phantom</strong> (or another Solana wallet) as a browser extension or mobile app.</li>
+    <li>Fund it with a small amount of <strong>SOL</strong> — you'll need it both to pay for a comic and to cover Solana's small network fees.</li>
+  </ol>
+
+  <h2>2. Buy on Magic Eden</h2>
+  <ol>
+    <li>Find a comic you want on ZurVault — from a <a href="characters.html" style="color:var(--gold)">character page</a> or the <a href="index.html" style="color:var(--gold)">latest listings</a> — and click through to it.</li>
+    <li>That link opens the listing on <strong>Magic Eden</strong>. Connect your wallet there when prompted.</li>
+    <li>Review the price, then confirm the purchase. Your wallet will ask you to approve the transaction — check the details before approving.</li>
+    <li>Once the transaction confirms, the comic NFT is in your wallet.</li>
+  </ol>
+  <div class="note">ZurVault never asks for your seed phrase or private key, and never requests a transaction on your behalf — every purchase happens on Magic Eden's own site, with your own wallet approval.</div>
+
+  <h2>3. Read on candy.io</h2>
+  <ol>
+    <li>Go to <strong>candy.io</strong> and connect the same wallet you used to buy.</li>
+    <li>candy.io reads your wallet's holdings and shows the comics you own.</li>
+    <li>Open one to read it directly — no separate download or app needed.</li>
+  </ol>
+
+  <div class="cta-row">
+    <a class="cta-btn" href="characters.html">Browse Characters</a>
+    <a class="cta-btn secondary" href="https://candy.io" target="_blank" rel="noopener">Go to candy.io &#8599;</a>
+  </div>
+</div>
+
+<footer>
+  A ZurVault companion to <a href="https://candy.io" target="_blank" rel="noopener">candy.io</a> · <a href="index.html">zurvault.com</a>
+</footer>
+</body>
+</html>
