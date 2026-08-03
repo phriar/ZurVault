@@ -1,7 +1,7 @@
 /* ============================================================
    ZurVault shared top banner. Include right after <body> opens:
      <script src="site-nav.js" data-active="index"></script>
-   data-active values: index | discover | characters | collections | guide | slideshow | comics | candy
+   data-active values: index | discover | characters | collections | spotlight | guide | slideshow | comics | candy
 
    Self-injects its own <style> + markup, so every page shares one
    consistent site identity strip instead of duplicating markup.
@@ -26,13 +26,14 @@
     { id: 'index',       label: 'Listings',      href: 'index.html' },
     { id: 'characters',  label: 'Characters',    href: 'characters.html' },
     { id: 'collections', label: 'Collections',   href: 'collections.html' },
+    { id: 'spotlight',   label: 'Spotlight',     href: 'spotlight.html?id=why-the-killing-joke-still-matters' },
     { id: 'guide',       label: 'How To',        href: 'guide.html' },
     { id: 'slideshow',   label: 'Slideshow',     href: 'slideshow.html' },
   ];
 
   var style = document.createElement('style');
   style.textContent =
-    '#zv-banner{position:fixed;top:0;left:0;right:0;z-index:400;height:40px;' +
+    '#zv-banner{position:fixed;top:0;left:0;right:0;z-index:400;height:46px;' +
       'display:flex;align-items:center;justify-content:space-between;gap:14px;' +
       'padding:0 16px;background:rgba(6,6,6,0.82);backdrop-filter:blur(14px);' +
       '-webkit-backdrop-filter:blur(14px);border-bottom:1px solid rgba(255,255,255,0.08);' +
@@ -41,18 +42,18 @@
     '#zv-banner.zv-hidden{transform:translateY(-100%);opacity:0;pointer-events:none;}' +
     '#zv-banner *{box-sizing:border-box;}' +
     '#zv-banner .zv-brand{display:flex;align-items:center;gap:8px;text-decoration:none;flex-shrink:0;}' +
-    '#zv-banner .zv-mark{width:22px;height:22px;border-radius:50%;flex-shrink:0;' +
+    '#zv-banner .zv-mark{width:24px;height:24px;border-radius:50%;flex-shrink:0;' +
       'background-image:url(\'' + COWL_URL + '\');background-size:180%;background-position:center 30%;' +
       'border:1px solid rgba(143,111,232,0.45);}' +
-    '#zv-banner .zv-word{font-size:.6rem;letter-spacing:.3em;text-transform:uppercase;color:rgba(255,255,255,0.78);}' +
+    '#zv-banner .zv-word{font-size:.7rem;letter-spacing:.28em;text-transform:uppercase;color:rgba(255,255,255,0.78);}' +
     '#zv-banner .zv-links{display:flex;align-items:center;gap:2px;overflow-x:auto;scrollbar-width:none;}' +
     '#zv-banner .zv-links::-webkit-scrollbar{display:none;}' +
-    '#zv-banner .zv-link{font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;text-decoration:none;' +
+    '#zv-banner .zv-link{font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;' +
       'color:rgba(255,255,255,0.4);padding:6px 9px;white-space:nowrap;border-bottom:1px solid transparent;' +
       'transition:color .15s,border-color .15s;}' +
     '#zv-banner .zv-link:hover{color:#4de8ff;}' +
     '#zv-banner .zv-link.active{color:rgba(255,255,255,0.88);border-color:#6b2fd6;cursor:default;pointer-events:none;}' +
-    'body.zv-has-banner{padding-top:40px;}';
+    'body.zv-has-banner{padding-top:46px;}';
   document.head.appendChild(style);
 
   var links = PAGES.map(function (p) {
