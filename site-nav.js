@@ -1,7 +1,7 @@
 /* ============================================================
    ZurVault shared top banner. Include right after <body> opens:
      <script src="site-nav.js" data-active="index"></script>
-   data-active values: index | discover | characters | collections | slideshow | comics | candy
+   data-active values: index | discover | characters | collections | guide | slideshow | comics | candy
 
    Self-injects its own <style> + markup, so every page shares one
    consistent site identity strip instead of duplicating markup.
@@ -26,6 +26,7 @@
     { id: 'index',       label: 'Listings',      href: 'index.html' },
     { id: 'characters',  label: 'Characters',    href: 'characters.html' },
     { id: 'collections', label: 'Collections',   href: 'collections.html' },
+    { id: 'guide',       label: 'How To',        href: 'guide.html' },
     { id: 'slideshow',   label: 'Slideshow',     href: 'slideshow.html' },
   ];
 
