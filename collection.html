@@ -92,6 +92,30 @@
 
   .empty{ padding:60px 32px; text-align:center; color:rgba(255,255,255,0.25); font-family:'Cormorant Garamond',serif; font-size:1.2rem; font-weight:300; line-height:1.6; }
 
+  .section-label{
+    padding:28px 32px 12px; font-size:.5rem; letter-spacing:.3em; text-transform:uppercase;
+    color:rgba(255,255,255,0.2);
+  }
+  .history{
+    margin:0 32px; max-width:720px; font-family:'Cormorant Garamond',serif; font-size:1rem;
+    line-height:1.75; color:rgba(255,255,255,0.6);
+  }
+  .key-issues{ display:flex; flex-direction:column; gap:1px; background:var(--border); margin:0 32px 8px; border-radius:4px; overflow:hidden; }
+  .key-issue-card{
+    display:flex; gap:14px; padding:14px 16px; background:var(--ink); text-decoration:none; color:#fff;
+    transition:background .15s;
+  }
+  .key-issue-card:hover{ background:rgba(255,255,255,0.03); }
+  .key-issue-card img{
+    width:52px; height:78px; object-fit:cover; border-radius:3px; flex-shrink:0; background:var(--faint);
+  }
+  .key-issue-card .k-name{
+    font-family:'Cormorant Garamond',serif; font-size:1.05rem; color:rgba(255,255,255,0.9); margin-bottom:4px;
+  }
+  .key-issue-card .k-note{
+    font-family:'Cormorant Garamond',serif; font-size:.85rem; line-height:1.5; color:rgba(255,255,255,0.5);
+  }
+
   footer{ padding:28px 32px 44px; text-align:center; font-size:.42rem; letter-spacing:.12em; color:rgba(255,255,255,0.15); text-transform:uppercase; }
   footer a{ color:rgba(143,111,232,0.5); text-decoration:none; }
   footer a:hover{ color:var(--gold); }
@@ -113,6 +137,9 @@
   </div>
 </header>
 
+<div id="historySlot"></div>
+<div id="keyIssuesSlot"></div>
+
 <div id="status"><span class="dot"></span>Loading&hellip;</div>
 <div id="grid" class="grid"></div>
 
@@ -129,6 +156,8 @@ const gridEl = document.getElementById('grid');
 const collTitleEl = document.getElementById('collTitle');
 const collBlurbEl = document.getElementById('collBlurb');
 const collNameCrumbEl = document.getElementById('collNameCrumb');
+const historySlot = document.getElementById('historySlot');
+const keyIssuesSlot = document.getElementById('keyIssuesSlot');
 
 let allListings = [];
 let allSales = [];
@@ -151,6 +180,45 @@ function timeAgo(ts){
 
 function shortMint(mint){
   return mint && mint.length > 8 ? mint.slice(0, 4) + '…' + mint.slice(-4) : (mint || '');
+}
+
+function renderHistory(collection){
+  if(!collection.history){ historySlot.innerHTML = ''; return; }
+  historySlot.innerHTML = `
+    <div class="section-label">History</div>
+    <p class="history">${esc(collection.history)}</p>
+  `;
+}
+
+// Curated "key issues" for this series (collections-map.js). Same pattern
+// as CHARACTER_MAP's `highlights` in character.html: each entry is just a
+// symbol + a note — pull the image/name from whatever live data we already
+// have for it (currently for sale, or sold in the last 7 days), and fall
+// back to a plain text card linking to Magic Eden if neither is available.
+function renderKeyIssues(collection){
+  const keyIssues = collection.keyIssues || [];
+  if(keyIssues.length === 0){ keyIssuesSlot.innerHTML = ''; return; }
+
+  const cards = keyIssues.map(k => {
+    const match = allListings.find(i => i.symbol === k.symbol) || allSales.find(i => i.symbol === k.symbol);
+    const image = match ? match.image : '';
+    const name = match ? match.name : null;
+    const href = match ? match.pdpUrl : `https://magiceden.io/marketplace/${encodeURIComponent(k.symbol)}`;
+    return `
+      <a class="key-issue-card" href="${href}" target="_blank" rel="noopener">
+        <img src="${image}" loading="lazy" onerror="this.style.opacity=0.15">
+        <div>
+          ${name ? `<div class="k-name">${esc(name)}</div>` : ''}
+          <div class="k-note">${esc(k.note)}</div>
+        </div>
+      </a>
+    `;
+  }).join('');
+
+  keyIssuesSlot.innerHTML = `
+    <div class="section-label">Key Issues</div>
+    <div class="key-issues">${cards}</div>
+  `;
 }
 
 function render(){
@@ -213,6 +281,7 @@ async function loadCollection(){
   collTitleEl.innerHTML = `${esc(collection.name)}`;
   collNameCrumbEl.textContent = collection.name;
   if(collection.blurb) collBlurbEl.textContent = collection.blurb;
+  renderHistory(collection);
 
   setStatus('Loading…');
   try{
@@ -228,6 +297,7 @@ async function loadCollection(){
     const symbolSet = new Set(collection.symbols);
     allListings = (data.listings || []).filter(i => symbolSet.has(i.symbol));
     allSales = (data.sales || []).filter(i => symbolSet.has(i.symbol));
+    renderKeyIssues(collection);
 
     const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
     setStatus(`${allListings.length} for sale, ${allSales.length} sold in the last 7 days across ${collection.symbols.length} tracked issue(s) · updated ${updated}.`);
