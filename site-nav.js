@@ -1,7 +1,7 @@
 /* ============================================================
    ZurVault shared top banner. Include right after <body> opens:
      <script src="site-nav.js" data-active="index"></script>
-   data-active values: index | discover | characters | slideshow | comics | candy
+   data-active values: index | discover | characters | collections | slideshow | comics | candy
 
    Self-injects its own <style> + markup, so every page shares one
    consistent site identity strip instead of duplicating markup.
@@ -16,16 +16,17 @@
   var COWL_URL = 'https://arweave.net/uyG3Nvb1UKTtm3q-tdHs4GNYOiEyaSTc7O0zhsc9gIQ';
 
   // Primary nav is intentionally short — the site's focus is the
-  // character-collector experience (Listings, Characters, Slideshow).
-  // discover.html, comics.html, and candy-watcher.html are deliberately
-  // unlisted here (config-generation tool, reading fallback now that
-  // candy.io is primary, and a power-user watcher tool, respectively) —
-  // all three still work fine at their direct URLs and still include
-  // site-nav.js, they're just not in the banner.
+  // character/series-collector experience (Listings, Characters,
+  // Collections, Slideshow). discover.html, comics.html, and
+  // candy-watcher.html are deliberately unlisted here (config-generation
+  // tool, reading fallback now that candy.io is primary, and a power-user
+  // watcher tool, respectively) — all three still work fine at their
+  // direct URLs and still include site-nav.js, they're just not in the banner.
   var PAGES = [
-    { id: 'index',      label: 'Listings',      href: 'index.html' },
-    { id: 'characters', label: 'Characters',    href: 'characters.html' },
-    { id: 'slideshow',  label: 'Slideshow',     href: 'slideshow.html' },
+    { id: 'index',       label: 'Listings',      href: 'index.html' },
+    { id: 'characters',  label: 'Characters',    href: 'characters.html' },
+    { id: 'collections', label: 'Collections',   href: 'collections.html' },
+    { id: 'slideshow',   label: 'Slideshow',     href: 'slideshow.html' },
   ];
 
   var style = document.createElement('style');

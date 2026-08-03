@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Series — ZurVault</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  :root{
+    --ink:    #0a0a0a;
+    --gold:   #8f6fe8;
+    --deep:   #6b2fd6;
+    --cyan:   #4de8ff;
+    --faint:  rgba(255,255,255,0.05);
+    --border: rgba(255,255,255,0.07);
+  }
+
+  body{
+    background:var(--ink); color:#fff; min-height:100vh;
+    font-family:'DM Mono',monospace; -webkit-font-smoothing:antialiased;
+  }
+  .serif{ font-family:'Cormorant Garamond',serif; }
+
+  header{
+    padding:120px 32px 20px; border-bottom:1px solid var(--border);
+    position:relative; z-index:10; overflow:hidden;
+    background-image:url('https://arweave.net/uyG3Nvb1UKTtm3q-tdHs4GNYOiEyaSTc7O0zhsc9gIQ');
+    background-size:cover; background-position:center 20%;
+  }
+  header::before{
+    content:''; position:absolute; inset:0;
+    background:linear-gradient(to bottom, rgba(10,10,10,0.55) 0%, rgba(10,10,10,0.75) 45%, rgba(10,10,10,0.97) 90%);
+  }
+  header > *{ position:relative; z-index:1; }
+  header .brand{ font-size:.55rem; letter-spacing:.4em; color:rgba(255,255,255,0.18); text-transform:uppercase; }
+  header .brand a{ color:rgba(255,255,255,0.18); text-decoration:none; }
+  header .brand a:hover{ color:var(--gold); }
+  header h1{
+    font-family:'Cormorant Garamond',serif; font-weight:300; letter-spacing:.02em;
+    font-size:clamp(1.8rem,5vw,2.6rem); color:rgba(255,255,255,0.92); margin-top:10px;
+  }
+  header h1 span{ color:var(--gold); }
+  header p.blurb{
+    margin-top:14px; max-width:560px; font-family:'Cormorant Garamond',serif; font-size:1.05rem;
+    line-height:1.65; color:rgba(255,255,255,0.55);
+  }
+
+  .back-link{
+    display:inline-block; margin-top:14px; font-family:'DM Mono',monospace; font-size:.5rem;
+    letter-spacing:.2em; text-transform:uppercase; color:rgba(143,111,232,0.6); text-decoration:none;
+    border:1px solid rgba(143,111,232,0.2); padding:6px 14px; border-radius:2px; transition:all .15s;
+  }
+  .back-link:hover{ color:var(--gold); border-color:rgba(143,111,232,0.5); }
+
+  .tabs{ display:flex; gap:0; margin-top:22px; border-bottom:1px solid var(--border); }
+  .tab{
+    flex:1; text-align:center; padding:12px 8px; font-size:.5rem; letter-spacing:.25em;
+    text-transform:uppercase; color:rgba(255,255,255,0.3); cursor:pointer;
+    border-bottom:1px solid transparent; transition:color .15s;
+  }
+  .tab.active{ color:rgba(255,255,255,0.85); border-bottom-color:var(--cyan); }
+  .tab:hover{ color:rgba(255,255,255,0.6); }
+
+  #status{ padding:16px 32px; font-size:.48rem; letter-spacing:.1em; color:rgba(255,255,255,0.28); text-transform:uppercase; }
+  #status.err{ color:#e07a5f; }
+  #status .dot{ display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--cyan); margin-right:8px; }
+
+  .grid{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+    gap:1px; background:var(--border); padding:1px 32px 60px; margin-top:1px;
+  }
+  .card{
+    background:var(--ink); overflow:hidden; text-decoration:none; color:#fff;
+    display:flex; flex-direction:column; transition:background .15s;
+  }
+  .card:hover{ background:rgba(255,255,255,0.03); }
+  .card img{ width:100%; aspect-ratio:2/3; object-fit:cover; background:rgba(255,255,255,0.03); display:block; }
+  .card .body{ padding:12px 14px 16px; }
+  .card .sub{
+    font-family:'DM Mono',monospace; font-size:.4rem; letter-spacing:.14em; text-transform:uppercase;
+    color:rgba(143,111,232,0.55); margin-bottom:5px;
+  }
+  .card .name{
+    font-family:'Cormorant Garamond',serif; font-weight:400; font-size:1rem; line-height:1.25;
+    color:rgba(255,255,255,0.85); margin-bottom:8px;
+    display:-webkit-box; -webkit-line-clamp:2; line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .card .price{ font-family:'DM Mono',monospace; font-size:.56rem; letter-spacing:.05em; color:rgba(255,255,255,0.7); }
+  .card .time{ font-family:'DM Mono',monospace; font-size:.42rem; letter-spacing:.1em; color:rgba(255,255,255,0.22); margin-top:3px; text-transform:uppercase; }
+
+  .empty{ padding:60px 32px; text-align:center; color:rgba(255,255,255,0.25); font-family:'Cormorant Garamond',serif; font-size:1.2rem; font-weight:300; line-height:1.6; }
+
+  footer{ padding:28px 32px 44px; text-align:center; font-size:.42rem; letter-spacing:.12em; color:rgba(255,255,255,0.15); text-transform:uppercase; }
+  footer a{ color:rgba(143,111,232,0.5); text-decoration:none; }
+  footer a:hover{ color:var(--gold); }
+</style>
+</head>
+<body>
+<script src="site-nav.js" data-active="collections"></script>
+<script src="collections-map.js"></script>
+<div id="grain" style="position:fixed;inset:0;z-index:200;pointer-events:none;opacity:0.025;background-image:url(&quot;data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E&quot;);"></div>
+
+<header>
+  <div class="brand"><a href="collections.html">ZurVault</a> / Collections / <span id="collNameCrumb">…</span></div>
+  <h1 id="collTitle">Loading&hellip;</h1>
+  <p class="blurb" id="collBlurb"></p>
+  <a class="back-link" href="collections.html">&#8592; All Series</a>
+  <div class="tabs">
+    <div class="tab active" data-view="listings">For Sale</div>
+    <div class="tab" data-view="sales">Recently Sold</div>
+  </div>
+</header>
+
+<div id="status"><span class="dot"></span>Loading&hellip;</div>
+<div id="grid" class="grid"></div>
+
+<footer>
+  Live listing data via Magic Eden public API · <a href="index.html">zurvault.com</a>
+</footer>
+
+<script>
+const ME_PROXY_BASE = "https://zurvault-proxy.stholt.workers.dev";
+const ME_BASE = ME_PROXY_BASE + "/v2";
+
+const statusEl = document.getElementById('status');
+const gridEl = document.getElementById('grid');
+const collTitleEl = document.getElementById('collTitle');
+const collBlurbEl = document.getElementById('collBlurb');
+const collNameCrumbEl = document.getElementById('collNameCrumb');
+
+let allListings = [];
+let allSales = [];
+let currentView = 'listings';
+
+function setStatus(msg, isErr){
+  statusEl.innerHTML = (isErr ? '' : '<span class="dot"></span>') + msg;
+  statusEl.classList.toggle('err', !!isErr);
+}
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+
+function timeAgo(ts){
+  const secs = typeof ts === 'number' ? (ts > 1e12 ? (Date.now()-ts)/1000 : Date.now()/1000 - ts) : (Date.now() - new Date(ts).getTime())/1000;
+  if(secs < 60) return 'just now';
+  if(secs < 3600) return Math.floor(secs/60) + 'm ago';
+  if(secs < 86400) return Math.floor(secs/3600) + 'h ago';
+  return Math.floor(secs/86400) + 'd ago';
+}
+
+function shortMint(mint){
+  return mint && mint.length > 8 ? mint.slice(0, 4) + '…' + mint.slice(-4) : (mint || '');
+}
+
+function render(){
+  if(currentView === 'sales') renderSales();
+  else renderListings();
+}
+
+function renderListings(){
+  const items = allListings.slice().sort((a,b) => (b.listedAt ?? 0) - (a.listedAt ?? 0));
+  if(items.length === 0){
+    gridEl.innerHTML = `<div class="empty">Nothing currently for sale in this series.<br>Check back later, or browse <a href="index.html" style="color:var(--gold)">all DC listings</a>.</div>`;
+    return;
+  }
+  gridEl.innerHTML = items.map(i => `
+    <a class="card" href="${i.pdpUrl}" target="_blank" rel="noopener">
+      <img src="${i.image}" loading="lazy" onerror="this.style.opacity=0.2">
+      <div class="body">
+        <div class="sub">${esc(i.sub)}</div>
+        <div class="name">${esc(i.name)}</div>
+        <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
+        ${i.listedAt ? `<div class="time">${timeAgo(i.listedAt)}</div>` : ''}
+      </div>
+    </a>
+  `).join('');
+}
+
+function renderSales(){
+  const items = allSales.slice().sort((a,b) => (b.soldAt ?? 0) - (a.soldAt ?? 0)).slice(0, 200);
+  if(items.length === 0){
+    gridEl.innerHTML = `<div class="empty">No sales in the last 7 days for this series.<br>Check back later, or browse <a href="index.html" style="color:var(--gold)">all DC listings</a>.</div>`;
+    return;
+  }
+  gridEl.innerHTML = items.map(i => `
+    <a class="card" href="${i.pdpUrl}" target="_blank" rel="noopener">
+      <img src="${i.image}" loading="lazy" onerror="this.style.opacity=0.2">
+      <div class="body">
+        <div class="sub">${esc(i.sub)}</div>
+        <div class="name">Sold · ${shortMint(i.mint)}</div>
+        <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
+        ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
+      </div>
+    </a>
+  `).join('');
+}
+
+async function loadCollection(){
+  const params = new URLSearchParams(window.location.search);
+  const collId = params.get('s') || '';
+  const collection = COLLECTIONS_MAP[collId];
+
+  if(!collection){
+    collTitleEl.textContent = 'Series not found';
+    collNameCrumbEl.textContent = '?';
+    setStatus(`No series matches "${esc(collId)}". Go back and pick one from the list.`, true);
+    gridEl.innerHTML = `<div class="empty">Unknown series.<br><a href="collections.html" style="color:var(--gold)">&#8592; Back to all series</a></div>`;
+    return;
+  }
+
+  document.title = `${collection.name} — ZurVault`;
+  collTitleEl.innerHTML = `${esc(collection.name)}`;
+  collNameCrumbEl.textContent = collection.name;
+  if(collection.blurb) collBlurbEl.textContent = collection.blurb;
+
+  setStatus('Loading…');
+  try{
+    const res = await fetch(`${ME_BASE}/dc-summary`);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    if(data.notReady){
+      setStatus('The listings service is still setting up — check back in a few minutes.', true);
+      return;
+    }
+
+    const symbolSet = new Set(collection.symbols);
+    allListings = (data.listings || []).filter(i => symbolSet.has(i.symbol));
+    allSales = (data.sales || []).filter(i => symbolSet.has(i.symbol));
+
+    const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+    setStatus(`${allListings.length} for sale, ${allSales.length} sold in the last 7 days across ${collection.symbols.length} tracked issue(s) · updated ${updated}.`);
+  }catch(e){
+    console.error(e);
+    setStatus('Could not reach the listings service. Try reloading in a moment.', true);
+    return;
+  }
+  render();
+}
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    currentView = t.dataset.view;
+    render();
+  });
+});
+
+loadCollection();
+</script>
+</body>
+</html>
