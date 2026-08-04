@@ -151,7 +151,23 @@ html, body { width:100%; height:100%; background:var(--ink); overflow:hidden; }
 
 .meta-left { min-width:0; }
 .meta-name { font-family:'Cormorant Garamond',serif; font-size:clamp(1.4rem,3vw,2.2rem); font-weight:300; color:#fff; letter-spacing:.02em; line-height:1.1; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:70vw; }
-.meta-coll { font-family:'DM Mono',monospace; font-size:.58rem; letter-spacing:.22em; color:var(--gold); text-transform:uppercase; margin-bottom:14px; }
+.meta-row { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+.meta-coll { font-family:'DM Mono',monospace; font-size:.58rem; letter-spacing:.22em; color:var(--gold); text-transform:uppercase; }
+
+/* Rarity badge — pulled out of the generic trait list into its own
+   color-coded pill (standard game-rarity tiering: common through
+   legendary), since it's the one attribute worth calling out at a
+   glance rather than reading off a small trait chip. */
+.rarity-badge {
+  font-family:'DM Mono',monospace; font-size:.5rem; letter-spacing:.14em; text-transform:uppercase;
+  padding:3px 10px; border-radius:10px; border:1px solid; white-space:nowrap;
+}
+.rarity-common     { color:#c2c6cc; border-color:rgba(194,198,204,0.4); background:rgba(194,198,204,0.08); }
+.rarity-uncommon   { color:#4ade80; border-color:rgba(74,222,128,0.4); background:rgba(74,222,128,0.08); }
+.rarity-rare       { color:var(--cyan); border-color:rgba(77,232,255,0.4); background:rgba(77,232,255,0.08); }
+.rarity-epic       { color:var(--gold); border-color:rgba(143,111,232,0.5); background:rgba(143,111,232,0.1); }
+.rarity-legendary  { color:#fbbf24; border-color:rgba(251,191,36,0.5); background:rgba(251,191,36,0.1); }
+
 .meta-traits { display:flex; gap:10px; flex-wrap:wrap; }
 .trait { border:1px solid rgba(255,255,255,0.1); border-radius:2px; padding:4px 10px; backdrop-filter:blur(4px); background:rgba(255,255,255,0.04); }
 .trait-type { font-family:'DM Mono',monospace; font-size:.42rem; letter-spacing:.18em; color:rgba(255,255,255,0.35); text-transform:uppercase; margin-bottom:1px; }
@@ -271,7 +287,10 @@ html, body { width:100%; height:100%; background:var(--ink); overflow:hidden; }
   <div id="meta">
     <div class="meta-left">
       <div class="meta-name" id="m-name"></div>
-      <div class="meta-coll" id="m-coll"></div>
+      <div class="meta-row">
+        <div class="meta-coll" id="m-coll"></div>
+        <div class="rarity-badge" id="m-rarity" style="display:none"></div>
+      </div>
       <div class="meta-traits" id="m-traits"></div>
     </div>
     <div class="meta-right">
@@ -319,6 +338,7 @@ var artEl     = document.getElementById('art');
 var mName     = document.getElementById('m-name');
 var mColl     = document.getElementById('m-coll');
 var mTraits   = document.getElementById('m-traits');
+var mRarity   = document.getElementById('m-rarity');
 var mMeLink   = document.getElementById('m-melink');
 var mCounter  = document.getElementById('m-counter');
 var progFill  = document.getElementById('progress-fill');
@@ -647,6 +667,16 @@ function startFrame(items, startIdx) {
   schedule();
 }
 
+// Maps a raw rarity attribute value (whatever case/spacing the metadata
+// uses) to one of the five known tier classes, or null if it doesn't match
+// any of them \u2014 callers should hide the badge entirely rather than show an
+// unstyled/blank pill for a value that isn't one of the five tiers.
+var RARITY_TIERS = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+function rarityTierClass(value) {
+  var norm = String(value || '').trim().toLowerCase();
+  return RARITY_TIERS.indexOf(norm) !== -1 ? 'rarity-' + norm : null;
+}
+
 function show(i) {
   var n = nfts[i];
   if (!n) return;
@@ -659,7 +689,21 @@ function show(i) {
   bgEl.style.backgroundImage = 'url(' + n.image + ')';
   mName.textContent = n.name;
   mColl.textContent = n.collection;
-  var attrs = (n.attributes || []).slice(0, MAX_TRAITS);
+
+  var allAttrs = n.attributes || [];
+  var rarityAttr = allAttrs.find(function(a) { return /^rarity$/i.test(a.trait_type || ''); });
+  var tierClass = rarityAttr ? rarityTierClass(rarityAttr.value) : null;
+  if (tierClass) {
+    mRarity.textContent = String(rarityAttr.value).trim();
+    mRarity.className = 'rarity-badge ' + tierClass;
+    mRarity.style.display = '';
+  } else {
+    mRarity.style.display = 'none';
+  }
+
+  // Rarity now has its own badge above \u2014 don't also show it as a generic
+  // trait chip below.
+  var attrs = allAttrs.filter(function(a) { return a !== rarityAttr; }).slice(0, MAX_TRAITS);
   mTraits.innerHTML = attrs.map(function(a) {
     return '<div class="trait">'
       + '<div class="trait-type">' + esc(String(a.trait_type || '')) + '</div>'
