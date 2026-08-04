@@ -70,6 +70,15 @@
   }
   select:focus{ outline:1px solid rgba(143,111,232,0.4); }
 
+  .pill{
+    font-family:'DM Mono',monospace; font-size:.5rem; letter-spacing:.12em; text-transform:uppercase;
+    color:rgba(255,255,255,0.4); padding:8px 14px; border:1px solid var(--border); border-radius:20px;
+    cursor:pointer; transition:all .15s; background:transparent;
+  }
+  .pill:hover{ color:rgba(255,255,255,0.7); border-color:rgba(143,111,232,0.3); }
+  .pill.active{ color:#fff; background:linear-gradient(135deg, var(--deep), var(--gold)); border-color:transparent; }
+  .view-toggle{ display:flex; gap:8px; margin-left:auto; }
+
   #status{ padding:16px 32px; font-size:.48rem; letter-spacing:.1em; color:rgba(255,255,255,0.28); text-transform:uppercase; }
   #status.err{ color:#e07a5f; }
   #status .dot{ display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--cyan); margin-right:8px; }
@@ -96,6 +105,27 @@
   }
   .card .price{ font-family:'DM Mono',monospace; font-size:.56rem; letter-spacing:.05em; color:rgba(255,255,255,0.7); }
   .card .time{ font-family:'DM Mono',monospace; font-size:.42rem; letter-spacing:.1em; color:rgba(255,255,255,0.22); margin-top:3px; text-transform:uppercase; }
+
+  /* List view — same data as the card grid, one full-width row per item
+     instead of a narrow tile, so the name (and any mint/edition number
+     embedded in it) never needs clamping the way a 150px card does. */
+  .list{ display:flex; flex-direction:column; gap:1px; background:var(--border); padding:1px 32px 60px; margin-top:1px; }
+  .list-row{
+    background:var(--ink); display:flex; align-items:center; gap:14px; padding:10px 14px;
+    text-decoration:none; color:#fff; transition:background .15s;
+  }
+  .list-row:hover{ background:rgba(255,255,255,0.03); }
+  .list-row img{ width:44px; height:66px; object-fit:cover; border-radius:2px; flex-shrink:0; background:rgba(255,255,255,0.03); }
+  .list-row .info{ flex:1; min-width:0; }
+  .list-row .sub{
+    font-family:'DM Mono',monospace; font-size:.4rem; letter-spacing:.14em; text-transform:uppercase;
+    color:rgba(143,111,232,0.55); margin-bottom:3px;
+  }
+  .list-row .name{ font-family:'Cormorant Garamond',serif; font-size:1rem; line-height:1.25; color:rgba(255,255,255,0.85); }
+  .list-row .price-col{ flex-shrink:0; text-align:right; }
+  .list-row .price{ font-family:'DM Mono',monospace; font-size:.6rem; color:rgba(255,255,255,0.7); white-space:nowrap; }
+  .list-row .mint{ font-family:'DM Mono',monospace; font-size:.42rem; color:rgba(255,255,255,0.32); margin-top:2px; white-space:nowrap; }
+  .list-row .time{ font-family:'DM Mono',monospace; font-size:.42rem; color:rgba(255,255,255,0.22); margin-top:2px; text-transform:uppercase; white-space:nowrap; }
 
   .empty{ padding:60px 32px; text-align:center; color:rgba(255,255,255,0.25); font-family:'Cormorant Garamond',serif; font-size:1.2rem; font-weight:300; line-height:1.6; }
 
@@ -128,6 +158,10 @@
     <option value="price-asc">Price: low → high</option>
     <option value="price-desc">Price: high → low</option>
   </select>
+  <div class="view-toggle" id="viewToggle">
+    <button class="pill active" data-view="grid">Grid</button>
+    <button class="pill" data-view="list">List</button>
+  </div>
 </div>
 
 <div id="status"><span class="dot"></span>Loading collections…</div>
@@ -354,11 +388,13 @@ const ME_BASE = ME_PROXY_BASE + "/v2";
 let allListings = [];
 let allSales = [];
 let currentView = 'listings';
+let currentDisplay = 'grid';
 
 const statusEl = document.getElementById('status');
 const gridEl = document.getElementById('grid');
 const subFilterEl = document.getElementById('subFilter');
 const sortByEl = document.getElementById('sortBy');
+const viewToggleEl = document.getElementById('viewToggle');
 
 function setStatus(msg, isErr){
   statusEl.innerHTML = (isErr ? '' : '<span class="dot"></span>') + msg;
@@ -367,6 +403,15 @@ function setStatus(msg, isErr){
 
 function shortMint(mint){
   return mint && mint.length > 8 ? mint.slice(0, 4) + '…' + mint.slice(-4) : (mint || '');
+}
+
+// Magic Eden listing names for these collections commonly end in
+// "(edition/total)", e.g. "Flashpoint (2011) #1 (501/1314)" — pull that
+// out to show as a mint/edition badge in list view, where there's room for
+// it. Falls back to nothing if the name doesn't match that pattern.
+function parseEdition(name){
+  const m = /\((\d+)\s*\/\s*(\d+)\)\s*$/.exec(name || '');
+  return m ? `#${m[1]} / ${m[2]}` : null;
 }
 
 // The ~200-collection scan (listings + activities per collection) now runs
@@ -443,10 +488,31 @@ function renderListings(){
   const items = sortItems(allListings.filter(i => !sub || i.sub === sub), sortByEl.value, 'listedAt');
 
   if(items.length === 0){
+    gridEl.className = currentDisplay;
     gridEl.innerHTML = `<div class="empty">No listings match this view yet.<br>Try a different sub-collection or check back later.</div>`;
     return;
   }
 
+  if(currentDisplay === 'list'){
+    gridEl.className = 'list';
+    gridEl.innerHTML = items.map(i => `
+      <a class="list-row" href="${i.pdpUrl}" target="_blank" rel="noopener">
+        <img src="${i.image}" loading="lazy" onerror="this.style.opacity=0.2">
+        <div class="info">
+          <div class="sub">${i.sub}</div>
+          <div class="name">${i.name}</div>
+        </div>
+        <div class="price-col">
+          <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
+          ${parseEdition(i.name) ? `<div class="mint">${parseEdition(i.name)}</div>` : ''}
+          ${i.listedAt ? `<div class="time">${timeAgo(i.listedAt)}</div>` : ''}
+        </div>
+      </a>
+    `).join('');
+    return;
+  }
+
+  gridEl.className = 'grid';
   gridEl.innerHTML = items.map(i => `
     <a class="card" href="${i.pdpUrl}" target="_blank" rel="noopener">
       <img src="${i.image}" loading="lazy" onerror="this.style.opacity=0.2">
@@ -465,10 +531,30 @@ function renderSales(){
   const items = sortItems(allSales.filter(i => !sub || i.sub === sub), sortByEl.value, 'soldAt').slice(0, 200);
 
   if(items.length === 0){
+    gridEl.className = currentDisplay;
     gridEl.innerHTML = `<div class="empty">No sales in the last 7 days for this view.<br>Try a different sub-collection or check back later.</div>`;
     return;
   }
 
+  if(currentDisplay === 'list'){
+    gridEl.className = 'list';
+    gridEl.innerHTML = items.map(i => `
+      <a class="list-row" href="${i.pdpUrl}" target="_blank" rel="noopener">
+        <img src="${i.image}" loading="lazy" onerror="this.style.opacity=0.2">
+        <div class="info">
+          <div class="sub">${i.sub}</div>
+          <div class="name">Sold · ${shortMint(i.mint)}</div>
+        </div>
+        <div class="price-col">
+          <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
+          ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
+        </div>
+      </a>
+    `).join('');
+    return;
+  }
+
+  gridEl.className = 'grid';
   gridEl.innerHTML = items.map(i => `
     <a class="card" href="${i.pdpUrl}" target="_blank" rel="noopener">
       <img src="${i.image}" loading="lazy" onerror="this.style.opacity=0.2">
@@ -492,6 +578,15 @@ function timeAgo(ts){
 
 subFilterEl.addEventListener('change', render);
 sortByEl.addEventListener('change', render);
+
+viewToggleEl.querySelectorAll('.pill').forEach(p => {
+  p.addEventListener('click', () => {
+    viewToggleEl.querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
+    p.classList.add('active');
+    currentDisplay = p.dataset.view;
+    render();
+  });
+});
 
 document.querySelectorAll('.tab').forEach(t => {
   t.addEventListener('click', () => {
