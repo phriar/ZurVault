@@ -496,9 +496,13 @@ async function loadAll(isRefresh){
 
   if(!isRefresh){
     // populate sub-collection filter immediately — DC_COLLECTIONS is static,
-    // it doesn't need to wait on any network response.
+    // it doesn't need to wait on any network response. Sorted alphabetically
+    // (DC_COLLECTIONS itself is in no particular order) so a specific
+    // collection — "Absolute Batman Ashcan Special", say — is actually
+    // findable by scanning the list instead of hunting through insertion order.
     subFilterEl.innerHTML = '<option value="">All sub-collections</option>' +
-      DC_COLLECTIONS.map(c => `<option value="${c.sub}">${c.sub}</option>`).join('');
+      DC_COLLECTIONS.slice().sort((a, b) => a.sub.localeCompare(b.sub))
+        .map(c => `<option value="${c.sub}">${c.sub}</option>`).join('');
   }
 
   setStatus(isRefresh ? 'Refreshing…' : 'Loading…');
