@@ -124,7 +124,6 @@
 </head>
 <body>
 <script src="site-nav.js" data-active="artists"></script>
-<script src="artist-map.js"></script>
 <div id="grain" style="position:fixed;inset:0;z-index:200;pointer-events:none;opacity:0.025;background-image:url(&quot;data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E&quot;);"></div>
 
 <header>
@@ -241,20 +240,19 @@ function render(){
 
 async function loadArtist(){
   const params = new URLSearchParams(window.location.search);
-  const artistId = params.get('a') || '';
-  const artist = ARTIST_MAP[artistId];
+  const artistName = params.get('a') || '';
 
-  if(!artist){
+  if(!artistName){
     artistTitleEl.textContent = 'Artist not found';
     artistNameCrumbEl.textContent = '?';
-    setStatus(`No artist matches "${esc(artistId)}". Go back and pick one from the list.`, true);
+    setStatus('No artist name given. Go back and pick one from the list.', true);
     gridEl.innerHTML = `<div class="empty">Unknown artist.<br><a href="artists.html" style="color:var(--gold)">&#8592; Back to all artists</a></div>`;
     return;
   }
 
-  document.title = `${artist.name} — ZurVault`;
-  artistTitleEl.innerHTML = `${esc(artist.name)}`;
-  artistNameCrumbEl.textContent = artist.name;
+  document.title = `${artistName} — ZurVault`;
+  artistTitleEl.innerHTML = `${esc(artistName)}`;
+  artistNameCrumbEl.textContent = artistName;
 
   setStatus('Loading…');
   try{
@@ -267,11 +265,14 @@ async function loadArtist(){
       return;
     }
 
-    const symbolSet = new Set(artist.symbols);
-    allListings = (data.listings || []).filter(i => symbolSet.has(i.symbol));
+    // Match on this listing's own coverArtists, not a static collection
+    // membership list — a collection can span several different artists
+    // (variant covers), so this only ever shows listings this artist is
+    // actually credited on.
+    allListings = (data.listings || []).filter(i => (i.coverArtists || []).includes(artistName));
 
     const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
-    setStatus(`${allListings.length} for sale across ${artist.symbols.length} tracked issue(s) · updated ${updated}.`);
+    setStatus(`${allListings.length} for sale · updated ${updated}.`);
   }catch(e){
     console.error(e);
     setStatus('Could not reach the listings service. Try reloading in a moment.', true);

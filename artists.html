@@ -55,6 +55,10 @@
   }
   .back-link:hover{ color:var(--gold); border-color:rgba(143,111,232,0.5); }
 
+  #status{ padding:16px 32px; font-size:.48rem; letter-spacing:.1em; color:rgba(255,255,255,0.28); text-transform:uppercase; }
+  #status.err{ color:#e07a5f; }
+  #status .dot{ display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--cyan); margin-right:8px; }
+
   .controls{ display:flex; padding:16px 32px; border-bottom:1px solid var(--border); background:rgba(255,255,255,0.015); }
   #filterInput{
     width:100%; max-width:320px; background:rgba(0,0,0,0.5); border:1px solid var(--border);
@@ -95,13 +99,12 @@
 </head>
 <body>
 <script src="site-nav.js" data-active="artists"></script>
-<script src="artist-map.js"></script>
 <div id="grain" style="position:fixed;inset:0;z-index:200;pointer-events:none;opacity:0.025;background-image:url(&quot;data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E&quot;);"></div>
 
 <header>
   <div class="brand"><a href="index.html">ZurVault</a> / Artists</div>
   <h1>Browse by <span>Cover Artist</span></h1>
-  <p class="sub">Every tracked DC collection, grouped by who drew the cover — pulled straight from each issue's own Magic Eden attributes, not hand-picked. 177 artists across the tracked collection.</p>
+  <p class="sub">Every currently-listed comic, grouped by who's actually credited as cover artist on that specific listing — not the whole collection lumped together, since variant covers mean a collection can span several different artists. Pulled live from each listing's own Magic Eden attributes.</p>
   <div class="quick-links">
     <a class="back-link" href="characters.html">Browse by Character &#8599;</a>
     <a class="back-link" href="collections.html">Browse by Series &#8599;</a>
@@ -114,6 +117,7 @@
   <input id="filterInput" type="text" placeholder="Filter artists…" autocomplete="off">
 </div>
 
+<div id="status"><span class="dot"></span>Loading&hellip;</div>
 <div class="section-label">Artists</div>
 <div class="artist-grid" id="artistGrid"></div>
 
@@ -122,32 +126,82 @@
 </footer>
 
 <script>
+const ME_PROXY_BASE = "https://zurvault-proxy.stholt.workers.dev";
+const ME_BASE = ME_PROXY_BASE + "/v2";
+
+const statusEl = document.getElementById('status');
 const gridEl = document.getElementById('artistGrid');
 const filterEl = document.getElementById('filterInput');
 
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 
-const ARTISTS_SORTED = Object.entries(ARTIST_MAP).sort((a, b) => a[1].name.localeCompare(b[1].name));
+function setStatus(msg, isErr){
+  statusEl.innerHTML = (isErr ? '' : '<span class="dot"></span>') + msg;
+  statusEl.classList.toggle('err', !!isErr);
+}
+
+let artistsSorted = [];
 
 function render(){
   const q = filterEl.value.trim().toLowerCase();
-  const items = q ? ARTISTS_SORTED.filter(([, a]) => a.name.toLowerCase().includes(q)) : ARTISTS_SORTED;
+  const items = q ? artistsSorted.filter(a => a.name.toLowerCase().includes(q)) : artistsSorted;
 
   if(items.length === 0){
     gridEl.innerHTML = `<div class="empty">No artist matches "${esc(filterEl.value)}".</div>`;
     return;
   }
 
-  gridEl.innerHTML = items.map(([id, a]) => `
-    <a class="artist-tile" href="artist.html?a=${encodeURIComponent(id)}">
+  gridEl.innerHTML = items.map(a => `
+    <a class="artist-tile" href="artist.html?a=${encodeURIComponent(a.name)}">
       <div class="name">${esc(a.name)}</div>
-      <div class="count">${a.symbols.length} issue${a.symbols.length === 1 ? '' : 's'}</div>
+      <div class="count">${a.count} listing${a.count === 1 ? '' : 's'}</div>
     </a>
   `).join('');
 }
 
+async function load(){
+  setStatus('Loading…');
+  try{
+    const res = await fetch(`${ME_BASE}/dc-summary`);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    if(data.notReady){
+      setStatus('The listings service is still setting up — check back in a few minutes.', true);
+      return;
+    }
+
+    // Build the artist directory live from each listing's own coverArtists
+    // — a collection can span several different artists (variant covers),
+    // so this only ever counts a listing under an artist actually credited
+    // on that specific listing, not the whole collection.
+    const counts = {};
+    for(const i of (data.listings || [])){
+      for(const name of (i.coverArtists || [])){
+        counts[name] = (counts[name] || 0) + 1;
+      }
+    }
+    artistsSorted = Object.entries(counts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    if(artistsSorted.length === 0){
+      setStatus('No cover-artist data available yet — the listings service may still be catching up.', true);
+      return;
+    }
+
+    const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+    setStatus(`${artistsSorted.length} artist(s) across ${(data.listings || []).length} listings · updated ${updated}.`);
+  }catch(e){
+    console.error(e);
+    setStatus('Could not reach the listings service. Try reloading in a moment.', true);
+    return;
+  }
+  render();
+}
+
 filterEl.addEventListener('input', render);
-render();
+load();
 </script>
 </body>
 </html>

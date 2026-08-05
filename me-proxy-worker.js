@@ -420,6 +420,52 @@ function normalizeRarity(attributes) {
   return key ? { tier: RARITY_LABELS[key], pct: match ? parseFloat(match[2]) : null } : { tier: null, pct: null };
 }
 
+// Cover Artist, unlike Character/Series, turned out NOT to be constant
+// across a whole collection — confirmed against live data that collections
+// with variant covers (e.g. justice_league_20112016_1, batman_2016_158)
+// carry several different Cover Artist credits across their own listings.
+// A prior static per-collection map (artist-map.js, since retired) sampled
+// one listing per collection and wrongly attributed every other variant's
+// listings to whichever artist that one sample happened to have. This
+// extracts it per listing instead, the same way Rarity is handled, so
+// filtering by artist only ever matches a listing's own actual credit.
+//
+// Multi-artist credits (e.g. "Leandro Fernandez, Dave McCaig") are split
+// into individual names. Name-suffix fragments (", Jr.", ", Sr.", ", II"/
+// "III"/"IV") stay attached to the preceding name rather than splitting
+// into their own bogus entry — an earlier pass without this fix produced
+// a standalone "Jr." credit from "Romulo Fajardo, Jr.". A few casing/
+// diacritic variants seen in the raw data are normalized by hand.
+const ARTIST_NAME_ALIASES = {
+  "george perez": "George Pérez",
+  "hi-fi": "Hi-Fi",
+  "stjepan sejic": "Stjepan Šejić",
+  "stjepan šejic": "Stjepan Šejić",
+};
+const ARTIST_NAME_EXCLUDE = new Set(["na", "n/a", "various", ""]);
+
+function extractCoverArtists(attributes) {
+  const attr = (attributes || []).find((a) => /^cover artist$/i.test(a?.trait_type || ""));
+  if (!attr) return [];
+  const raw = String(attr.value || "").replace(/\s+/g, " ").trim();
+  const parts = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  const names = [];
+  for (const part of parts) {
+    if (/^(Jr\.?|Sr\.?|II|III|IV)$/i.test(part) && names.length > 0) {
+      names[names.length - 1] += ", " + part;
+    } else {
+      names.push(part);
+    }
+  }
+  return names
+    .map((n) => {
+      const key = n.toLowerCase();
+      if (ARTIST_NAME_EXCLUDE.has(key)) return null;
+      return ARTIST_NAME_ALIASES[key] || n;
+    })
+    .filter(Boolean);
+}
+
 function deriveSales(activities, col) {
   const cutoff = Date.now() / 1000 - SALES_WINDOW_SECS;
   const sales = [];
@@ -468,12 +514,14 @@ async function refreshOneCollection(col, env) {
         pdpUrl: `https://magiceden.io/item-details/${mint}`,
         // Only listings carry attributes from Magic Eden's response —
         // activities (what sales are derived from, below) don't include
-        // token.attributes at all, so sold items have no rarity captured
-        // here. Getting rarity onto sales would mean a separate per-mint
-        // metadata fetch for every sale, which isn't worth the added load
-        // on top of the rate limiting this file already fights — deferred.
+        // token.attributes at all, so sold items have no rarity/cover-artist
+        // captured here. Getting either onto sales would mean a separate
+        // per-mint metadata fetch for every sale, which isn't worth the
+        // added load on top of the rate limiting this file already fights
+        // — deferred, same as rarity.
         rarity: rarityInfo.tier,
         rarityPct: rarityInfo.pct,
+        coverArtists: extractCoverArtists(item?.token?.attributes),
       };
     });
     const sales = deriveSales(Array.isArray(activities) ? activities : [], col);
