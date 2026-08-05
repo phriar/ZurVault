@@ -23,8 +23,54 @@
   }
   .serif{ font-family:'Cormorant Garamond',serif; }
 
+  /* Hero marquee — sits above the existing feed header, which is why that
+     header's own top padding is trimmed down below: it no longer needs to
+     act as the page's first-impression hero on its own, and the fixed nav
+     clearance is already handled globally by body.zv-has-banner. */
+  .hero-marquee{
+    position:relative; min-height:55vh; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; overflow:hidden;
+    background:var(--ink); text-align:center; padding:40px 24px;
+  }
+  .hero-marquee::before{
+    content:''; position:absolute; inset:0; z-index:0;
+    background:radial-gradient(ellipse at center, rgba(107,47,214,0.22), transparent 60%);
+  }
+  .hero-marquee .hero-content{ position:relative; z-index:1; }
+  .hero-marquee h1{
+    font-family:'Cormorant Garamond',serif; font-weight:500; letter-spacing:.02em;
+    font-size:clamp(2.6rem,8vw,5rem); color:var(--gold);
+    text-shadow:0 0 6px var(--gold), 0 0 16px var(--gold), 0 0 34px var(--deep), 0 0 60px var(--deep);
+    animation:marquee-flicker 4.5s infinite;
+  }
+  .hero-marquee h1 span{
+    color:#f4e9ff;
+    text-shadow:0 0 6px var(--cyan), 0 0 18px var(--cyan), 0 0 40px rgba(77,232,255,0.6);
+  }
+  @keyframes marquee-flicker{
+    0%, 100%{ opacity:1; } 92%{ opacity:1; } 93%{ opacity:.6; }
+    94%{ opacity:1; } 96%{ opacity:.8; } 97%{ opacity:1; }
+  }
+  .hero-marquee .tagline{
+    margin-top:16px; font-family:'DM Mono',monospace; font-size:.6rem;
+    letter-spacing:.25em; text-transform:uppercase; color:rgba(255,255,255,0.4);
+  }
+  .hero-marquee .cta-row{
+    margin-top:30px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;
+  }
+  .cta-btn-primary{
+    font-family:'DM Mono',monospace; font-size:.52rem; letter-spacing:.18em; text-transform:uppercase;
+    color:#fff; background:linear-gradient(135deg, var(--deep), var(--gold)); padding:12px 22px;
+    border-radius:3px; text-decoration:none; white-space:nowrap; transition:filter .15s;
+  }
+  .cta-btn-primary:hover{ filter:brightness(1.12); }
+  @media (max-width:480px){
+    .hero-marquee .cta-row{ flex-direction:column; align-items:stretch; }
+  }
+
   header{
-    padding:120px 32px 20px; border-bottom:1px solid var(--border);
+    scroll-margin-top:60px;
+    padding:56px 32px 20px; border-bottom:1px solid var(--border);
     position:relative; z-index:10; overflow:hidden;
     background-image:url('https://arweave.net/uyG3Nvb1UKTtm3q-tdHs4GNYOiEyaSTc7O0zhsc9gIQ');
     background-size:cover; background-position:center 20%;
@@ -138,7 +184,18 @@
 <script src="site-nav.js" data-active="index"></script>
 <div id="grain" style="position:fixed;inset:0;z-index:200;pointer-events:none;opacity:0.025;background-image:url(&quot;data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E&quot;);"></div>
 
-<header>
+<section class="hero-marquee">
+  <div class="hero-content">
+    <h1>Zur<span>Vault</span></h1>
+    <p class="tagline">New drops. Dollar bins. All on-chain.</p>
+    <div class="cta-row">
+      <a href="#latest-drops" class="cta-btn-primary">See Latest Drops</a>
+      <a href="dollar-bin.html" class="back-link" style="margin-top:0">Browse Dollar Bins &#8599;</a>
+    </div>
+  </div>
+</section>
+
+<header id="latest-drops">
   <div class="brand"><a href="index.html">ZurVault</a> / Latest DC Listings</div>
   <h1>Latest DC <span>Listings</span></h1>
   <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
