@@ -384,6 +384,32 @@ function deriveListedTimes(activities) {
   return map;
 }
 
+// Different candy.io drops format their "Rarity" trait very inconsistently
+// (confirmed against live data across dozens of collections): some are
+// bare "EPIC"/"UNCOMMON" (all-caps, no suffix), others are "Common
+// (40.400)" (title case, with a rarity-weight percentage tacked on), and
+// at least one drop's base tier is labeled "CORE" instead of "Common".
+// Same normalization slideshow.html does client-side for the same reason
+// — strip any trailing "(...)" and alias core/base/standard to common —
+// so every collection reports one of five consistent values instead of
+// each drop's own raw string.
+const RARITY_ALIASES = {
+  common: "common", core: "common", base: "common", standard: "common",
+  uncommon: "uncommon",
+  rare: "rare",
+  epic: "epic",
+  legendary: "legendary",
+};
+const RARITY_LABELS = { common: "Common", uncommon: "Uncommon", rare: "Rare", epic: "Epic", legendary: "Legendary" };
+
+function normalizeRarity(attributes) {
+  const attr = (attributes || []).find((a) => /^rarity$/i.test(a?.trait_type || ""));
+  if (!attr) return null;
+  const cleaned = String(attr.value || "").replace(/\s*\([^)]*\)\s*$/, "").trim().toLowerCase();
+  const key = RARITY_ALIASES[cleaned];
+  return key ? RARITY_LABELS[key] : null;
+}
+
 function deriveSales(activities, col) {
   const cutoff = Date.now() / 1000 - SALES_WINDOW_SECS;
   const sales = [];
@@ -429,6 +455,13 @@ async function refreshOneCollection(col, env) {
         mintAddress: mint,
         listedAt: listedTimes.get(mint) || null,
         pdpUrl: `https://magiceden.io/item-details/${mint}`,
+        // Only listings carry attributes from Magic Eden's response —
+        // activities (what sales are derived from, below) don't include
+        // token.attributes at all, so sold items have no rarity captured
+        // here. Getting rarity onto sales would mean a separate per-mint
+        // metadata fetch for every sale, which isn't worth the added load
+        // on top of the rate limiting this file already fights — deferred.
+        rarity: normalizeRarity(item?.token?.attributes),
       };
     });
     const sales = deriveSales(Array.isArray(activities) ? activities : [], col);

@@ -1,7 +1,7 @@
 /* ============================================================
    ZurVault shared top banner. Include right after <body> opens:
      <script src="site-nav.js" data-active="index"></script>
-   data-active values: index | discover | characters | collections | artists | dollar-bin | spotlight | guide | slideshow | comics | candy
+   data-active values: index | discover | characters | collections | artists | rarity | dollar-bin | spotlight | guide | slideshow | comics | candy
 
    Self-injects its own <style> + markup, so every page shares one
    consistent site identity strip instead of duplicating markup.
@@ -27,6 +27,7 @@
     { id: 'characters',  label: 'Characters',    href: 'characters.html' },
     { id: 'collections', label: 'Collections',   href: 'collections.html' },
     { id: 'artists',     label: 'Artists',       href: 'artists.html' },
+    { id: 'rarity',      label: 'Rarity',        href: 'rarity.html' },
     { id: 'dollar-bin',  label: 'Dollar Bin',    href: 'dollar-bin.html' },
     { id: 'spotlight',   label: 'Spotlight',     href: 'spotlight.html?id=why-the-killing-joke-still-matters' },
     { id: 'guide',       label: 'How To',        href: 'guide.html' },
