@@ -50,15 +50,6 @@
   }
   .back-link:hover{ color:var(--gold); border-color:rgba(143,111,232,0.5); }
 
-  .tabs{ display:flex; gap:0; margin-top:22px; border-bottom:1px solid var(--border); }
-  .tab{
-    flex:1; text-align:center; padding:12px 8px; font-size:.5rem; letter-spacing:.25em;
-    text-transform:uppercase; color:rgba(255,255,255,0.3); cursor:pointer;
-    border-bottom:1px solid transparent; transition:color .15s;
-  }
-  .tab.active{ color:rgba(255,255,255,0.85); border-bottom-color:var(--cyan); }
-  .tab:hover{ color:rgba(255,255,255,0.6); }
-
   .controls{
     display:flex; gap:8px; padding:16px 32px; flex-wrap:wrap; border-bottom:1px solid var(--border);
     background:rgba(255,255,255,0.015);
@@ -133,10 +124,6 @@
   <div class="brand"><a href="artists.html">ZurVault</a> / Artists / <span id="artistNameCrumb">…</span></div>
   <h1 id="artistTitle">Loading&hellip;</h1>
   <a class="back-link" href="artists.html">&#8592; All Artists</a>
-  <div class="tabs">
-    <div class="tab active" data-view="listings">For Sale</div>
-    <div class="tab" data-view="sales">Recently Sold</div>
-  </div>
 </header>
 
 <div class="controls">
@@ -164,8 +151,6 @@ const artistNameCrumbEl = document.getElementById('artistNameCrumb');
 const viewToggleEl = document.getElementById('viewToggle');
 
 let allListings = [];
-let allSales = [];
-let currentView = 'listings';
 let currentDisplay = 'grid';
 
 function setStatus(msg, isErr){
@@ -181,10 +166,6 @@ function timeAgo(ts){
   if(secs < 3600) return Math.floor(secs/60) + 'm ago';
   if(secs < 86400) return Math.floor(secs/3600) + 'h ago';
   return Math.floor(secs/86400) + 'd ago';
-}
-
-function shortMint(mint){
-  return mint && mint.length > 8 ? mint.slice(0, 4) + '…' + mint.slice(-4) : (mint || '');
 }
 
 function parseEdition(name){
@@ -233,49 +214,8 @@ function renderListings(){
   `).join('');
 }
 
-function renderSales(){
-  const items = allSales.slice().sort((a,b) => (b.soldAt ?? 0) - (a.soldAt ?? 0)).slice(0, 200);
-  if(items.length === 0){
-    gridEl.className = currentDisplay;
-    gridEl.innerHTML = `<div class="empty">No sales in the last 7 days for this artist.<br>Check back later, or browse <a href="index.html" style="color:var(--gold)">all DC listings</a>.</div>`;
-    return;
-  }
-
-  if(currentDisplay === 'list'){
-    gridEl.className = 'list';
-    gridEl.innerHTML = items.map(i => `
-      <a class="list-row" href="${i.pdpUrl}" target="_blank" rel="noopener">
-        <img src="${i.image}" loading="lazy" onerror="this.style.opacity=0.2">
-        <div class="info">
-          <div class="sub">${esc(i.sub)}</div>
-          <div class="name">Sold · ${shortMint(i.mint)}</div>
-        </div>
-        <div class="price-col">
-          <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
-          ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
-        </div>
-      </a>
-    `).join('');
-    return;
-  }
-
-  gridEl.className = 'grid';
-  gridEl.innerHTML = items.map(i => `
-    <a class="card" href="${i.pdpUrl}" target="_blank" rel="noopener">
-      <img src="${i.image}" loading="lazy" onerror="this.style.opacity=0.2">
-      <div class="body">
-        <div class="sub">${esc(i.sub)}</div>
-        <div class="name">Sold · ${shortMint(i.mint)}</div>
-        <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
-        ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
-      </div>
-    </a>
-  `).join('');
-}
-
 function render(){
-  if(currentView === 'sales') renderSales();
-  else renderListings();
+  renderListings();
 }
 
 async function loadArtist(){
@@ -308,10 +248,9 @@ async function loadArtist(){
 
     const symbolSet = new Set(artist.symbols);
     allListings = (data.listings || []).filter(i => symbolSet.has(i.symbol));
-    allSales = (data.sales || []).filter(i => symbolSet.has(i.symbol));
 
     const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
-    setStatus(`${allListings.length} for sale, ${allSales.length} sold in the last 7 days across ${artist.symbols.length} tracked issue(s) · updated ${updated}.`);
+    setStatus(`${allListings.length} for sale across ${artist.symbols.length} tracked issue(s) · updated ${updated}.`);
   }catch(e){
     console.error(e);
     setStatus('Could not reach the listings service. Try reloading in a moment.', true);
@@ -319,15 +258,6 @@ async function loadArtist(){
   }
   render();
 }
-
-document.querySelectorAll('.tab').forEach(t => {
-  t.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-    t.classList.add('active');
-    currentView = t.dataset.view;
-    render();
-  });
-});
 
 viewToggleEl.querySelectorAll('.pill').forEach(p => {
   p.addEventListener('click', () => {
