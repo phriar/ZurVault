@@ -667,14 +667,28 @@ function startFrame(items, startIdx) {
   schedule();
 }
 
-// Maps a raw rarity attribute value (whatever case/spacing the metadata
-// uses) to one of the five known tier classes, or null if it doesn't match
-// any of them \u2014 callers should hide the badge entirely rather than show an
-// unstyled/blank pill for a value that isn't one of the five tiers.
-var RARITY_TIERS = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
-function rarityTierClass(value) {
-  var norm = String(value || '').trim().toLowerCase();
-  return RARITY_TIERS.indexOf(norm) !== -1 ? 'rarity-' + norm : null;
+// Different candy.io drops format their "Rarity" trait very inconsistently
+// \u2014 confirmed against live Magic Eden data across dozens of collections:
+// some are plain "EPIC"/"UNCOMMON" (all-caps, no suffix), others are
+// "Common (40.400)" (title case, with a rarity-weight percentage tacked
+// on), and at least one drop's base tier is labeled "CORE" instead of
+// "Common". Strip any trailing "(...)" and normalize case/aliases before
+// matching, and always render the canonical tier label rather than
+// whatever raw string a given drop happened to use, so the badge is
+// consistent across collections instead of mirroring each drop's own
+// formatting quirks.
+var RARITY_ALIASES = {
+  common: 'common', core: 'common', base: 'common', standard: 'common',
+  uncommon: 'uncommon',
+  rare: 'rare',
+  epic: 'epic',
+  legendary: 'legendary'
+};
+var RARITY_LABELS = { common: 'Common', uncommon: 'Uncommon', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' };
+
+function rarityTierKey(value) {
+  var cleaned = String(value || '').replace(/\s*\([^)]*\)\s*$/, '').trim().toLowerCase();
+  return RARITY_ALIASES[cleaned] || null;
 }
 
 function show(i) {
@@ -692,10 +706,10 @@ function show(i) {
 
   var allAttrs = n.attributes || [];
   var rarityAttr = allAttrs.find(function(a) { return /^rarity$/i.test(a.trait_type || ''); });
-  var tierClass = rarityAttr ? rarityTierClass(rarityAttr.value) : null;
-  if (tierClass) {
-    mRarity.textContent = String(rarityAttr.value).trim();
-    mRarity.className = 'rarity-badge ' + tierClass;
+  var tierKey = rarityAttr ? rarityTierKey(rarityAttr.value) : null;
+  if (tierKey) {
+    mRarity.textContent = RARITY_LABELS[tierKey];
+    mRarity.className = 'rarity-badge rarity-' + tierKey;
     mRarity.style.display = '';
   } else {
     mRarity.style.display = 'none';
