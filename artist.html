@@ -63,6 +63,13 @@
   .pill.active{ color:#fff; background:linear-gradient(135deg, var(--deep), var(--gold)); border-color:transparent; }
   .view-toggle{ display:flex; gap:8px; margin-left:auto; }
 
+  select{
+    background:rgba(0,0,0,0.5); border:1px solid var(--border); color:rgba(255,255,255,0.7);
+    font-family:'DM Mono',monospace; font-size:.5rem; letter-spacing:.1em; text-transform:uppercase;
+    padding:9px 12px; border-radius:2px;
+  }
+  select:focus{ outline:1px solid rgba(143,111,232,0.4); }
+
   #status{ padding:16px 32px; font-size:.48rem; letter-spacing:.1em; color:rgba(255,255,255,0.28); text-transform:uppercase; }
   #status.err{ color:#e07a5f; }
   #status .dot{ display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--cyan); margin-right:8px; }
@@ -127,6 +134,11 @@
 </header>
 
 <div class="controls">
+  <select id="sortBy">
+    <option value="time-desc" selected>Most recent</option>
+    <option value="price-asc">Price: low → high</option>
+    <option value="price-desc">Price: high → low</option>
+  </select>
   <div class="view-toggle" id="viewToggle">
     <button class="pill active" data-view="grid">Grid</button>
     <button class="pill" data-view="list">List</button>
@@ -149,6 +161,7 @@ const gridEl = document.getElementById('grid');
 const artistTitleEl = document.getElementById('artistTitle');
 const artistNameCrumbEl = document.getElementById('artistNameCrumb');
 const viewToggleEl = document.getElementById('viewToggle');
+const sortByEl = document.getElementById('sortBy');
 
 let allListings = [];
 let currentDisplay = 'grid';
@@ -173,8 +186,16 @@ function parseEdition(name){
   return m ? `#${m[1]} / ${m[2]}` : null;
 }
 
+function sortItems(items, sort){
+  return items.slice().sort((a,b) => {
+    if(sort === 'price-asc') return (a.price ?? Infinity) - (b.price ?? Infinity);
+    if(sort === 'price-desc') return (b.price ?? -Infinity) - (a.price ?? -Infinity);
+    return (b.listedAt ?? 0) - (a.listedAt ?? 0);
+  });
+}
+
 function renderListings(){
-  const items = allListings.slice().sort((a,b) => (b.listedAt ?? 0) - (a.listedAt ?? 0));
+  const items = sortItems(allListings, sortByEl.value);
   if(items.length === 0){
     gridEl.className = currentDisplay;
     gridEl.innerHTML = `<div class="empty">Nothing currently for sale with this artist's cover credit.<br>Check back later, or browse <a href="index.html" style="color:var(--gold)">all DC listings</a>.</div>`;
@@ -267,6 +288,8 @@ viewToggleEl.querySelectorAll('.pill').forEach(p => {
     render();
   });
 });
+
+sortByEl.addEventListener('change', render);
 
 loadArtist();
 </script>
