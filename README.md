@@ -89,7 +89,7 @@ Both curated by hand — which `DC_COLLECTIONS` symbols belong to which characte
 
 ## Things to remember
 
-> **⚠️ Currently pending: `me-proxy-worker.js` needs a manual redeploy.** It now captures a normalized `rarity` field (Common/Uncommon/Rare/Epic/Legendary) on every listing, which `rarity.html` depends on entirely. Until the current `me-proxy-worker.js` is pasted into the Cloudflare dashboard, `/v2/dc-summary` won't include `rarity` on anything and `rarity.html` will show 0 results for every tier (it'll say so in its own status line — "0 with rarity data"). This note should be deleted once that deploy has actually happened; if you're not sure whether it has, `curl -s https://zurvault-proxy.stholt.workers.dev/v2/dc-summary | grep -o '"rarity":"[^"]*"' | head -1` — anything other than empty output means it's live.
+> **⚠️ Currently pending: `me-proxy-worker.js` needs another manual redeploy.** The base `rarity` field (Common/Uncommon/Rare/Epic/Legendary) *is* deployed and rolling out via the cron as of the last check — but a follow-up change added a `rarityPct` field (the tier's fixed supply-distribution percentage, e.g. "Legendary, 4.8% of supply", where a collection's metadata includes it) that hasn't been deployed yet. `rarity.html` and `slideshow.html` already render it when present; until the current `me-proxy-worker.js` is pasted into the Cloudflare dashboard again, every listing's `rarityPct` will just be missing (the tier itself will still show fine). This note should be deleted once that deploy has actually happened; if you're not sure whether it has, `curl -s https://zurvault-proxy.stholt.workers.dev/v2/dc-summary | grep -o '"rarityPct":[0-9.]*' | head -1` — anything other than empty output means it's live.
 
 - **Worker changes need manual redeploy.** Committing/pushing `me-proxy-worker.js` to GitHub has zero effect on the live Worker until you paste it into the Cloudflare dashboard yourself. This has bitten this project more than once — always double check after a Worker-touching change whether the deploy step actually happened, rather than assuming a `git push` covered it.
 - **Primary nav** (`site-nav.js`): Listings, Characters, Collections, Artists, Rarity, Dollar Bin, Spotlight, How To, Slideshow — `discover.html`, `comics.html`, and `candy-watcher.html` are deliberately unlinked (not deleted, still fully functional at their direct URLs), as secondary/power-user tools outside the main collector experience.
@@ -121,11 +121,12 @@ curl -s https://zurvault-proxy.stholt.workers.dev/v2/dc-summary | head -c 500
 - Real data → check `updatedAt` (the *oldest* successfully-refreshed collection's timestamp, so "everything is at least this fresh") is reasonably recent. Each collection refreshes independently, so it's normal for this to lag the cron cadence somewhat rather than matching it exactly.
 - To check one specific collection directly instead of the merged aggregate: `curl "https://zurvault-proxy.stholt.workers.dev/v2/__trigger-refresh?key=<symbol>"` — refreshes it on the spot and returns the real success/failure result.
 
-**Has the `rarity` field been deployed yet?**
+**Has the `rarity` / `rarityPct` field been deployed yet?**
 ```
 curl -s https://zurvault-proxy.stholt.workers.dev/v2/dc-summary | grep -o '"rarity":"[^"]*"' | head -3
+curl -s https://zurvault-proxy.stholt.workers.dev/v2/dc-summary | grep -o '"rarityPct":[0-9.]*' | head -3
 ```
-No output at all means the live Worker predates the `normalizeRarity()` change — see the pending-deploy reminder above — and `rarity.html` will show 0 results for every tier until you paste the current `me-proxy-worker.js` into the Cloudflare dashboard.
+No output on the first means the live Worker predates `normalizeRarity()` entirely — `rarity.html` will show 0 results for every tier. No output on the second (but the first works) means the tier data is live but the follow-up `rarityPct` change isn't yet — see the pending-deploy reminder above.
 
 **Is the per-collection proxy cache working?**
 ```
