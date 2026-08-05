@@ -46,6 +46,14 @@
     color:rgba(255,255,255,0.35); letter-spacing:.03em;
   }
 
+  .quick-links{ display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
+  .back-link{
+    display:inline-block; font-family:'DM Mono',monospace; font-size:.5rem;
+    letter-spacing:.2em; text-transform:uppercase; color:rgba(143,111,232,0.6); text-decoration:none;
+    border:1px solid rgba(143,111,232,0.2); padding:6px 14px; border-radius:2px; transition:all .15s;
+  }
+  .back-link:hover{ color:var(--gold); border-color:rgba(143,111,232,0.5); }
+
   .pills{
     display:flex; gap:8px; padding:16px 32px; flex-wrap:wrap; border-bottom:1px solid var(--border);
     background:rgba(255,255,255,0.015);
@@ -159,6 +167,10 @@
   <div class="brand"><a href="index.html">ZurVault</a> / Dollar Bin</div>
   <h1>The <span>Dollar Bin</span></h1>
   <p class="sub">Every currently-listed comic across every tracked DC collection, sorted cheapest first — instead of checking ~200 collection pages one at a time. Mint number (edition # / total supply) is shown where Magic Eden includes it in the listing name.</p>
+  <div class="quick-links">
+    <a class="back-link" href="rarity.html">Browse by Rarity &#8599;</a>
+    <a class="back-link" href="index.html">Latest DC Listings &#8599;</a>
+  </div>
 </header>
 
 <div class="pills" id="pills">
