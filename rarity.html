@@ -191,9 +191,13 @@ function parseEdition(name){
   return m ? `#${m[1]} / ${m[2]}` : null;
 }
 
-function rarityBadge(rarity){
+// rarityPct, when present, is that collection's fixed supply-distribution
+// percentage for the tier (e.g. "only 4.8% of this print run is
+// Legendary") — not every drop's metadata includes it.
+function rarityBadge(rarity, rarityPct){
   if(!rarity) return '';
-  return `<div class="rarity-badge rarity-${rarity.toLowerCase()}">${esc(rarity)}</div>`;
+  const pctText = typeof rarityPct === 'number' ? ` · ${rarityPct.toFixed(1)}%` : '';
+  return `<div class="rarity-badge rarity-${rarity.toLowerCase()}">${esc(rarity)}${pctText}</div>`;
 }
 
 function renderGrid(items){
@@ -207,7 +211,7 @@ function renderGrid(items){
           <div class="body">
             <div class="sub">${esc(i.sub)}</div>
             <div class="name">${esc(i.name)}</div>
-            ${rarityBadge(i.rarity)}
+            ${rarityBadge(i.rarity, i.rarityPct)}
             <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
             ${edition ? `<div class="mint">${edition}</div>` : ''}
           </div>
@@ -229,7 +233,7 @@ function renderList(items){
           <div class="info">
             <div class="sub">${esc(i.sub)}</div>
             <div class="name">${esc(i.name)}</div>
-            ${rarityBadge(i.rarity)}
+            ${rarityBadge(i.rarity, i.rarityPct)}
           </div>
           <div class="price-col">
             <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>

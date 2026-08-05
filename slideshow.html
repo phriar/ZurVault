@@ -686,9 +686,19 @@ var RARITY_ALIASES = {
 };
 var RARITY_LABELS = { common: 'Common', uncommon: 'Uncommon', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' };
 
-function rarityTierKey(value) {
-  var cleaned = String(value || '').replace(/\s*\([^)]*\)\s*$/, '').trim().toLowerCase();
-  return RARITY_ALIASES[cleaned] || null;
+// The "(40.400)" some drops tack onto the raw value isn't a per-token
+// score — every listing sharing a tier within one collection carries the
+// exact same number — it's that drop's fixed supply-distribution
+// percentage for the tier ("39.82% of this print run is Common"). Worth
+// keeping: "Legendary, 4.8% of supply" is a much more useful signal than
+// "Legendary" alone. Not every drop's metadata includes it, so pct is
+// null more often than not.
+function parseRarityValue(value) {
+  var raw = String(value || '').trim();
+  var match = /^(.*?)\s*\(([\d.]+)\)\s*$/.exec(raw);
+  var cleaned = (match ? match[1] : raw).trim().toLowerCase();
+  var key = RARITY_ALIASES[cleaned] || null;
+  return { key: key, pct: match ? parseFloat(match[2]) : null };
 }
 
 function show(i) {
@@ -706,10 +716,10 @@ function show(i) {
 
   var allAttrs = n.attributes || [];
   var rarityAttr = allAttrs.find(function(a) { return /^rarity$/i.test(a.trait_type || ''); });
-  var tierKey = rarityAttr ? rarityTierKey(rarityAttr.value) : null;
-  if (tierKey) {
-    mRarity.textContent = RARITY_LABELS[tierKey];
-    mRarity.className = 'rarity-badge rarity-' + tierKey;
+  var rarityInfo = rarityAttr ? parseRarityValue(rarityAttr.value) : { key: null, pct: null };
+  if (rarityInfo.key) {
+    mRarity.textContent = RARITY_LABELS[rarityInfo.key] + (rarityInfo.pct !== null ? ' · ' + rarityInfo.pct.toFixed(1) + '%' : '');
+    mRarity.className = 'rarity-badge rarity-' + rarityInfo.key;
     mRarity.style.display = '';
   } else {
     mRarity.style.display = 'none';

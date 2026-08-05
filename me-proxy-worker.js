@@ -393,6 +393,14 @@ function deriveListedTimes(activities) {
 // — strip any trailing "(...)" and alias core/base/standard to common —
 // so every collection reports one of five consistent values instead of
 // each drop's own raw string.
+//
+// The "(40.400)" isn't a per-token score — confirmed against live data
+// that every listing sharing a tier within one collection carries the
+// exact same number (e.g. every "Common" in a given drop reads "(39.820)")
+// — it's that drop's fixed supply-distribution percentage for the tier
+// ("39.82% of this print run is Common"). Worth keeping: "Legendary,
+// 4.8% of supply" is a much more useful signal than "Legendary" alone.
+// Not every drop's metadata includes it, so this is null more often than not.
 const RARITY_ALIASES = {
   common: "common", core: "common", base: "common", standard: "common",
   uncommon: "uncommon",
@@ -404,10 +412,12 @@ const RARITY_LABELS = { common: "Common", uncommon: "Uncommon", rare: "Rare", ep
 
 function normalizeRarity(attributes) {
   const attr = (attributes || []).find((a) => /^rarity$/i.test(a?.trait_type || ""));
-  if (!attr) return null;
-  const cleaned = String(attr.value || "").replace(/\s*\([^)]*\)\s*$/, "").trim().toLowerCase();
+  if (!attr) return { tier: null, pct: null };
+  const raw = String(attr.value || "").trim();
+  const match = /^(.*?)\s*\(([\d.]+)\)\s*$/.exec(raw);
+  const cleaned = (match ? match[1] : raw).trim().toLowerCase();
   const key = RARITY_ALIASES[cleaned];
-  return key ? RARITY_LABELS[key] : null;
+  return key ? { tier: RARITY_LABELS[key], pct: match ? parseFloat(match[2]) : null } : { tier: null, pct: null };
 }
 
 function deriveSales(activities, col) {
@@ -446,6 +456,7 @@ async function refreshOneCollection(col, env) {
     const listedTimes = deriveListedTimes(Array.isArray(activities) ? activities : []);
     const listings = (Array.isArray(data) ? data : []).map((item) => {
       const mint = item?.tokenMint || item?.token?.mintAddress || "";
+      const rarityInfo = normalizeRarity(item?.token?.attributes);
       return {
         sub: col.sub,
         symbol: col.symbol,
@@ -461,7 +472,8 @@ async function refreshOneCollection(col, env) {
         // here. Getting rarity onto sales would mean a separate per-mint
         // metadata fetch for every sale, which isn't worth the added load
         // on top of the rate limiting this file already fights — deferred.
-        rarity: normalizeRarity(item?.token?.attributes),
+        rarity: rarityInfo.tier,
+        rarityPct: rarityInfo.pct,
       };
     });
     const sales = deriveSales(Array.isArray(activities) ? activities : [], col);
