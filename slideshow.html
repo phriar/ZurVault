@@ -795,6 +795,19 @@ function showCtrlsBriefly() {
   ctrlTimeout = setTimeout(function(){ ctrlsEl.classList.remove('visible'); }, 4000);
 }
 
+// Tap/click zones: left 30% of the frame = previous, right 30% = next,
+// the middle 40% keeps the old behavior (toggle pause on desktop, reveal
+// controls / toggle pause on mobile). Returns true if the tap landed in a
+// nav zone and was handled, so callers know whether to fall back to their
+// own middle-zone behavior.
+function handleZoneTap(clientX) {
+  var rect = frameEl.getBoundingClientRect();
+  var relX = (clientX - rect.left) / rect.width;
+  if (relX < 0.3) { prevNFT(); return true; }
+  if (relX > 0.7) { nextNFT(); return true; }
+  return false;
+}
+
 (function() {
   var sx = 0, sy = 0, moved = false;
   frameEl.addEventListener('touchstart', function(e){
@@ -808,16 +821,19 @@ function showCtrlsBriefly() {
     if (Math.abs(dx) > 44 && Math.abs(dx) > Math.abs(dy) * 1.5) {
       if (dx < 0) nextNFT(); else prevNFT();
     } else if (!moved || (Math.abs(dx) < 12 && Math.abs(dy) < 12)) {
+      if (handleZoneTap(e.changedTouches[0].clientX)) return;
       if (ctrlsEl.classList.contains('visible')) togglePause();
       else showCtrlsBriefly();
     }
   }, { passive:true });
 })();
 
-// Desktop click to pause
+// Desktop click: side zones navigate, middle toggles pause.
 frameEl.addEventListener('click', function(e) {
   if (e.target.closest('#controls') || e.target.closest('.me-link')) return;
-  if (!('ontouchstart' in window)) togglePause();
+  if ('ontouchstart' in window) return;
+  if (handleZoneTap(e.clientX)) return;
+  togglePause();
 });
 
 document.addEventListener('keydown', function(e) {
