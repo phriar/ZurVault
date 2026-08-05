@@ -1,7 +1,7 @@
 /* ============================================================
    ZurVault shared top banner. Include right after <body> opens:
      <script src="site-nav.js" data-active="index"></script>
-   data-active values: index | discover | characters | collections | artists | rarity | dollar-bin | spotlight | guide | slideshow | comics | candy
+   data-active values: index | discover | characters | collections | artists | rarity | dollar-bin | spotlight | guide | slideshow | slideshow-legacy | comics | candy
 
    Self-injects its own <style> + markup, so every page shares one
    consistent site identity strip instead of duplicating markup.
