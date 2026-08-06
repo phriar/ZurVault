@@ -303,6 +303,7 @@ function isArweaveUri(uri) { return !!(uri && uri.includes('arweave.net')); }
 function isSuspect(uri) { return isCandyUri(uri) || isArweaveUri(uri); }
 function isSeeded(addr) { return seedWallets.has(addr); }
 function shortAddr(a) { if(!a) return '—'; return a.slice(0,5)+'…'+a.slice(-4); }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 function timeAgo(ts) {
   if (!ts) return '';
   const s = Math.floor(Date.now()/1000 - ts);
@@ -410,7 +411,7 @@ function addMintRow(m, isBackfillResult) {
     <div class="mint-icon">${icon}</div>
     <div style="flex:1;min-width:0">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-        <span class="mint-name ${nameClass}">${m.name}</span>
+        <span class="mint-name ${nameClass}">${esc(m.name)}</span>
         <span class="mint-time">${timeAgo(m.blockTime)}</span>
       </div>
       <div class="mint-meta">
@@ -423,7 +424,7 @@ function addMintRow(m, isBackfillResult) {
         ${isA?'<span class="tag arweave">arweave</span>':''}
         ${isBackfillResult?'<span class="tag backfill">backfill</span>':''}
       </div>
-      ${m.uri?`<div class="mint-uri ${uriClass}">${m.uri}</div>`:''}
+      ${m.uri?`<div class="mint-uri ${uriClass}">${esc(m.uri)}</div>`:''}
     </div>
   `;
   // Live = prepend, backfill = append

@@ -204,8 +204,8 @@ function renderListings(){
   if(currentDisplay === 'list'){
     gridEl.className = 'list';
     gridEl.innerHTML = items.map(i => `
-      <a class="list-row" href="${i.pdpUrl}" target="_blank" rel="noopener">
-        <img src="${i.image}" loading="lazy" onerror="this.style.opacity=0.2">
+      <a class="list-row" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener">
+        <img src="${esc(i.image)}" loading="lazy" onerror="this.style.opacity=0.2">
         <div class="info">
           <div class="sub">${esc(i.sub)}</div>
           <div class="name">${esc(i.name)}</div>
@@ -222,8 +222,8 @@ function renderListings(){
 
   gridEl.className = 'grid';
   gridEl.innerHTML = items.map(i => `
-    <a class="card" href="${i.pdpUrl}" target="_blank" rel="noopener">
-      <img src="${i.image}" loading="lazy" onerror="this.style.opacity=0.2">
+    <a class="card" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener">
+      <img src="${esc(i.image)}" loading="lazy" onerror="this.style.opacity=0.2">
       <div class="body">
         <div class="sub">${esc(i.sub)}</div>
         <div class="name">${esc(i.name)}</div>

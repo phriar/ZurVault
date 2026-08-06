@@ -475,6 +475,8 @@ function shortMint(mint){
   return mint && mint.length > 8 ? mint.slice(0, 4) + '…' + mint.slice(-4) : (mint || '');
 }
 
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+
 // Magic Eden listing names for these collections commonly end in
 // "(edition/total)", e.g. "Flashpoint (2011) #1 (501/1314)" — pull that
 // out to show as a mint/edition badge in list view, where there's room for
@@ -570,11 +572,11 @@ function renderListings(){
   if(currentDisplay === 'list'){
     gridEl.className = 'list';
     gridEl.innerHTML = items.map(i => `
-      <a class="list-row" href="${i.pdpUrl}" target="_blank" rel="noopener">
-        <img src="${i.image}" loading="lazy" onerror="this.style.opacity=0.2">
+      <a class="list-row" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener">
+        <img src="${esc(i.image)}" loading="lazy" onerror="this.style.opacity=0.2">
         <div class="info">
-          <div class="sub">${i.sub}</div>
-          <div class="name">${i.name}</div>
+          <div class="sub">${esc(i.sub)}</div>
+          <div class="name">${esc(i.name)}</div>
         </div>
         <div class="price-col">
           <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
@@ -588,11 +590,11 @@ function renderListings(){
 
   gridEl.className = 'grid';
   gridEl.innerHTML = items.map(i => `
-    <a class="card" href="${i.pdpUrl}" target="_blank" rel="noopener">
-      <img src="${i.image}" loading="lazy" onerror="this.style.opacity=0.2">
+    <a class="card" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener">
+      <img src="${esc(i.image)}" loading="lazy" onerror="this.style.opacity=0.2">
       <div class="body">
-        <div class="sub">${i.sub}</div>
-        <div class="name">${i.name}</div>
+        <div class="sub">${esc(i.sub)}</div>
+        <div class="name">${esc(i.name)}</div>
         <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
         ${i.listedAt ? `<div class="time">${timeAgo(i.listedAt)}</div>` : ''}
       </div>
@@ -613,10 +615,10 @@ function renderSales(){
   if(currentDisplay === 'list'){
     gridEl.className = 'list';
     gridEl.innerHTML = items.map(i => `
-      <a class="list-row" href="${i.pdpUrl}" target="_blank" rel="noopener">
-        <img src="${i.image}" loading="lazy" onerror="this.style.opacity=0.2">
+      <a class="list-row" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener">
+        <img src="${esc(i.image)}" loading="lazy" onerror="this.style.opacity=0.2">
         <div class="info">
-          <div class="sub">${i.sub}</div>
+          <div class="sub">${esc(i.sub)}</div>
           <div class="name">Sold · ${shortMint(i.mint)}</div>
         </div>
         <div class="price-col">
@@ -630,10 +632,10 @@ function renderSales(){
 
   gridEl.className = 'grid';
   gridEl.innerHTML = items.map(i => `
-    <a class="card" href="${i.pdpUrl}" target="_blank" rel="noopener">
-      <img src="${i.image}" loading="lazy" onerror="this.style.opacity=0.2">
+    <a class="card" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener">
+      <img src="${esc(i.image)}" loading="lazy" onerror="this.style.opacity=0.2">
       <div class="body">
-        <div class="sub">${i.sub}</div>
+        <div class="sub">${esc(i.sub)}</div>
         <div class="name">Sold · ${shortMint(i.mint)}</div>
         <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
         ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
