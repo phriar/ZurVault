@@ -126,15 +126,47 @@
   .market-stat .stat-value{ font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.85); }
   .market-stat .stat-value.muted{ color:rgba(255,255,255,0.35); }
 
-  .card-cta{
-    display:flex; gap:8px; margin-top:16px; flex-wrap:wrap;
+  /* Listings/Sales toggles — clicking one reveals the individual items
+     (image, price, link) so a visitor can pick a specific copy before
+     leaving the site, rather than the card's only outbound link being
+     a generic "go browse the whole collection on Magic Eden" button. */
+  .toggle-row{ display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+  .toggle-btn{
+    font-family:'DM Mono',monospace; font-size:.5rem; letter-spacing:.1em; text-transform:uppercase;
+    color:rgba(255,255,255,0.5); background:transparent; border:1px solid var(--border);
+    padding:7px 12px; border-radius:20px; cursor:pointer; transition:all .15s;
   }
-  .cta-btn{
-    font-family:'DM Mono',monospace; font-size:.5rem; letter-spacing:.12em; text-transform:uppercase;
-    color:#fff; background:linear-gradient(135deg, var(--deep), var(--gold)); padding:9px 16px;
-    border-radius:3px; text-decoration:none; white-space:nowrap; transition:filter .15s;
+  .toggle-btn:hover:not(:disabled){ color:rgba(255,255,255,0.8); border-color:rgba(143,111,232,0.4); }
+  .toggle-btn.active{ color:#fff; background:rgba(143,111,232,0.15); border-color:rgba(143,111,232,0.5); }
+  .toggle-btn:disabled{ opacity:0.3; cursor:default; }
+
+  .item-panel{
+    margin-top:10px; max-height:260px; overflow-y:auto;
+    border:1px solid var(--border); border-radius:3px;
   }
-  .cta-btn:hover{ filter:brightness(1.12); }
+  .item-panel[hidden]{ display:none; }
+  .item-row{
+    display:flex; align-items:center; gap:10px; padding:8px 10px; text-decoration:none; color:#fff;
+    border-bottom:1px solid var(--border); transition:background .15s;
+  }
+  .item-row:last-child{ border-bottom:none; }
+  .item-row:hover{ background:rgba(255,255,255,0.03); }
+  .item-row img{ width:32px; height:48px; object-fit:cover; border-radius:2px; flex-shrink:0; background:rgba(255,255,255,0.04); }
+  .item-info{ flex:1; min-width:0; }
+  .item-name{
+    font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.8);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .item-time{ font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.55); margin-top:2px; }
+  .item-price{ font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.9); flex-shrink:0; }
+  .item-panel-empty{ padding:14px; text-align:center; font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.4); }
+
+  .card-cta{ margin-top:14px; }
+  .browse-link{
+    font-family:'DM Mono',monospace; font-size:.5rem; letter-spacing:.08em; text-transform:uppercase;
+    color:rgba(255,255,255,0.35); text-decoration:none;
+  }
+  .browse-link:hover{ color:var(--gold); }
 
   .empty{ padding:60px 32px; text-align:center; color:rgba(255,255,255,0.25); font-family:'Cormorant Garamond',serif; font-size:1.2rem; font-weight:300; line-height:1.6; }
 
@@ -184,6 +216,10 @@ function setStatus(msg, isErr){
   statusEl.classList.toggle('err', !!isErr);
 }
 
+function shortMint(mint){
+  return mint && mint.length > 8 ? mint.slice(0, 4) + '…' + mint.slice(-4) : (mint || '');
+}
+
 function timeAgo(ts){
   const secs = typeof ts === 'number' ? (ts > 1e12 ? (Date.now()-ts)/1000 : Date.now()/1000 - ts) : (Date.now() - new Date(ts).getTime())/1000;
   if(secs < 60) return 'just now';
@@ -221,7 +257,7 @@ function buildEraPills(){
 // grails-data.js, for the same reason pricing does: it's marketplace
 // data, not editorial content.
 function joinMarketData(symbol){
-  return marketBySymbol[symbol] || { floor: null, lastSale: null, image: '' };
+  return marketBySymbol[symbol] || { floor: null, lastSale: null, image: '', listings: [], sales: [] };
 }
 
 function renderCard(grail){
@@ -250,6 +286,36 @@ function renderCard(grail){
     ? `<div class="stat-value">${market.lastSale.price} SOL <span style="color:rgba(255,255,255,0.35)">&middot; ${timeAgo(market.lastSale.soldAt)}</span></div>`
     : `<div class="stat-value muted">No recent sales</div>`;
 
+  const listings = market.listings || [];
+  const sales = market.sales || [];
+
+  const listingsPanel = listings.length
+    ? listings.map(l => `
+        <a class="item-row" href="${esc(l.pdpUrl)}" target="_blank" rel="noopener">
+          <img src="${esc(l.image)}" loading="lazy" onerror="this.style.opacity=0.2">
+          <div class="item-info">
+            <div class="item-name">${esc(l.name)}</div>
+          </div>
+          <div class="item-price">${l.price} SOL</div>
+        </a>
+      `).join('')
+    : `<div class="item-panel-empty">No active listings right now.</div>`;
+
+  const salesPanel = sales.length
+    ? sales.map(s => `
+        <a class="item-row" href="${esc(s.pdpUrl)}" target="_blank" rel="noopener">
+          <img src="${esc(s.image)}" loading="lazy" onerror="this.style.opacity=0.2">
+          <div class="item-info">
+            <div class="item-name">Sold &middot; ${shortMint(s.mint)}</div>
+            ${s.soldAt ? `<div class="item-time">${timeAgo(s.soldAt)}</div>` : ''}
+          </div>
+          <div class="item-price">${s.price} SOL</div>
+        </a>
+      `).join('')
+    : `<div class="item-panel-empty">No sales in the last 7 days.</div>`;
+
+  const symbolAttr = esc(grail.symbol);
+
   return `
     <div class="grail-card">
       <div class="card-top">
@@ -273,8 +339,14 @@ function renderCard(grail){
           ${lastSaleHtml}
         </div>
       </div>
+      <div class="toggle-row">
+        <button class="toggle-btn" data-symbol="${symbolAttr}" data-panel="listings" ${listings.length ? '' : 'disabled'}>Listings (${listings.length})</button>
+        <button class="toggle-btn" data-symbol="${symbolAttr}" data-panel="sales" ${sales.length ? '' : 'disabled'}>Sales (${sales.length})</button>
+      </div>
+      <div class="item-panel" data-symbol="${symbolAttr}" data-panel="listings" hidden>${listingsPanel}</div>
+      <div class="item-panel" data-symbol="${symbolAttr}" data-panel="sales" hidden>${salesPanel}</div>
       <div class="card-cta">
-        <a class="cta-btn" href="https://magiceden.io/marketplace/${encodeURIComponent(grail.symbol)}" target="_blank" rel="noopener">View on Magic Eden &#8599;</a>
+        <a class="browse-link" href="https://magiceden.io/marketplace/${encodeURIComponent(grail.symbol)}" target="_blank" rel="noopener">Browse full collection on Magic Eden &#8599;</a>
       </div>
     </div>
   `;
@@ -293,6 +365,20 @@ function render(){
 
   gridEl.innerHTML = items.map(renderCard).join('');
 }
+
+// Delegated on gridEl rather than bound per-button, since gridEl's
+// innerHTML is fully replaced on every render() (era filter change,
+// 22-min refresh) — per-button listeners would just be discarded.
+gridEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('.toggle-btn');
+  if(!btn) return;
+  const { symbol, panel } = btn.dataset;
+  const panelEl = gridEl.querySelector(`.item-panel[data-symbol="${CSS.escape(symbol)}"][data-panel="${CSS.escape(panel)}"]`);
+  if(!panelEl) return;
+  const willShow = panelEl.hidden;
+  panelEl.hidden = !willShow;
+  btn.classList.toggle('active', willShow);
+});
 
 async function load(){
   buildEraPills();
@@ -315,16 +401,20 @@ async function load(){
     marketBySymbol = {};
 
     for(const grail of GRAIL_COMICS){
-      const symbolListings = listings.filter(l => l.symbol === grail.symbol && l.price !== null);
-      const floor = symbolListings.length ? Math.min(...symbolListings.map(l => l.price)) : null;
+      const symbolListings = listings
+        .filter(l => l.symbol === grail.symbol && l.price !== null)
+        .slice()
+        .sort((a, b) => a.price - b.price);
+      const floor = symbolListings.length ? symbolListings[0].price : null;
       const image = (listings.find(l => l.symbol === grail.symbol) || {}).image || '';
 
-      const symbolSales = sales.filter(s => s.symbol === grail.symbol && s.price !== null);
-      const lastSale = symbolSales.length
-        ? symbolSales.reduce((a, b) => (b.soldAt || 0) > (a.soldAt || 0) ? b : a)
-        : null;
+      const symbolSales = sales
+        .filter(s => s.symbol === grail.symbol && s.price !== null)
+        .slice()
+        .sort((a, b) => (b.soldAt || 0) - (a.soldAt || 0));
+      const lastSale = symbolSales.length ? symbolSales[0] : null;
 
-      marketBySymbol[grail.symbol] = { floor, lastSale, image };
+      marketBySymbol[grail.symbol] = { floor, lastSale, image, listings: symbolListings, sales: symbolSales };
 
       // Surfaced, not silent — matches this repo's existing convention
       // (see discover.html's UNRESOLVED_ handling) of flagging sync
