@@ -46,6 +46,19 @@
     color:rgba(255,255,255,0.35); letter-spacing:.03em;
   }
 
+  .controls{
+    display:flex; gap:8px; padding:16px 32px; flex-wrap:wrap; border-bottom:1px solid var(--border);
+    background:rgba(255,255,255,0.015);
+  }
+  select, .search-input{
+    background:rgba(0,0,0,0.5); border:1px solid var(--border); color:rgba(255,255,255,0.7);
+    font-family:'DM Mono',monospace; font-size:.5rem; letter-spacing:.1em; text-transform:uppercase;
+    padding:9px 12px; border-radius:2px;
+  }
+  select:focus, .search-input:focus{ outline:1px solid rgba(143,111,232,0.4); }
+  .search-input{ flex:1; min-width:160px; text-transform:none; letter-spacing:.02em; }
+  .search-input::placeholder{ color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:.1em; font-size:.5rem; }
+
   .pills{
     display:flex; gap:8px; padding:16px 32px; flex-wrap:wrap; border-bottom:1px solid var(--border);
     background:rgba(255,255,255,0.015);
@@ -146,6 +159,11 @@
   <p class="sub">Every currently-listed comic across every tracked DC collection, filterable by rarity tier. Sold items aren't included here — Magic Eden's sales data doesn't carry the trait info needed to know a sold item's rarity, only current listings do.</p>
 </header>
 
+<div class="controls">
+  <select id="subFilter"><option value="">All sub-collections</option></select>
+  <input type="text" id="searchInput" class="search-input" placeholder="Search by name&hellip;">
+</div>
+
 <div class="pills" id="pills">
   <button class="pill active" data-tier="">All</button>
   <button class="pill" data-tier="Common">Common</button>
@@ -174,9 +192,13 @@ const statusEl = document.getElementById('status');
 const gridEl = document.getElementById('grid');
 const pillsEl = document.getElementById('pills');
 const viewToggleEl = document.getElementById('viewToggle');
+const subFilterEl = document.getElementById('subFilter');
+const searchInputEl = document.getElementById('searchInput');
 
 let allListings = [];
 let selectedTier = null;
+let selectedSub = '';
+let searchQuery = '';
 let currentView = 'grid';
 
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
@@ -249,12 +271,14 @@ function renderList(items){
 function render(){
   const items = allListings
     .filter(i => !selectedTier || i.rarity === selectedTier)
+    .filter(i => !selectedSub || i.sub === selectedSub)
+    .filter(i => !searchQuery || `${i.name || ''} ${i.sub || ''}`.toLowerCase().includes(searchQuery))
     .slice()
     .sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
 
   if(items.length === 0){
     gridEl.className = currentView;
-    const hint = selectedTier ? 'Try a different tier, or check back later.' : 'Check back later.';
+    const hint = (selectedTier || selectedSub || searchQuery) ? 'Try a different filter, or check back later.' : 'Check back later.';
     gridEl.innerHTML = `<div class="empty">Nothing matches this filter right now.<br>${hint}</div>`;
     return;
   }
@@ -279,6 +303,14 @@ async function load(){
     const withRarity = allListings.filter(i => i.rarity).length;
     const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
     setStatus(`${allListings.length} priced listing(s), ${withRarity} with rarity data · updated ${updated}.`);
+
+    // Sub-collection names come from live Worker data, not a static map,
+    // so they're escaped the same as every other listing field on this
+    // page before being written into the DOM.
+    const subs = [...new Set(allListings.map(i => i.sub).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    subFilterEl.innerHTML = '<option value="">All sub-collections</option>' +
+      subs.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+    subFilterEl.value = selectedSub;
   }catch(e){
     console.error(e);
     setStatus('Could not reach the listings service. Try reloading in a moment.', true);
@@ -303,6 +335,16 @@ viewToggleEl.querySelectorAll('.pill[data-view]').forEach(p => {
     currentView = p.dataset.view;
     render();
   });
+});
+
+subFilterEl.addEventListener('change', () => {
+  selectedSub = subFilterEl.value;
+  render();
+});
+
+searchInputEl.addEventListener('input', () => {
+  searchQuery = searchInputEl.value.trim().toLowerCase();
+  render();
 });
 
 const REFRESH_INTERVAL = 22 * 60 * 1000; // trails the Worker's own 20-min cron refresh
