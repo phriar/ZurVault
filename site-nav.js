@@ -1,7 +1,7 @@
 /* ============================================================
    ZurVault shared top banner. Include right after <body> opens:
      <script src="site-nav.js" data-active="index"></script>
-   data-active values: index | discover | characters | collections | artists | rarity | dollar-bin | spotlight | guide | slideshow | slideshow-legacy | comics | candy
+   data-active values: index | discover | characters | collections | artists | rarity | dollar-bin | spotlight | guide | slideshow | slideshow-legacy | comics | candy | grails
 
    Self-injects its own <style> + markup, so every page shares one
    consistent site identity strip instead of duplicating markup.
@@ -16,15 +16,17 @@
   var COWL_URL = 'https://arweave.net/uyG3Nvb1UKTtm3q-tdHs4GNYOiEyaSTc7O0zhsc9gIQ';
 
   // Primary nav is intentionally short — the site's focus is the
-  // character/series-collector experience (Listings, Characters,
-  // Collections, Slideshow). discover.html, comics.html, and
-  // candy-watcher.html are deliberately unlisted here (config-generation
-  // tool, reading fallback now that candy.io is primary, and a power-user
-  // watcher tool, respectively) — all three still work fine at their
-  // direct URLs and still include site-nav.js, they're just not in the banner.
+  // series-collector experience (Listings, Grails, Collections,
+  // Slideshow). discover.html, comics.html, candy-watcher.html, and
+  // now characters.html/character.html are deliberately unlisted here
+  // (config-generation tool, reading fallback now that candy.io is
+  // primary, a power-user watcher tool, and — for Characters —
+  // superseded by Grails as the front-door curated-discovery page,
+  // respectively) — all of them still work fine at their direct URLs
+  // and still include site-nav.js, they're just not in the banner.
   var PAGES = [
     { id: 'index',       label: 'Listings',      href: 'index.html' },
-    { id: 'characters',  label: 'Characters',    href: 'characters.html' },
+    { id: 'grails',      label: 'Grails',        href: 'grails.html' },
     { id: 'collections', label: 'Collections',   href: 'collections.html' },
     { id: 'artists',     label: 'Artists',       href: 'artists.html' },
     { id: 'rarity',      label: 'Rarity',        href: 'rarity.html' },

@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grail Comics — ZurVault</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  :root{
+    --ink:    #0a0a0a;
+    --gold:   #8f6fe8;
+    --deep:   #6b2fd6;
+    --cyan:   #4de8ff;
+    --faint:  rgba(255,255,255,0.05);
+    --border: rgba(255,255,255,0.07);
+  }
+
+  body{
+    background:var(--ink); color:#fff; min-height:100vh;
+    font-family:'DM Mono',monospace; -webkit-font-smoothing:antialiased;
+  }
+
+  /* Visible focus states everywhere — pills, chips, and outbound links
+     are all keyboard-operable, so none of them get outline:none. This
+     just makes the ring color match the site's accent instead of the
+     browser default. */
+  a:focus-visible, button:focus-visible, .pill:focus-visible{
+    outline:2px solid var(--cyan); outline-offset:2px;
+  }
+
+  header{
+    padding:120px 32px 20px; border-bottom:1px solid var(--border);
+    position:relative; z-index:10; overflow:hidden;
+    background-image:url('https://arweave.net/uyG3Nvb1UKTtm3q-tdHs4GNYOiEyaSTc7O0zhsc9gIQ');
+    background-size:cover; background-position:center 20%;
+  }
+  header::before{
+    content:''; position:absolute; inset:0;
+    background:linear-gradient(to bottom, rgba(10,10,10,0.55) 0%, rgba(10,10,10,0.75) 45%, rgba(10,10,10,0.97) 90%);
+  }
+  header > *{ position:relative; z-index:1; }
+  header .brand{ font-size:.94rem; letter-spacing:.18em; color:rgba(255,255,255,0.18); text-transform:uppercase; }
+  header .brand a{ color:rgba(255,255,255,0.18); text-decoration:none; }
+  header .brand a:hover{ color:var(--gold); }
+  header h1{
+    font-family:'Cormorant Garamond',serif; font-weight:300; letter-spacing:.02em;
+    font-size:clamp(1.8rem,5vw,2.6rem); color:rgba(255,255,255,0.92); margin-top:10px;
+  }
+  header h1 span{ color:var(--gold); }
+  header p.sub{
+    margin-top:10px; max-width:600px; font-size:1rem; line-height:1.6;
+    font-family:'Cormorant Garamond',serif; color:rgba(255,255,255,0.55);
+  }
+
+  .pills{
+    display:flex; gap:8px; padding:16px 32px; flex-wrap:wrap; border-bottom:1px solid var(--border);
+    background:rgba(255,255,255,0.015);
+  }
+  .pill{
+    font-family:'DM Mono',monospace; font-size:.5rem; letter-spacing:.12em; text-transform:uppercase;
+    color:rgba(255,255,255,0.4); padding:8px 14px; border:1px solid var(--border); border-radius:20px;
+    cursor:pointer; transition:all .15s; background:transparent;
+  }
+  .pill:hover{ color:rgba(255,255,255,0.7); border-color:rgba(143,111,232,0.3); }
+  .pill.active{ color:#fff; background:linear-gradient(135deg, var(--deep), var(--gold)); border-color:transparent; }
+
+  #status{ padding:16px 32px; font-size:.48rem; letter-spacing:.1em; color:rgba(255,255,255,0.28); text-transform:uppercase; }
+  #status.err{ color:#e07a5f; }
+  #status .dot{ display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--cyan); margin-right:8px; }
+
+  .grail-grid{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(360px,1fr));
+    gap:1px; background:var(--border); padding:1px 32px 60px; margin-top:1px;
+  }
+  .grail-card{ background:var(--ink); display:flex; flex-direction:column; padding:24px 26px 22px; }
+
+  .card-top{ display:flex; gap:18px; margin-bottom:16px; }
+  .card-cover{
+    width:76px; aspect-ratio:2/3; object-fit:cover; border-radius:3px; flex-shrink:0;
+    background:rgba(255,255,255,0.04);
+  }
+  .card-cover.placeholder{ display:flex; align-items:center; justify-content:center; font-size:.48rem; letter-spacing:.08em; color:rgba(255,255,255,0.2); text-align:center; padding:6px; }
+
+  .era-badge{
+    display:inline-block; font-size:.5rem; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--cyan); border:1px solid rgba(77,232,255,0.3); background:rgba(77,232,255,0.06);
+    padding:3px 9px; border-radius:10px; margin-bottom:8px;
+  }
+  .grail-title{
+    font-family:'Cormorant Garamond',serif; font-weight:400; font-size:1.4rem; line-height:1.2;
+    color:rgba(255,255,255,0.92);
+  }
+  .grail-year{
+    font-family:'DM Mono',monospace; font-size:.94rem; letter-spacing:.05em; color:rgba(255,255,255,0.4);
+    margin-top:4px;
+  }
+
+  .char-chips{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; list-style:none; }
+  .char-chip{
+    display:inline-flex; align-items:center; font-family:'DM Mono',monospace; font-size:.7rem;
+    letter-spacing:.03em; padding:4px 10px; border-radius:20px; border:1px solid rgba(143,111,232,0.25);
+    color:rgba(255,255,255,0.7); text-decoration:none;
+  }
+  a.char-chip{ color:rgba(143,111,232,0.85); border-color:rgba(143,111,232,0.4); }
+  a.char-chip:hover{ color:var(--gold); border-color:var(--gold); }
+
+  .significance{
+    font-family:'Cormorant Garamond',serif; font-size:1.08rem; line-height:1.6;
+    color:rgba(255,255,255,0.8); margin-bottom:12px;
+  }
+  .grail-note{
+    font-family:'DM Mono',monospace; font-size:.875rem; line-height:1.55;
+    color:rgba(255,255,255,0.55); border-left:2px solid rgba(255,255,255,0.15);
+    padding-left:10px; margin-bottom:16px;
+  }
+  .grail-note .label{ color:rgba(255,255,255,0.35); text-transform:uppercase; letter-spacing:.08em; font-size:.75rem; margin-right:6px; }
+
+  .market-row{
+    display:flex; gap:22px; flex-wrap:wrap; padding-top:14px; margin-top:auto;
+    border-top:1px solid var(--border);
+  }
+  .market-stat{ flex:1; min-width:120px; }
+  .market-stat .stat-label{ font-size:.5rem; letter-spacing:.1em; text-transform:uppercase; color:rgba(255,255,255,0.35); margin-bottom:3px; }
+  .market-stat .stat-value{ font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.85); }
+  .market-stat .stat-value.muted{ color:rgba(255,255,255,0.35); }
+
+  .card-cta{
+    display:flex; gap:8px; margin-top:16px; flex-wrap:wrap;
+  }
+  .cta-btn{
+    font-family:'DM Mono',monospace; font-size:.5rem; letter-spacing:.12em; text-transform:uppercase;
+    color:#fff; background:linear-gradient(135deg, var(--deep), var(--gold)); padding:9px 16px;
+    border-radius:3px; text-decoration:none; white-space:nowrap; transition:filter .15s;
+  }
+  .cta-btn:hover{ filter:brightness(1.12); }
+
+  .empty{ padding:60px 32px; text-align:center; color:rgba(255,255,255,0.25); font-family:'Cormorant Garamond',serif; font-size:1.2rem; font-weight:300; line-height:1.6; }
+
+  footer{ padding:28px 32px 44px; text-align:center; font-size:.42rem; letter-spacing:.12em; color:rgba(255,255,255,0.15); text-transform:uppercase; }
+  footer a{ color:rgba(143,111,232,0.5); text-decoration:none; }
+  footer a:hover{ color:var(--gold); }
+</style>
+</head>
+<body>
+<script src="site-nav.js" data-active="grails"></script>
+<script src="character-map.js"></script>
+<script src="grails-data.js"></script>
+<div id="grain" style="position:fixed;inset:0;z-index:200;pointer-events:none;opacity:0.025;background-image:url(&quot;data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E&quot;);"></div>
+
+<header>
+  <div class="brand"><a href="index.html">ZurVault</a> / Grail Comics</div>
+  <h1>Grail <span>Comics</span></h1>
+  <p class="sub">The comics that built the DC Universe — first appearances and landmark storylines, readable for the first time as NFTs. Live floor price and last sale pulled straight from Magic Eden.</p>
+</header>
+
+<div class="pills" id="pills">
+  <button class="pill active" data-era="">All Eras</button>
+</div>
+
+<div id="status"><span class="dot"></span>Loading&hellip;</div>
+<div id="grid" class="grail-grid"></div>
+
+<footer>
+  A ZurVault companion to <a href="https://candy.io" target="_blank" rel="noopener">candy.io</a> · <a href="index.html">zurvault.com</a>
+</footer>
+
+<script>
+const ME_PROXY_BASE = "https://zurvault-proxy.stholt.workers.dev";
+const ME_BASE = ME_PROXY_BASE + "/v2";
+
+const statusEl = document.getElementById('status');
+const gridEl = document.getElementById('grid');
+const pillsEl = document.getElementById('pills');
+
+let selectedEra = '';
+let marketBySymbol = {};
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+
+function setStatus(msg, isErr){
+  statusEl.innerHTML = (isErr ? '' : '<span class="dot"></span>') + msg;
+  statusEl.classList.toggle('err', !!isErr);
+}
+
+function timeAgo(ts){
+  const secs = typeof ts === 'number' ? (ts > 1e12 ? (Date.now()-ts)/1000 : Date.now()/1000 - ts) : (Date.now() - new Date(ts).getTime())/1000;
+  if(secs < 60) return 'just now';
+  if(secs < 3600) return Math.floor(secs/60) + 'm ago';
+  if(secs < 86400) return Math.floor(secs/3600) + 'h ago';
+  return Math.floor(secs/86400) + 'd ago';
+}
+
+// Era pills, built from grails-data.js's own chronological grouping —
+// this page has no filter logic of its own to keep in sync, it just
+// reads whatever order getGrailsByEra() decides.
+function buildEraPills(){
+  const byEra = getGrailsByEra();
+  const extra = Object.keys(byEra).map(era => `<button class="pill" data-era="${esc(era)}">${esc(era)}</button>`).join('');
+  pillsEl.insertAdjacentHTML('beforeend', extra);
+  pillsEl.querySelectorAll('.pill').forEach(p => {
+    p.addEventListener('click', () => {
+      pillsEl.querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
+      p.classList.add('active');
+      selectedEra = p.dataset.era || '';
+      render();
+    });
+  });
+}
+
+// Joins one grail entry against live /v2/dc-summary data by symbol —
+// floor price is the lowest currently-listed price for that exact
+// symbol, last sale is the most recent sale in the 7-day sales
+// window the Worker already tracks. A symbol with no listings/sales
+// right now looks identical here to a symbol that's missing from the
+// Worker's own DC_COLLECTIONS copy entirely — this page can't tell
+// those apart without a second source of truth to check against, so
+// both just render as "no active listings" / "no recent sales"
+// rather than guessing. Cover image also comes from here, not from
+// grails-data.js, for the same reason pricing does: it's marketplace
+// data, not editorial content.
+function joinMarketData(symbol){
+  return marketBySymbol[symbol] || { floor: null, lastSale: null, image: '' };
+}
+
+function renderCard(grail){
+  const market = joinMarketData(grail.symbol);
+
+  const cover = market.image
+    ? `<img class="card-cover" src="${esc(market.image)}" loading="lazy" onerror="this.outerHTML='<div class=&quot;card-cover placeholder&quot;>No cover</div>'">`
+    : `<div class="card-cover placeholder">No cover</div>`;
+
+  const chips = (grail.characters || []).map(c => {
+    const known = c.characterId && typeof CHARACTER_MAP !== 'undefined' && CHARACTER_MAP[c.characterId];
+    return known
+      ? `<li><a class="char-chip" href="character.html?c=${encodeURIComponent(c.characterId)}">${esc(c.name)}</a></li>`
+      : `<li><span class="char-chip">${esc(c.name)}</span></li>`;
+  }).join('');
+
+  const noteHtml = grail.note
+    ? `<div class="grail-note"><span class="label">Note</span>${esc(grail.note)}</div>`
+    : '';
+
+  const floorHtml = market.floor !== null
+    ? `<div class="stat-value">${market.floor} SOL</div>`
+    : `<div class="stat-value muted">No active listings</div>`;
+
+  const lastSaleHtml = market.lastSale
+    ? `<div class="stat-value">${market.lastSale.price} SOL <span style="color:rgba(255,255,255,0.35)">&middot; ${timeAgo(market.lastSale.soldAt)}</span></div>`
+    : `<div class="stat-value muted">No recent sales</div>`;
+
+  return `
+    <div class="grail-card">
+      <div class="card-top">
+        ${cover}
+        <div>
+          <div class="era-badge">${esc(grail.era)}</div>
+          <div class="grail-title">${esc(grail.title)}</div>
+          <div class="grail-year">${grail.year}</div>
+        </div>
+      </div>
+      ${chips ? `<ul class="char-chips">${chips}</ul>` : ''}
+      <div class="significance">${esc(grail.significance)}</div>
+      ${noteHtml}
+      <div class="market-row">
+        <div class="market-stat">
+          <div class="stat-label">Floor</div>
+          ${floorHtml}
+        </div>
+        <div class="market-stat">
+          <div class="stat-label">Last Sale (7d)</div>
+          ${lastSaleHtml}
+        </div>
+      </div>
+      <div class="card-cta">
+        <a class="cta-btn" href="https://magiceden.io/marketplace/${encodeURIComponent(grail.symbol)}" target="_blank" rel="noopener">View on Magic Eden &#8599;</a>
+      </div>
+    </div>
+  `;
+}
+
+function render(){
+  const items = GRAIL_COMICS
+    .filter(g => !selectedEra || g.era === selectedEra)
+    .slice()
+    .sort((a, b) => a.year - b.year);
+
+  if(items.length === 0){
+    gridEl.innerHTML = `<div class="empty">No grails match this era.</div>`;
+    return;
+  }
+
+  gridEl.innerHTML = items.map(renderCard).join('');
+}
+
+async function load(){
+  buildEraPills();
+  setStatus('Loading live pricing&hellip;');
+
+  try{
+    const res = await fetch(`${ME_BASE}/dc-summary`);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    if(data.notReady){
+      setStatus('The listings service is still setting up — pricing will appear once it finishes its first scan.', true);
+      marketBySymbol = {};
+      render();
+      return;
+    }
+
+    const listings = data.listings || [];
+    const sales = data.sales || [];
+    marketBySymbol = {};
+
+    for(const grail of GRAIL_COMICS){
+      const symbolListings = listings.filter(l => l.symbol === grail.symbol && l.price !== null);
+      const floor = symbolListings.length ? Math.min(...symbolListings.map(l => l.price)) : null;
+      const image = (listings.find(l => l.symbol === grail.symbol) || {}).image || '';
+
+      const symbolSales = sales.filter(s => s.symbol === grail.symbol && s.price !== null);
+      const lastSale = symbolSales.length
+        ? symbolSales.reduce((a, b) => (b.soldAt || 0) > (a.soldAt || 0) ? b : a)
+        : null;
+
+      marketBySymbol[grail.symbol] = { floor, lastSale, image };
+
+      // Surfaced, not silent — matches this repo's existing convention
+      // (see discover.html's UNRESOLVED_ handling) of flagging sync
+      // gaps in the console rather than failing the page.
+      if(!listings.some(l => l.symbol === grail.symbol) && !sales.some(s => s.symbol === grail.symbol)){
+        console.warn(`grails-data.js: "${grail.title}" (${grail.symbol}) has no listings or sales in the current /v2/dc-summary response — check it still exists in DC_COLLECTIONS.`);
+      }
+    }
+
+    const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+    setStatus(`${GRAIL_COMICS.length} grail comic(s) &middot; pricing updated ${updated}.`);
+  }catch(e){
+    console.error(e);
+    setStatus('Could not reach the listings service — showing grail write-ups without live pricing. Try reloading in a moment.', true);
+    marketBySymbol = {};
+  }
+
+  render();
+}
+
+const REFRESH_INTERVAL = 22 * 60 * 1000; // trails the Worker's own 20-min cron refresh
+load();
+setInterval(load, REFRESH_INTERVAL);
+</script>
+</body>
+</html>
