@@ -96,9 +96,9 @@
   }
   .back-link:hover{ color:var(--gold); border-color:rgba(143,111,232,0.5); }
 
-  .tabs{ display:flex; gap:0; margin-top:22px; border-bottom:1px solid var(--border); }
+  .tabs{ display:flex; gap:0; flex-wrap:wrap; margin-top:22px; border-bottom:1px solid var(--border); }
   .tab{
-    flex:1; text-align:center; padding:12px 8px; font-size:.94rem; letter-spacing:.15em;
+    flex:1; min-width:120px; text-align:center; padding:12px 8px; font-size:.94rem; letter-spacing:.15em;
     text-transform:uppercase; color:rgba(255,255,255,0.3); cursor:pointer;
     border-bottom:1px solid transparent; transition:color .15s;
   }
@@ -185,6 +185,15 @@
   .list-row .mint{ font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.5); margin-top:2px; white-space:nowrap; }
   .list-row .time{ font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.55); margin-top:2px; text-transform:uppercase; white-space:nowrap; }
 
+  /* Rank badge — Top Sellers (leaderboard rows) and Highest Sales
+     (individual sales, still using the same list-row layout) both need
+     a position number ahead of the thumbnail. */
+  .list-row .rank{
+    flex-shrink:0; width:24px; text-align:center; font-family:'DM Mono',monospace;
+    font-size:.94rem; color:rgba(143,111,232,0.6);
+  }
+  .leaderboard-row{ cursor:pointer; }
+
   .empty{ padding:60px 32px; text-align:center; color:rgba(255,255,255,0.25); font-family:'Cormorant Garamond',serif; font-size:1.2rem; font-weight:300; line-height:1.6; }
 
   footer{ padding:28px 32px 44px; text-align:center; font-size:.42rem; letter-spacing:.12em; color:rgba(255,255,255,0.15); text-transform:uppercase; }
@@ -218,6 +227,8 @@
   <div class="tabs">
     <div class="tab active" data-view="listings">For Sale</div>
     <div class="tab" data-view="sales">Recent Sales (7d)</div>
+    <div class="tab" data-view="top-sellers">Top Sellers</div>
+    <div class="tab" data-view="top-sales">Highest Sales</div>
   </div>
 </header>
 
@@ -554,9 +565,29 @@ function sortItems(items, sort, timeField){
   });
 }
 
+const controlsEl = document.querySelector('.controls');
+
+// Top Sellers ranks whole sub-collections, not individual items, so the
+// sub-collection filter/sort controls don't apply to it — hidden rather
+// than left visible-but-inert. Highest Sales is always sorted by price,
+// so just the sort dropdown (not the sub-collection filter) is hidden there.
+function updateControlsVisibility(){
+  controlsEl.style.display = currentView === 'top-sellers' ? 'none' : '';
+  sortByEl.style.display = currentView === 'top-sales' ? 'none' : '';
+}
+
 function render(){
+  updateControlsVisibility();
   if(currentView === 'sales') renderSales();
+  else if(currentView === 'top-sellers') renderTopSellers();
+  else if(currentView === 'top-sales') renderHighestSales();
   else renderListings();
+}
+
+function activateTab(view){
+  currentView = view;
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x.dataset.view === view));
+  render();
 }
 
 function renderListings(){
@@ -644,6 +675,102 @@ function renderSales(){
   `).join('');
 }
 
+// Ranks sub-collections by number of sales in the 7-day window (allSales
+// is already scoped to that window server-side — see SALES_WINDOW_SECS in
+// me-proxy-worker.js). Sale count rather than volume, per the "what's
+// actively moving" framing — a $5 item selling 20 times outranks a single
+// big-ticket sale here, same as the site's other "hot" surfaces (dollar
+// bin, etc.) lean toward activity over price.
+function renderTopSellers(){
+  const bySub = new Map();
+  for(const s of allSales){
+    if(!s.sub) continue;
+    const cur = bySub.get(s.sub) || { sub: s.sub, count: 0, volume: 0, image: s.image };
+    cur.count++;
+    cur.volume += (s.price || 0);
+    bySub.set(s.sub, cur);
+  }
+  const ranked = [...bySub.values()].sort((a, b) => b.count - a.count).slice(0, 15);
+
+  gridEl.className = 'list';
+  if(ranked.length === 0){
+    gridEl.innerHTML = `<div class="empty">No sales in the last 7 days yet.<br>Check back later.</div>`;
+    return;
+  }
+
+  gridEl.innerHTML = ranked.map((r, idx) => `
+    <div class="list-row leaderboard-row" data-sub="${esc(r.sub)}">
+      <div class="rank">#${idx + 1}</div>
+      <img src="${esc(r.image)}" loading="lazy" onerror="this.style.opacity=0.2">
+      <div class="info">
+        <div class="sub">${esc(r.sub)}</div>
+        <div class="name">${r.count} sold this week</div>
+      </div>
+      <div class="price-col">
+        <div class="price">${r.volume.toFixed(2)} SOL</div>
+        <div class="mint">total volume</div>
+      </div>
+    </div>
+  `).join('');
+
+  // Clicking a row jumps to Recent Sales pre-filtered to that
+  // sub-collection, rather than linking anywhere — this stays a
+  // same-page ranking, not a new page to maintain.
+  gridEl.querySelectorAll('.leaderboard-row').forEach(row => {
+    row.addEventListener('click', () => {
+      subFilterEl.value = row.dataset.sub;
+      activateTab('sales');
+    });
+  });
+}
+
+function renderHighestSales(){
+  const sub = subFilterEl.value;
+  const items = allSales
+    .filter(i => !sub || i.sub === sub)
+    .slice()
+    .sort((a, b) => (b.price ?? -Infinity) - (a.price ?? -Infinity))
+    .slice(0, 20);
+
+  if(items.length === 0){
+    gridEl.className = currentDisplay;
+    gridEl.innerHTML = `<div class="empty">No sales in the last 7 days for this view.<br>Try a different sub-collection or check back later.</div>`;
+    return;
+  }
+
+  if(currentDisplay === 'list'){
+    gridEl.className = 'list';
+    gridEl.innerHTML = items.map((i, idx) => `
+      <a class="list-row" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener">
+        <div class="rank">#${idx + 1}</div>
+        <img src="${esc(i.image)}" loading="lazy" onerror="this.style.opacity=0.2">
+        <div class="info">
+          <div class="sub">${esc(i.sub)}</div>
+          <div class="name">Sold · ${shortMint(i.mint)}</div>
+        </div>
+        <div class="price-col">
+          <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
+          ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
+        </div>
+      </a>
+    `).join('');
+    return;
+  }
+
+  gridEl.className = 'grid';
+  gridEl.innerHTML = items.map((i, idx) => `
+    <a class="card" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener">
+      <img src="${esc(i.image)}" loading="lazy" onerror="this.style.opacity=0.2">
+      <div class="body">
+        <div class="sub">${esc(i.sub)}</div>
+        <div class="name">#${idx + 1} · Sold · ${shortMint(i.mint)}</div>
+        <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
+        ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
+      </div>
+    </a>
+  `).join('');
+}
+
 function timeAgo(ts){
   const secs = typeof ts === 'number' ? (ts > 1e12 ? (Date.now()-ts)/1000 : Date.now()/1000 - ts) : (Date.now() - new Date(ts).getTime())/1000;
   if(secs < 60) return 'just now';
@@ -665,12 +792,7 @@ viewToggleEl.querySelectorAll('.pill').forEach(p => {
 });
 
 document.querySelectorAll('.tab').forEach(t => {
-  t.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-    t.classList.add('active');
-    currentView = t.dataset.view;
-    render();
-  });
+  t.addEventListener('click', () => activateTab(t.dataset.view));
 });
 
 const REFRESH_INTERVAL = 22 * 60 * 1000; // trails the Worker's own 20-min cron refresh, so we're not fetching a KV entry that's mid-update
