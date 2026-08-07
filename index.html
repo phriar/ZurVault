@@ -185,7 +185,7 @@
   .list-row .mint{ font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.5); margin-top:2px; white-space:nowrap; }
   .list-row .time{ font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.55); margin-top:2px; text-transform:uppercase; white-space:nowrap; }
 
-  /* Rank badge — Top Sellers (leaderboard rows) and Highest Sales
+  /* Rank badge — Best Sellers (leaderboard rows) and Highest Sales
      (individual sales, still using the same list-row layout) both need
      a position number ahead of the thumbnail. */
   .list-row .rank{
@@ -227,7 +227,7 @@
   <div class="tabs">
     <div class="tab active" data-view="listings">For Sale</div>
     <div class="tab" data-view="sales">Recent Sales (7d)</div>
-    <div class="tab" data-view="top-sellers">Top Sellers</div>
+    <div class="tab" data-view="top-sellers">Best Sellers</div>
     <div class="tab" data-view="top-sales">Highest Sales</div>
   </div>
 </header>
@@ -567,7 +567,7 @@ function sortItems(items, sort, timeField){
 
 const controlsEl = document.querySelector('.controls');
 
-// Top Sellers ranks whole sub-collections, not individual items, so the
+// Best Sellers ranks whole sub-collections, not individual items, so the
 // sub-collection filter/sort controls don't apply to it — hidden rather
 // than left visible-but-inert. Highest Sales is always sorted by price,
 // so just the sort dropdown (not the sub-collection filter) is hidden there.
