@@ -45,7 +45,7 @@
 
   var style = document.createElement('style');
   style.textContent =
-    '#zv-banner{position:fixed;top:0;left:0;right:0;z-index:400;height:46px;' +
+    '#zv-banner{position:fixed;top:0;left:0;right:0;z-index:400;height:52px;' +
       'display:flex;align-items:center;justify-content:space-between;gap:14px;' +
       'padding:0 16px;background:rgba(6,6,6,0.82);backdrop-filter:blur(14px);' +
       '-webkit-backdrop-filter:blur(14px);border-bottom:1px solid rgba(255,255,255,0.08);' +
@@ -54,18 +54,18 @@
     '#zv-banner.zv-hidden{transform:translateY(-100%);opacity:0;pointer-events:none;}' +
     '#zv-banner *{box-sizing:border-box;}' +
     '#zv-banner .zv-brand{display:flex;align-items:center;gap:8px;text-decoration:none;flex-shrink:0;}' +
-    '#zv-banner .zv-mark{width:24px;height:24px;border-radius:50%;flex-shrink:0;' +
+    '#zv-banner .zv-mark{width:26px;height:26px;border-radius:50%;flex-shrink:0;' +
       'background-image:url(\'' + COWL_URL + '\');background-size:180%;background-position:center 30%;' +
       'border:1px solid rgba(143,111,232,0.45);}' +
-    '#zv-banner .zv-word{font-size:.7rem;letter-spacing:.28em;text-transform:uppercase;color:rgba(255,255,255,0.78);}' +
+    '#zv-banner .zv-word{font-size:.85rem;letter-spacing:.26em;text-transform:uppercase;color:rgba(255,255,255,0.78);}' +
     '#zv-banner .zv-links{display:flex;align-items:center;gap:2px;overflow-x:auto;scrollbar-width:none;}' +
     '#zv-banner .zv-links::-webkit-scrollbar{display:none;}' +
-    '#zv-banner .zv-link{font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;' +
-      'color:rgba(255,255,255,0.4);padding:6px 9px;white-space:nowrap;border-bottom:1px solid transparent;' +
+    '#zv-banner .zv-link{font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;text-decoration:none;' +
+      'color:rgba(255,255,255,0.4);padding:7px 10px;white-space:nowrap;border-bottom:1px solid transparent;' +
       'transition:color .15s,border-color .15s;}' +
     '#zv-banner .zv-link:hover{color:#4de8ff;}' +
     '#zv-banner .zv-link.active{color:rgba(255,255,255,0.88);border-color:#6b2fd6;cursor:default;pointer-events:none;}' +
-    'body.zv-has-banner{padding-top:46px;}';
+    'body.zv-has-banner{padding-top:52px;}';
   document.head.appendChild(style);
 
   var links = PAGES.map(function (p) {
