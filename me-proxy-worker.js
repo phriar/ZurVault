@@ -116,7 +116,6 @@ const DC_COLLECTIONS = [
   { sub: "Aquaman 59 160", symbol: "aquaman_59_multiverse_edition" },
   { sub: "Batman 428 Robin Lives 1 11358", symbol: "batman_428_robin_lives_2023_1" },
   { sub: "Terry Dodson Harley Quin 9", symbol: "UNRESOLVED_3CXW7Y" },
-  { sub: "Inkling", symbol: "palm_garden_inklings" },
   { sub: "Aquaman (1962-1978)", symbol: "aquaman_19621978_1" },
   { sub: "Justice League Unl 6 201", symbol: "justice_league_unlimited_2024_6" },
   { sub: "Batman (1940-2011)", symbol: "dc3_super_power_packs_series_batman" },
