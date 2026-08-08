@@ -297,6 +297,7 @@ const DC_COLLECTIONS = [
 // disappearing from results.
 const collectionKey = (symbol) => `collection:${symbol}`;
 const KV_TTL_SECONDS = 2400; // 40 min
+const CLICK_TTL_SECONDS = 60 * 60 * 24 * 90; // 90 days — see /v2/click-log below
 const BATCH_SIZE = 5; // collections processed concurrently per batch — kept conservative given the 429s we saw; the real rate gate is throttleMagicEden() below, this just bounds how many writes are in flight at once
 const SALES_WINDOW_SECS = 7 * 24 * 60 * 60; // Recent Sales looks back one week
 const ACTIVITIES_MAX_PAGES = 5; // safety cap — a very active collection could otherwise page forever
@@ -593,7 +594,7 @@ export default {
     const origin = request.headers.get("Origin") || "";
     const corsHeaders = {
       "Access-Control-Allow-Origin": ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
     };
 
@@ -656,6 +657,66 @@ export default {
       return new Response(JSON.stringify(result), {
         status: result.ok ? 200 : 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Outbound-to-Magic-Eden click tracking. Only ME links are ever tracked
+    // here — Candy.io isn't a buy destination right now, so nothing on the
+    // client ever calls this for a Candy link, and this endpoint has no
+    // concept of "destination" at all, only "context" (a DC_COLLECTIONS
+    // symbol). POSTed via navigator.sendBeacon() as a fire-and-forget beacon
+    // alongside normal <a href> navigation — never a redirect the browser is
+    // routed through, and never something that can block or delay a click.
+    //
+    // One KV entry per click, not a shared counter: KV writes to the same
+    // key are rate-limited to roughly 1/sec, and a naive read-increment-write
+    // counter can silently lose increments under concurrent clicks anyway.
+    // The context lives in the key itself (click:{context}:{timestamp}-{rand})
+    // so /v2/click-stats below can tally counts by listing keys and parsing
+    // their names — no per-entry .get() reads needed, which matters once
+    // this has accumulated thousands of entries. CLICK_TTL_SECONDS bounds
+    // this to a rolling 90-day window rather than growing forever.
+    if (url.pathname === "/v2/click-log" && request.method === "POST") {
+      let payload;
+      try {
+        payload = JSON.parse(await request.text());
+      } catch {
+        return new Response(JSON.stringify({ error: "invalid_body" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      // Not validated against the live DC_COLLECTIONS list — this runs on
+      // the hot path of a real click and shouldn't risk rejecting a
+      // legitimate click over a symbol that's momentarily out of sync
+      // between a page and this file. Sanitized to a safe key fragment.
+      const context = String(payload?.context || "unknown").slice(0, 80).replace(/[^a-zA-Z0-9_-]/g, "_") || "unknown";
+      const key = `click:${context}:${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+      ctx.waitUntil(env.DC_CACHE.put(key, "1", { expirationTtl: CLICK_TTL_SECONDS }));
+      // 204 with no body — sendBeacon never reads the response.
+      return new Response(null, { status: 204, headers: corsHeaders });
+    }
+
+    // Not linked from anywhere in the live site — same "direct URL only"
+    // treatment as discover.html/candy-watcher.html. Tallies from key names
+    // only (see above), so this stays cheap even with a large backlog of
+    // click entries.
+    if (url.pathname === "/v2/click-stats" && request.method === "GET") {
+      const counts = {};
+      let total = 0;
+      let cursor;
+      do {
+        const page = await env.DC_CACHE.list({ prefix: "click:", cursor, limit: 1000 });
+        for (const k of page.keys) {
+          const context = k.name.slice("click:".length).split(":")[0];
+          counts[context] = (counts[context] || 0) + 1;
+          total++;
+        }
+        cursor = page.list_complete ? undefined : page.cursor;
+      } while (cursor);
+      return new Response(JSON.stringify({ total, byContext: counts, retentionDays: CLICK_TTL_SECONDS / 86400 }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" },
       });
     }
 

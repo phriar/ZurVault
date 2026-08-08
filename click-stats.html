@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Click Tracking — ZurVault</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  :root{
+    --ink:    #0a0a0a;
+    --gold:   #8f6fe8;
+    --deep:   #6b2fd6;
+    --cyan:   #4de8ff;
+    --faint:  rgba(255,255,255,0.05);
+    --border: rgba(255,255,255,0.07);
+  }
+
+  body{
+    background:var(--ink); color:#fff; min-height:100vh;
+    font-family:'DM Mono',monospace; -webkit-font-smoothing:antialiased;
+  }
+
+  .wrap{ max-width:760px; margin:0 auto; padding:96px 24px 60px; }
+
+  .brand{ font-size:.94rem; letter-spacing:.18em; color:rgba(255,255,255,0.18); text-transform:uppercase; }
+  .brand a{ color:rgba(255,255,255,0.18); text-decoration:none; }
+  .brand a:hover{ color:var(--gold); }
+  h1{
+    font-family:'Cormorant Garamond',serif; font-weight:300; letter-spacing:.01em;
+    font-size:clamp(1.8rem,5vw,2.4rem); color:rgba(255,255,255,0.94); margin:10px 0 8px;
+  }
+  h1 span{ color:var(--gold); }
+  p.sub{
+    max-width:560px; font-size:.94rem; line-height:1.6; color:rgba(255,255,255,0.4);
+    margin-bottom:28px;
+  }
+
+  #status{ font-size:.65rem; letter-spacing:.08em; color:rgba(255,255,255,0.35); text-transform:uppercase; margin-bottom:20px; }
+  #status.err{ color:#e07a5f; }
+  #status .dot{ display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--cyan); margin-right:8px; }
+
+  .total-row{ display:flex; gap:28px; flex-wrap:wrap; margin-bottom:28px; }
+  .stat{ padding:16px 20px; border:1px solid var(--border); border-radius:4px; background:rgba(255,255,255,0.02); min-width:140px; }
+  .stat .stat-label{ font-size:.55rem; letter-spacing:.1em; text-transform:uppercase; color:rgba(255,255,255,0.35); margin-bottom:6px; }
+  .stat .stat-value{ font-size:1.6rem; color:rgba(255,255,255,0.92); }
+
+  table{ width:100%; border-collapse:collapse; }
+  th, td{ text-align:left; padding:10px 12px; border-bottom:1px solid var(--border); font-size:.94rem; }
+  th{
+    font-size:.55rem; letter-spacing:.1em; text-transform:uppercase; color:rgba(255,255,255,0.35);
+    font-weight:400;
+  }
+  td.context{ color:rgba(143,111,232,0.9); word-break:break-all; }
+  td.count{ font-family:'DM Mono',monospace; color:rgba(255,255,255,0.85); text-align:right; white-space:nowrap; }
+  tr:hover td{ background:rgba(255,255,255,0.02); }
+
+  .empty{ padding:40px 0; text-align:center; color:rgba(255,255,255,0.25); font-family:'Cormorant Garamond',serif; font-size:1.1rem; }
+
+  footer{ padding:28px 0 44px; text-align:left; font-size:.42rem; letter-spacing:.12em; color:rgba(255,255,255,0.15); text-transform:uppercase; }
+  footer a{ color:rgba(143,111,232,0.5); text-decoration:none; }
+  footer a:hover{ color:var(--gold); }
+</style>
+</head>
+<body>
+<script src="site-nav.js" data-active="click-stats"></script>
+
+<div class="wrap">
+  <div class="brand"><a href="index.html">ZurVault</a> / Click Tracking</div>
+  <h1>Outbound <span>Click Tracking</span></h1>
+  <p class="sub">Magic Eden click-throughs, by collection symbol — Candy.io links are never tracked (no purchase flow there). Not linked from site nav; internal tool only. Counts a rolling 90-day window, since click entries expire after that.</p>
+
+  <div id="status"><span class="dot"></span>Loading&hellip;</div>
+
+  <div class="total-row" id="totalRow" style="display:none;">
+    <div class="stat">
+      <div class="stat-label">Total Clicks (90d)</div>
+      <div class="stat-value" id="totalValue">0</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Distinct Collections</div>
+      <div class="stat-value" id="distinctValue">0</div>
+    </div>
+  </div>
+
+  <table id="table" style="display:none;">
+    <thead><tr><th>Collection Symbol</th><th style="text-align:right">Clicks</th></tr></thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+</div>
+
+<footer>
+  A ZurVault companion to <a href="https://candy.io" target="_blank" rel="noopener">candy.io</a> · <a href="index.html">zurvault.com</a>
+</footer>
+
+<script>
+const ME_PROXY_BASE = "https://zurvault-proxy.stholt.workers.dev";
+const CLICK_STATS_URL = ME_PROXY_BASE + "/v2/click-stats";
+
+const statusEl = document.getElementById('status');
+const totalRowEl = document.getElementById('totalRow');
+const totalValueEl = document.getElementById('totalValue');
+const distinctValueEl = document.getElementById('distinctValue');
+const tableEl = document.getElementById('table');
+const tableBodyEl = document.getElementById('tableBody');
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+
+function setStatus(msg, isErr){
+  statusEl.innerHTML = (isErr ? '' : '<span class="dot"></span>') + msg;
+  statusEl.classList.toggle('err', !!isErr);
+}
+
+async function load(){
+  try{
+    const res = await fetch(CLICK_STATS_URL);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    const entries = Object.entries(data.byContext || {}).sort((a, b) => b[1] - a[1]);
+
+    totalValueEl.textContent = data.total ?? 0;
+    distinctValueEl.textContent = entries.length;
+    totalRowEl.style.display = 'flex';
+
+    if(entries.length === 0){
+      tableEl.style.display = 'none';
+      setStatus('No clicks logged yet.');
+      return;
+    }
+
+    tableBodyEl.innerHTML = entries.map(([context, count]) => `
+      <tr>
+        <td class="context">${esc(context)}</td>
+        <td class="count">${count}</td>
+      </tr>
+    `).join('');
+    tableEl.style.display = 'table';
+
+    const retention = data.retentionDays ? `${data.retentionDays}-day window` : 'rolling window';
+    setStatus(`${entries.length} collection(s), ${data.total} total click(s) &middot; ${retention} &middot; refreshes every 45s.`);
+  }catch(e){
+    console.error(e);
+    setStatus('Could not reach the click-stats endpoint. If this is a fresh deploy, make sure me-proxy-worker.js has been redeployed to Cloudflare — pushing to GitHub alone does not update the live Worker.', true);
+  }
+}
+
+load();
+setInterval(load, 45000);
+</script>
+</body>
+</html>

@@ -260,7 +260,7 @@ function renderGrid(items){
     const edition = parseEdition(i.name);
     return `
       <div class="card">
-        <a class="card-link" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener">
+        <a class="card-link" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}">
           <img src="${esc(i.image)}" loading="lazy" onerror="this.style.opacity=0.2">
           <div class="body">
             <div class="sub">${esc(i.sub)}</div>
@@ -287,7 +287,7 @@ function renderList(items){
     const edition = parseEdition(i.name);
     return `
       <div class="list-row">
-        <a class="row-link" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener">
+        <a class="row-link" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}">
           <img src="${esc(i.image)}" loading="lazy" onerror="this.style.opacity=0.2">
           <div class="info">
             <div class="sub">${esc(i.sub)}</div>

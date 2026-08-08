@@ -269,7 +269,7 @@ function renderKeyIssues(collection){
     const name = match ? match.name : null;
     const href = match ? match.pdpUrl : `https://magiceden.io/marketplace/${encodeURIComponent(k.symbol)}`;
     return `
-      <a class="key-issue-card" href="${href}" target="_blank" rel="noopener">
+      <a class="key-issue-card" href="${href}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(k.symbol)}">
         <img src="${image}" loading="lazy" onerror="this.style.opacity=0.15">
         <div>
           ${name ? `<div class="k-name">${esc(name)}</div>` : ''}
@@ -301,7 +301,7 @@ function renderListings(){
   if(currentDisplay === 'list'){
     gridEl.className = 'list';
     gridEl.innerHTML = items.map(i => `
-      <a class="list-row" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener">
+      <a class="list-row" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}">
         <img src="${esc(i.image)}" loading="lazy" onerror="this.style.opacity=0.2">
         <div class="info">
           <div class="sub">${esc(i.sub)}</div>
@@ -319,7 +319,7 @@ function renderListings(){
 
   gridEl.className = 'grid';
   gridEl.innerHTML = items.map(i => `
-    <a class="card" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener">
+    <a class="card" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}">
       <img src="${esc(i.image)}" loading="lazy" onerror="this.style.opacity=0.2">
       <div class="body">
         <div class="sub">${esc(i.sub)}</div>
@@ -342,7 +342,7 @@ function renderSales(){
   if(currentDisplay === 'list'){
     gridEl.className = 'list';
     gridEl.innerHTML = items.map(i => `
-      <a class="list-row" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener">
+      <a class="list-row" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}">
         <img src="${esc(i.image)}" loading="lazy" onerror="this.style.opacity=0.2">
         <div class="info">
           <div class="sub">${esc(i.sub)}</div>
@@ -359,7 +359,7 @@ function renderSales(){
 
   gridEl.className = 'grid';
   gridEl.innerHTML = items.map(i => `
-    <a class="card" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener">
+    <a class="card" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}">
       <img src="${esc(i.image)}" loading="lazy" onerror="this.style.opacity=0.2">
       <div class="body">
         <div class="sub">${esc(i.sub)}</div>

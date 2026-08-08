@@ -8,6 +8,12 @@
    Exposes window.ZurVaultNav.hide()/.show() for pages with
    immersive fullscreen views (lightbox, slideshow playback, comic
    reader) to duck the banner out of the way.
+
+   Also owns outbound Magic Eden click tracking (fire-and-forget
+   navigator.sendBeacon(), no redirect, no preventDefault — see the
+   comment near ME_CLICK_LOG_URL below) since it's already loaded on
+   every page. To track a link: add data-track="me" and
+   data-track-context="<symbol>" to it — nothing else changes.
    ============================================================ */
 (function () {
   var script = document.currentScript;
@@ -83,4 +89,38 @@
     hide: function () { banner.classList.add('zv-hidden'); },
     show: function () { banner.classList.remove('zv-hidden'); }
   };
+
+  // ----------------------------------------------------------------
+  // Outbound Magic Eden click tracking. Magic Eden only — Candy.io
+  // isn't a buy destination right now, so Candy links are never
+  // instrumented (no data-track attribute is ever added to one).
+  //
+  // Fire-and-forget only: no preventDefault(), no URL rewriting, no
+  // redirect through our own domain. The link's real href is exactly
+  // what the browser follows, at the same instant it would without
+  // this listener — the beacon is a side effect of the click, not a
+  // gate in front of it. If sendBeacon is unsupported, blocked, or the
+  // Worker is unreachable, the click still navigates completely
+  // normally; nothing here can break or delay it.
+  //
+  // Delegated on document (capture phase, so it fires even if a page's
+  // own click handler on the same element calls stopPropagation() in
+  // the bubble phase) rather than bound to individual links, since
+  // every listings-consuming page replaces its results via innerHTML
+  // on every render — per-element listeners would need re-attaching
+  // constantly; delegation just works regardless of how often the DOM
+  // underneath gets swapped out.
+  var ME_CLICK_LOG_URL = 'https://zurvault-proxy.stholt.workers.dev/v2/click-log';
+
+  document.addEventListener('click', function (e) {
+    if (!navigator.sendBeacon) return;
+    var el = e.target.closest && e.target.closest('[data-track="me"]');
+    if (!el) return;
+    try {
+      var context = el.getAttribute('data-track-context') || 'unknown';
+      navigator.sendBeacon(ME_CLICK_LOG_URL, JSON.stringify({ context: context }));
+    } catch (err) {
+      // Tracking must never be able to break a click — swallow and move on.
+    }
+  }, true);
 })();

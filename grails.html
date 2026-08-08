@@ -291,7 +291,7 @@ function renderCard(grail){
 
   const listingsPanel = listings.length
     ? listings.map(l => `
-        <a class="item-row" href="${esc(l.pdpUrl)}" target="_blank" rel="noopener">
+        <a class="item-row" href="${esc(l.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(l.symbol)}">
           <img src="${esc(l.image)}" loading="lazy" onerror="this.style.opacity=0.2">
           <div class="item-info">
             <div class="item-name">${esc(l.name)}</div>
@@ -303,7 +303,7 @@ function renderCard(grail){
 
   const salesPanel = sales.length
     ? sales.map(s => `
-        <a class="item-row" href="${esc(s.pdpUrl)}" target="_blank" rel="noopener">
+        <a class="item-row" href="${esc(s.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(s.symbol)}">
           <img src="${esc(s.image)}" loading="lazy" onerror="this.style.opacity=0.2">
           <div class="item-info">
             <div class="item-name">Sold &middot; ${shortMint(s.mint)}</div>
@@ -346,7 +346,7 @@ function renderCard(grail){
       <div class="item-panel" data-symbol="${symbolAttr}" data-panel="listings" hidden>${listingsPanel}</div>
       <div class="item-panel" data-symbol="${symbolAttr}" data-panel="sales" hidden>${salesPanel}</div>
       <div class="card-cta">
-        <a class="browse-link" href="https://magiceden.io/marketplace/${encodeURIComponent(grail.symbol)}" target="_blank" rel="noopener">Browse full collection on Magic Eden &#8599;</a>
+        <a class="browse-link" href="https://magiceden.io/marketplace/${encodeURIComponent(grail.symbol)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(grail.symbol)}">Browse full collection on Magic Eden &#8599;</a>
       </div>
     </div>
   `;

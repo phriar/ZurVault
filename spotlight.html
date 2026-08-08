@@ -129,7 +129,7 @@ if(!entry){
     ctaHtml = `
       <div class="cta">
         <div class="cta-text">View this collection</div>
-        <a class="cta-btn" href="https://magiceden.io/marketplace/${encodeURIComponent(entry.collectionSymbol)}" target="_blank" rel="noopener">Magic Eden &#8599;</a>
+        <a class="cta-btn" href="https://magiceden.io/marketplace/${encodeURIComponent(entry.collectionSymbol)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(entry.collectionSymbol)}">Magic Eden &#8599;</a>
       </div>`;
   }
 
