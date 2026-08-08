@@ -148,11 +148,24 @@ function guessImage(asset){
   return asset.content?.links?.image || asset.content?.metadata?.image || '';
 }
 
-async function resolveMESymbol(mintAddress){
+// A single failed lookup (a transient 429, a network blip) used to
+// permanently mark that collection UNRESOLVED for the whole scan, with
+// no way to tell "this genuinely isn't on ME" apart from "ME hiccuped
+// once." Retries a few times with backoff before giving up, so a run
+// that hits transient rate-limiting doesn't silently regress symbols
+// that resolve fine on a clean run.
+const ME_LOOKUP_MAX_ATTEMPTS = 3;
+
+async function resolveMESymbol(mintAddress, attempt = 1){
   try{
     const res = await fetch(`${ME_BASE}/tokens/${mintAddress}`);
     if(!res.ok){
-      console.warn(`ME lookup failed for ${mintAddress}: HTTP ${res.status}`);
+      if(attempt < ME_LOOKUP_MAX_ATTEMPTS){
+        console.warn(`ME lookup failed for ${mintAddress} (attempt ${attempt}/${ME_LOOKUP_MAX_ATTEMPTS}, HTTP ${res.status}) — retrying…`);
+        await sleep(800 * attempt);
+        return resolveMESymbol(mintAddress, attempt + 1);
+      }
+      console.warn(`ME lookup failed for ${mintAddress}: HTTP ${res.status} (gave up after ${ME_LOOKUP_MAX_ATTEMPTS} attempts)`);
       return null;
     }
     const data = await res.json();
@@ -164,7 +177,12 @@ async function resolveMESymbol(mintAddress){
     if(!symbol) console.warn(`No collection symbol in ME response for ${mintAddress}`, data);
     return symbol;
   }catch(e){
-    console.warn(`ME lookup errored for ${mintAddress}:`, e.message);
+    if(attempt < ME_LOOKUP_MAX_ATTEMPTS){
+      console.warn(`ME lookup errored for ${mintAddress} (attempt ${attempt}/${ME_LOOKUP_MAX_ATTEMPTS}): ${e.message} — retrying…`);
+      await sleep(800 * attempt);
+      return resolveMESymbol(mintAddress, attempt + 1);
+    }
+    console.warn(`ME lookup errored for ${mintAddress}: ${e.message} (gave up after ${ME_LOOKUP_MAX_ATTEMPTS} attempts)`);
     return null;
   }
 }
@@ -240,7 +258,7 @@ async function run(){
     groups[key].symbol = symbol;
     if(symbol) resolvedCount++;
     setStatus(`Resolving Magic Eden symbols… ${resolvedCount}/${collectionKeys.length} done`);
-    await sleep(600); // stay well under ME's public rate limit
+    await sleep(900); // stay well under ME's public rate limit
   }
 
   setStatus(`Done. ${collectionKeys.length} collections, ${resolvedCount} resolved to a Magic Eden symbol.`);
