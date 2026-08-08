@@ -22,55 +22,82 @@
     font-family:'DM Mono',monospace; -webkit-font-smoothing:antialiased;
   }
 
-  .wrap{ max-width:760px; margin:0 auto; padding:96px 24px 60px; }
+  .wrap{ max-width:820px; margin:0 auto; padding:96px 24px 60px; }
 
-  .brand{ font-size:.94rem; letter-spacing:.18em; color:rgba(255,255,255,0.18); text-transform:uppercase; }
-  .brand a{ color:rgba(255,255,255,0.18); text-decoration:none; }
+  .brand{ font-size:1rem; letter-spacing:.16em; color:rgba(255,255,255,0.2); text-transform:uppercase; }
+  .brand a{ color:rgba(255,255,255,0.2); text-decoration:none; }
   .brand a:hover{ color:var(--gold); }
   h1{
     font-family:'Cormorant Garamond',serif; font-weight:300; letter-spacing:.01em;
-    font-size:clamp(1.8rem,5vw,2.4rem); color:rgba(255,255,255,0.94); margin:10px 0 8px;
+    font-size:clamp(1.9rem,5vw,2.5rem); color:rgba(255,255,255,0.94); margin:10px 0 10px;
   }
   h1 span{ color:var(--gold); }
   p.sub{
-    max-width:560px; font-size:.94rem; line-height:1.6; color:rgba(255,255,255,0.4);
-    margin-bottom:28px;
+    max-width:600px; font-size:1.05rem; line-height:1.65; color:rgba(255,255,255,0.45);
+    margin-bottom:30px;
   }
 
   .section-label{
-    font-size:.55rem; letter-spacing:.2em; text-transform:uppercase; color:rgba(255,255,255,0.3);
-    margin:32px 0 12px;
+    font-size:.8rem; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,0.4);
+    margin:36px 0 14px;
   }
   .section-label:first-of-type{ margin-top:0; }
-  td.mint{ font-family:'DM Mono',monospace; color:rgba(255,255,255,0.55); }
-  td.mint a{ color:rgba(143,111,232,0.9); text-decoration:none; }
+  td.mint{ font-family:'DM Mono',monospace; color:rgba(255,255,255,0.6); }
+  td.mint a{ color:rgba(143,111,232,0.95); text-decoration:none; }
   td.mint a:hover{ color:var(--gold); }
-  td.time{ font-family:'DM Mono',monospace; color:rgba(255,255,255,0.4); white-space:nowrap; }
-  .truncated-note{ font-size:.65rem; color:rgba(255,255,255,0.3); margin-top:8px; }
+  td.time{ font-family:'DM Mono',monospace; color:rgba(255,255,255,0.45); white-space:nowrap; }
+  .truncated-note{ font-size:.85rem; color:rgba(255,255,255,0.35); margin-top:10px; }
 
-  #status{ font-size:.65rem; letter-spacing:.08em; color:rgba(255,255,255,0.35); text-transform:uppercase; margin-bottom:20px; }
+  #status{ font-size:.85rem; letter-spacing:.04em; color:rgba(255,255,255,0.4); text-transform:uppercase; margin-bottom:24px; }
   #status.err{ color:#e07a5f; }
   #status .dot{ display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--cyan); margin-right:8px; }
 
-  .total-row{ display:flex; gap:28px; flex-wrap:wrap; margin-bottom:28px; }
-  .stat{ padding:16px 20px; border:1px solid var(--border); border-radius:4px; background:rgba(255,255,255,0.02); min-width:140px; }
-  .stat .stat-label{ font-size:.55rem; letter-spacing:.1em; text-transform:uppercase; color:rgba(255,255,255,0.35); margin-bottom:6px; }
-  .stat .stat-value{ font-size:1.6rem; color:rgba(255,255,255,0.92); }
+  .total-row{ display:flex; gap:28px; flex-wrap:wrap; margin-bottom:32px; }
+  .stat{ padding:18px 22px; border:1px solid var(--border); border-radius:4px; background:rgba(255,255,255,0.02); min-width:150px; }
+  .stat .stat-label{ font-size:.75rem; letter-spacing:.08em; text-transform:uppercase; color:rgba(255,255,255,0.4); margin-bottom:8px; }
+  .stat .stat-value{ font-size:2.2rem; color:rgba(255,255,255,0.94); }
+
+  /* Single-series bar chart — bar HEIGHT carries the magnitude, so one
+     consistent fill color is correct here (varying color per bar as well
+     would imply a categorical distinction that doesn't exist). Zero-count
+     days still render a thin sliver (min 3% height) so the timeline reads
+     as continuous rather than having days silently vanish. */
+  .chart{
+    display:flex; align-items:flex-end; gap:3px; height:150px;
+    border-bottom:1px solid var(--border); padding:0 0 2px;
+  }
+  .chart-bar{
+    flex:1; min-width:5px; background:var(--gold); border-radius:2px 2px 0 0;
+    position:relative; opacity:.8; transition:opacity .12s;
+  }
+  .chart-bar:hover{ opacity:1; }
+  .chart-tooltip{
+    position:absolute; bottom:100%; left:50%; transform:translateX(-50%);
+    margin-bottom:8px; padding:5px 10px; background:#161616; border:1px solid var(--border);
+    border-radius:3px; font-size:.8rem; white-space:nowrap; color:#fff;
+    opacity:0; pointer-events:none; transition:opacity .12s; z-index:5;
+  }
+  .chart-bar:hover .chart-tooltip{ opacity:1; }
+  .chart-labels{ display:flex; gap:3px; margin-top:8px; margin-bottom:8px; }
+  .chart-labels span{
+    flex:1; min-width:5px; font-size:.72rem; color:rgba(255,255,255,0.35);
+    text-align:center; white-space:nowrap; overflow:visible; position:relative; z-index:1;
+  }
 
   table{ width:100%; border-collapse:collapse; }
-  th, td{ text-align:left; padding:10px 12px; border-bottom:1px solid var(--border); font-size:.94rem; }
+  th, td{ text-align:left; padding:12px; border-bottom:1px solid var(--border); font-size:1.05rem; }
   th{
-    font-size:.55rem; letter-spacing:.1em; text-transform:uppercase; color:rgba(255,255,255,0.35);
+    font-size:.75rem; letter-spacing:.08em; text-transform:uppercase; color:rgba(255,255,255,0.4);
     font-weight:400;
   }
-  td.context{ color:rgba(143,111,232,0.9); word-break:break-all; }
-  td.count{ font-family:'DM Mono',monospace; color:rgba(255,255,255,0.85); text-align:right; white-space:nowrap; }
+  td.context{ color:rgba(143,111,232,0.95); word-break:break-all; }
+  td.count{ font-family:'DM Mono',monospace; color:rgba(255,255,255,0.9); text-align:right; white-space:nowrap; }
   tr:hover td{ background:rgba(255,255,255,0.02); }
 
-  .empty{ padding:40px 0; text-align:center; color:rgba(255,255,255,0.25); font-family:'Cormorant Garamond',serif; font-size:1.1rem; }
+  .empty{ padding:40px 0; text-align:center; color:rgba(255,255,255,0.3); font-family:'Cormorant Garamond',serif; font-size:1.25rem; }
 
-  footer{ padding:28px 0 44px; text-align:left; font-size:.42rem; letter-spacing:.12em; color:rgba(255,255,255,0.15); text-transform:uppercase; }
-  footer a{ color:rgba(143,111,232,0.5); text-decoration:none; }
+  footer{ padding:32px 0 44px; text-align:left; font-size:.55rem; letter-spacing:.1em; color:rgba(255,255,255,0.2); text-transform:uppercase; }
+  footer a{ color:rgba(143,111,232,0.55); text-decoration:none; }
   footer a:hover{ color:var(--gold); }
 </style>
 </head>
@@ -94,6 +121,11 @@
       <div class="stat-value" id="distinctValue">0</div>
     </div>
   </div>
+
+  <div class="section-label">Clicks Per Day (Last 30 Days)</div>
+  <div class="chart" id="chart" style="display:none;"></div>
+  <div class="chart-labels" id="chartLabels" style="display:none;"></div>
+  <div class="empty" id="chartEmpty" style="display:none;">No clicks logged yet.</div>
 
   <div class="section-label">Recent Listing Clicks</div>
   <table id="feedTable" style="display:none;">
@@ -128,6 +160,9 @@ const feedTableEl = document.getElementById('feedTable');
 const feedTableBodyEl = document.getElementById('feedTableBody');
 const feedTruncatedNoteEl = document.getElementById('feedTruncatedNote');
 const feedEmptyEl = document.getElementById('feedEmpty');
+const chartEl = document.getElementById('chart');
+const chartLabelsEl = document.getElementById('chartLabels');
+const chartEmptyEl = document.getElementById('chartEmpty');
 
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 
@@ -149,6 +184,46 @@ function shortMint(mint){
   return mint && mint.length > 8 ? mint.slice(0, 4) + '…' + mint.slice(-4) : (mint || '');
 }
 
+// Zero-fills the last 30 UTC days so the chart is always a continuous
+// 30-bar timeline, whether or not every day has data yet — a sparse
+// history reads as "quiet days," not as a broken/missing chart.
+function renderDailyChart(byDay){
+  const days = [];
+  const today = new Date();
+  for(let i = 29; i >= 0; i--){
+    const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+    d.setUTCDate(d.getUTCDate() - i);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  const counts = days.map(d => (byDay && byDay[d]) || 0);
+  const total = counts.reduce((a, b) => a + b, 0);
+
+  if(total === 0){
+    chartEl.style.display = 'none';
+    chartLabelsEl.style.display = 'none';
+    chartEmptyEl.style.display = 'block';
+    return;
+  }
+  chartEmptyEl.style.display = 'none';
+
+  const max = Math.max(...counts, 1);
+  const labelEvery = Math.ceil(days.length / 6);
+
+  chartEl.innerHTML = counts.map((c, i) => {
+    const pct = Math.max((c / max) * 100, c > 0 ? 4 : 3);
+    const dateLabel = new Date(days[i] + 'T00:00:00Z').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return `<div class="chart-bar" style="height:${pct}%"><span class="chart-tooltip">${esc(dateLabel)}: ${c} click${c === 1 ? '' : 's'}</span></div>`;
+  }).join('');
+  chartEl.style.display = 'flex';
+
+  chartLabelsEl.innerHTML = days.map((d, i) => {
+    const show = i % labelEvery === 0 || i === days.length - 1;
+    const label = show ? new Date(d + 'T00:00:00Z').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
+    return `<span>${esc(label)}</span>`;
+  }).join('');
+  chartLabelsEl.style.display = 'flex';
+}
+
 async function load(){
   try{
     const res = await fetch(CLICK_STATS_URL);
@@ -162,6 +237,8 @@ async function load(){
     totalValueEl.textContent = data.total ?? 0;
     distinctValueEl.textContent = bySymbolEntries.length;
     totalRowEl.style.display = 'flex';
+
+    renderDailyChart(data.byDay || {});
 
     if(bySymbolEntries.length === 0){
       tableEl.style.display = 'none';

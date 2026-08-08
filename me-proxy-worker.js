@@ -705,14 +705,16 @@ export default {
     }
 
     // Not linked from anywhere in the live site — same "direct URL only"
-    // treatment as discover.html/candy-watcher.html. Tallies and the recent
-    // feed both come from key names only (see above), so this stays cheap
-    // even with a large backlog of click entries. RECENT_CLICK_FEED_LIMIT
-    // caps the individual-click feed's response size; the bySymbol rollup
-    // still covers every entry regardless of that cap.
+    // treatment as discover.html/candy-watcher.html. Tallies, the daily
+    // trend, and the recent feed all come from key names only (see above),
+    // so this stays cheap even with a large backlog of click entries.
+    // RECENT_CLICK_FEED_LIMIT caps the individual-click feed's response
+    // size; bySymbol and byDay both still cover every entry regardless of
+    // that cap.
     if (url.pathname === "/v2/click-stats" && request.method === "GET") {
       const RECENT_CLICK_FEED_LIMIT = 200;
       const bySymbol = {};
+      const byDay = {}; // "YYYY-MM-DD" (UTC) -> count, every click including collection-level ones
       const listingClicks = [];
       let total = 0;
       let cursor;
@@ -720,11 +722,30 @@ export default {
         const page = await env.DC_CACHE.list({ prefix: "click:", cursor, limit: 1000 });
         for (const k of page.keys) {
           const parts = k.name.slice("click:".length).split(":");
-          const [symbol, mint, tsRand] = parts;
+          // Two key shapes can coexist during the rolling 90-day retention
+          // window: the current click:{symbol}:{mint}:{timestamp}-{rand}
+          // (3 parts) and the legacy click:{symbol}:{timestamp}-{rand}
+          // (2 parts, from before mint-level tracking existed). Blindly
+          // taking parts[1] as "mint" for a legacy key would grab its
+          // timestamp-rand string instead and produce a bogus item-details
+          // link — legacy entries have no mint at all, so they're counted
+          // in bySymbol/byDay same as always but never pushed into
+          // listingClicks (nothing real to link to).
+          let symbol, mint, tsRand;
+          if (parts.length >= 3) {
+            [symbol, mint, tsRand] = parts;
+          } else {
+            [symbol, tsRand] = parts;
+            mint = null;
+          }
           bySymbol[symbol] = (bySymbol[symbol] || 0) + 1;
           total++;
+          const clickedAt = parseInt((tsRand || "").split("-")[0], 10) || null;
+          if (clickedAt) {
+            const day = new Date(clickedAt).toISOString().slice(0, 10);
+            byDay[day] = (byDay[day] || 0) + 1;
+          }
           if (mint && mint !== "_collection") {
-            const clickedAt = parseInt((tsRand || "").split("-")[0], 10) || null;
             listingClicks.push({ symbol, mint, clickedAt, pdpUrl: `https://magiceden.io/item-details/${mint}` });
           }
         }
@@ -735,6 +756,7 @@ export default {
         JSON.stringify({
           total,
           bySymbol,
+          byDay,
           recentListingClicks: listingClicks.slice(0, RECENT_CLICK_FEED_LIMIT),
           recentListingClicksTruncated: listingClicks.length > RECENT_CLICK_FEED_LIMIT,
           retentionDays: CLICK_TTL_SECONDS / 86400,
