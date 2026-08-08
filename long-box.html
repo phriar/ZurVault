@@ -70,6 +70,10 @@
   .search-input{ flex:1; min-width:160px; text-transform:none; letter-spacing:.02em; }
   .search-input::placeholder{ color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:.1em; font-size:.5rem; }
 
+  .pills{
+    display:flex; gap:8px; padding:16px 32px; flex-wrap:wrap; border-bottom:1px solid var(--border);
+    background:rgba(255,255,255,0.015);
+  }
   .pill{
     font-family:'DM Mono',monospace; font-size:.5rem; letter-spacing:.12em; text-transform:uppercase;
     color:rgba(255,255,255,0.4); padding:8px 14px; border:1px solid var(--border); border-radius:20px;
@@ -78,6 +82,21 @@
   .pill:hover{ color:rgba(255,255,255,0.7); border-color:rgba(143,111,232,0.3); }
   .pill.active{ color:#fff; background:linear-gradient(135deg, var(--deep), var(--gold)); border-color:transparent; }
   .view-toggle{ display:flex; gap:8px; margin-left:auto; }
+
+  /* Same five-tier color scheme as slideshow-legacy.html's rarity badge,
+     reused verbatim for consistency across the site. rarity.html itself
+     was retired -- this page (plus the price range/name search it already
+     had) now covers everything it did. */
+  .rarity-badge{
+    display:inline-block; font-family:'DM Mono',monospace; font-size:.7rem; letter-spacing:.1em;
+    text-transform:uppercase; padding:3px 10px; border-radius:10px; border:1px solid; margin-bottom:8px;
+  }
+  .rarity-common     { color:#c2c6cc; border-color:rgba(194,198,204,0.4); background:rgba(194,198,204,0.08); }
+  .rarity-uncommon   { color:#4ade80; border-color:rgba(74,222,128,0.4); background:rgba(74,222,128,0.08); }
+  .rarity-rare       { color:var(--cyan); border-color:rgba(77,232,255,0.4); background:rgba(77,232,255,0.08); }
+  .rarity-epic       { color:var(--gold); border-color:rgba(143,111,232,0.5); background:rgba(143,111,232,0.1); }
+  .rarity-legendary  { color:#fbbf24; border-color:rgba(251,191,36,0.5); background:rgba(251,191,36,0.1); }
+  .list-row .rarity-badge{ margin-top:4px; margin-bottom:0; }
 
   #status{ padding:16px 32px; font-size:.48rem; letter-spacing:.1em; color:rgba(255,255,255,0.28); text-transform:uppercase; }
   #status.err{ color:#e07a5f; }
@@ -178,9 +197,8 @@
 <header>
   <div class="brand"><a href="index.html">ZurVault</a> / Long Box</div>
   <h1>The <span>Long Box</span></h1>
-  <p class="sub">Every currently-listed comic across every tracked DC collection, sorted cheapest first — instead of checking ~200 collection pages one at a time. Mint number (edition # / total supply) is shown where Magic Eden includes it in the listing name.</p>
+  <p class="sub">Every currently-listed comic across every tracked DC collection, sorted cheapest first — instead of checking ~200 collection pages one at a time. Filter by price range, name, or rarity tier. Mint number (edition # / total supply) is shown where Magic Eden includes it in the listing name.</p>
   <div class="quick-links">
-    <a class="back-link" href="rarity.html">Browse by Rarity &#8599;</a>
     <a class="back-link" href="index.html">Latest DC Listings &#8599;</a>
   </div>
 </header>
@@ -196,6 +214,15 @@
     <button class="pill active" data-view="grid">Grid</button>
     <button class="pill" data-view="list">List</button>
   </div>
+</div>
+
+<div class="pills" id="pills">
+  <button class="pill active" data-tier="">All Rarities</button>
+  <button class="pill" data-tier="Common">Common</button>
+  <button class="pill" data-tier="Uncommon">Uncommon</button>
+  <button class="pill" data-tier="Rare">Rare</button>
+  <button class="pill" data-tier="Epic">Epic</button>
+  <button class="pill" data-tier="Legendary">Legendary</button>
 </div>
 
 <div id="status"><span class="dot"></span>Loading&hellip;</div>
@@ -215,11 +242,13 @@ const viewToggleEl = document.getElementById('viewToggle');
 const minPriceEl = document.getElementById('minPrice');
 const maxPriceEl = document.getElementById('maxPrice');
 const searchInputEl = document.getElementById('searchInput');
+const pillsEl = document.getElementById('pills');
 
 let allListings = [];
 let minPrice = null;
 let maxPrice = null;
 let searchQuery = '';
+let selectedTier = null;
 let currentView = 'grid';
 
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
@@ -252,6 +281,15 @@ function parseEdition(name){
   return m ? `#${m[1]} / ${m[2]}` : null;
 }
 
+// rarityPct, when present, is that collection's fixed supply-distribution
+// percentage for the tier (e.g. "only 4.8% of this print run is
+// Legendary") — not every drop's metadata includes it.
+function rarityBadge(rarity, rarityPct){
+  if(!rarity) return '';
+  const pctText = typeof rarityPct === 'number' ? ` · ${rarityPct.toFixed(1)}%` : '';
+  return `<div class="rarity-badge rarity-${rarity.toLowerCase()}">${esc(rarity)}${pctText}</div>`;
+}
+
 function renderGrid(items){
   gridEl.className = 'grid';
   gridEl.innerHTML = items.map(i => {
@@ -265,6 +303,7 @@ function renderGrid(items){
           <div class="body">
             <div class="sub">${esc(i.sub)}</div>
             <div class="name">${esc(i.name)}</div>
+            ${rarityBadge(i.rarity, i.rarityPct)}
             ${tags ? `<div class="tags">${tags}</div>` : ''}
             <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
             ${edition ? `<div class="mint">${edition}</div>` : ''}
@@ -292,6 +331,7 @@ function renderList(items){
           <div class="info">
             <div class="sub">${esc(i.sub)}</div>
             <div class="name">${esc(i.name)}</div>
+            ${rarityBadge(i.rarity, i.rarityPct)}
             ${tags ? `<div class="tags">${tags}</div>` : ''}
           </div>
           <div class="price-col">
@@ -310,12 +350,16 @@ function render(){
     .filter(i => minPrice === null || (i.price !== null && i.price >= minPrice))
     .filter(i => maxPrice === null || (i.price !== null && i.price <= maxPrice))
     .filter(i => !searchQuery || `${i.name || ''} ${i.sub || ''}`.toLowerCase().includes(searchQuery))
+    .filter(i => !selectedTier || i.rarity === selectedTier)
     .slice()
     .sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
 
   if(items.length === 0){
     gridEl.className = currentView;
-    gridEl.innerHTML = `<div class="empty">Nothing matches this filter right now.<br>Try a wider price range or a different search, or check back later.</div>`;
+    const hint = (minPrice !== null || maxPrice !== null || searchQuery || selectedTier)
+      ? 'Try a wider price range, a different search, or a different rarity tier.'
+      : 'Check back later.';
+    gridEl.innerHTML = `<div class="empty">Nothing matches this filter right now.<br>${hint}</div>`;
     return;
   }
 
@@ -336,8 +380,9 @@ async function load(){
     }
 
     allListings = (data.listings || []).filter(i => i.price !== null);
+    const withRarity = allListings.filter(i => i.rarity).length;
     const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
-    setStatus(`${allListings.length} priced listing(s) tracked · updated ${updated}.`);
+    setStatus(`${allListings.length} priced listing(s), ${withRarity} with rarity data · updated ${updated}.`);
   }catch(e){
     console.error(e);
     setStatus('Could not reach the listings service. Try reloading in a moment.', true);
@@ -371,6 +416,15 @@ viewToggleEl.querySelectorAll('.pill[data-view]').forEach(p => {
     viewToggleEl.querySelectorAll('.pill[data-view]').forEach(x => x.classList.remove('active'));
     p.classList.add('active');
     currentView = p.dataset.view;
+    render();
+  });
+});
+
+pillsEl.querySelectorAll('.pill[data-tier]').forEach(p => {
+  p.addEventListener('click', () => {
+    pillsEl.querySelectorAll('.pill[data-tier]').forEach(x => x.classList.remove('active'));
+    p.classList.add('active');
+    selectedTier = p.dataset.tier || null;
     render();
   });
 });
