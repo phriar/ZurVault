@@ -37,6 +37,17 @@
     margin-bottom:28px;
   }
 
+  .section-label{
+    font-size:.55rem; letter-spacing:.2em; text-transform:uppercase; color:rgba(255,255,255,0.3);
+    margin:32px 0 12px;
+  }
+  .section-label:first-of-type{ margin-top:0; }
+  td.mint{ font-family:'DM Mono',monospace; color:rgba(255,255,255,0.55); }
+  td.mint a{ color:rgba(143,111,232,0.9); text-decoration:none; }
+  td.mint a:hover{ color:var(--gold); }
+  td.time{ font-family:'DM Mono',monospace; color:rgba(255,255,255,0.4); white-space:nowrap; }
+  .truncated-note{ font-size:.65rem; color:rgba(255,255,255,0.3); margin-top:8px; }
+
   #status{ font-size:.65rem; letter-spacing:.08em; color:rgba(255,255,255,0.35); text-transform:uppercase; margin-bottom:20px; }
   #status.err{ color:#e07a5f; }
   #status .dot{ display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--cyan); margin-right:8px; }
@@ -69,7 +80,7 @@
 <div class="wrap">
   <div class="brand"><a href="index.html">ZurVault</a> / Click Tracking</div>
   <h1>Outbound <span>Click Tracking</span></h1>
-  <p class="sub">Magic Eden click-throughs, by collection symbol — Candy.io links are never tracked (no purchase flow there). Not linked from site nav; internal tool only. Counts a rolling 90-day window, since click entries expire after that.</p>
+  <p class="sub">Every click on a Magic Eden listing/sale card, individually — not just a per-collection tally. Candy.io links are never tracked (no purchase flow there). Not linked from site nav; internal tool only. Counts a rolling 90-day window, since click entries expire after that.</p>
 
   <div id="status"><span class="dot"></span>Loading&hellip;</div>
 
@@ -84,6 +95,15 @@
     </div>
   </div>
 
+  <div class="section-label">Recent Listing Clicks</div>
+  <table id="feedTable" style="display:none;">
+    <thead><tr><th>When</th><th>Collection</th><th>Listing</th></tr></thead>
+    <tbody id="feedTableBody"></tbody>
+  </table>
+  <div class="truncated-note" id="feedTruncatedNote" style="display:none;"></div>
+  <div class="empty" id="feedEmpty" style="display:none;">No individual listing clicks logged yet.</div>
+
+  <div class="section-label">By Collection</div>
   <table id="table" style="display:none;">
     <thead><tr><th>Collection Symbol</th><th style="text-align:right">Clicks</th></tr></thead>
     <tbody id="tableBody"></tbody>
@@ -104,6 +124,10 @@ const totalValueEl = document.getElementById('totalValue');
 const distinctValueEl = document.getElementById('distinctValue');
 const tableEl = document.getElementById('table');
 const tableBodyEl = document.getElementById('tableBody');
+const feedTableEl = document.getElementById('feedTable');
+const feedTableBodyEl = document.getElementById('feedTableBody');
+const feedTruncatedNoteEl = document.getElementById('feedTruncatedNote');
+const feedEmptyEl = document.getElementById('feedEmpty');
 
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 
@@ -112,34 +136,71 @@ function setStatus(msg, isErr){
   statusEl.classList.toggle('err', !!isErr);
 }
 
+function timeAgo(ts){
+  if(!ts) return '—';
+  const secs = (Date.now() - ts) / 1000;
+  if(secs < 60) return 'just now';
+  if(secs < 3600) return Math.floor(secs/60) + 'm ago';
+  if(secs < 86400) return Math.floor(secs/3600) + 'h ago';
+  return Math.floor(secs/86400) + 'd ago';
+}
+
+function shortMint(mint){
+  return mint && mint.length > 8 ? mint.slice(0, 4) + '…' + mint.slice(-4) : (mint || '');
+}
+
 async function load(){
   try{
     const res = await fetch(CLICK_STATS_URL);
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
-    const entries = Object.entries(data.byContext || {}).sort((a, b) => b[1] - a[1]);
+    // By-collection rollup — covers every click, including collection-level
+    // "browse on Magic Eden" links that have no single listing to attribute.
+    const bySymbolEntries = Object.entries(data.bySymbol || {}).sort((a, b) => b[1] - a[1]);
 
     totalValueEl.textContent = data.total ?? 0;
-    distinctValueEl.textContent = entries.length;
+    distinctValueEl.textContent = bySymbolEntries.length;
     totalRowEl.style.display = 'flex';
 
-    if(entries.length === 0){
+    if(bySymbolEntries.length === 0){
       tableEl.style.display = 'none';
-      setStatus('No clicks logged yet.');
-      return;
+    }else{
+      tableBodyEl.innerHTML = bySymbolEntries.map(([symbol, count]) => `
+        <tr>
+          <td class="context">${esc(symbol)}</td>
+          <td class="count">${count}</td>
+        </tr>
+      `).join('');
+      tableEl.style.display = 'table';
     }
 
-    tableBodyEl.innerHTML = entries.map(([context, count]) => `
-      <tr>
-        <td class="context">${esc(context)}</td>
-        <td class="count">${count}</td>
-      </tr>
-    `).join('');
-    tableEl.style.display = 'table';
+    // Individual listing clicks — the actual "everyone who clicked a
+    // specific comic" feed, most recent first.
+    const feed = data.recentListingClicks || [];
+    if(feed.length === 0){
+      feedTableEl.style.display = 'none';
+      feedEmptyEl.style.display = 'block';
+    }else{
+      feedEmptyEl.style.display = 'none';
+      feedTableBodyEl.innerHTML = feed.map(c => `
+        <tr>
+          <td class="time">${esc(timeAgo(c.clickedAt))}</td>
+          <td class="context">${esc(c.symbol)}</td>
+          <td class="mint"><a href="${esc(c.pdpUrl)}" target="_blank" rel="noopener">${esc(shortMint(c.mint))} &#8599;</a></td>
+        </tr>
+      `).join('');
+      feedTableEl.style.display = 'table';
+    }
+    if(data.recentListingClicksTruncated){
+      feedTruncatedNoteEl.textContent = `Showing the ${feed.length} most recent — older listing clicks still count toward the totals above.`;
+      feedTruncatedNoteEl.style.display = 'block';
+    }else{
+      feedTruncatedNoteEl.style.display = 'none';
+    }
 
     const retention = data.retentionDays ? `${data.retentionDays}-day window` : 'rolling window';
-    setStatus(`${entries.length} collection(s), ${data.total} total click(s) &middot; ${retention} &middot; refreshes every 45s.`);
+    setStatus(`${bySymbolEntries.length} collection(s), ${data.total} total click(s) &middot; ${retention} &middot; refreshes every 45s.`);
   }catch(e){
     console.error(e);
     setStatus('Could not reach the click-stats endpoint. If this is a fresh deploy, make sure me-proxy-worker.js has been redeployed to Cloudflare — pushing to GitHub alone does not update the live Worker.', true);

@@ -13,7 +13,9 @@
    navigator.sendBeacon(), no redirect, no preventDefault — see the
    comment near ME_CLICK_LOG_URL below) since it's already loaded on
    every page. To track a link: add data-track="me" and
-   data-track-context="<symbol>" to it — nothing else changes.
+   data-track-context="<symbol>" to it, plus data-track-mint="<mint>"
+   if it's a specific listing/sale card rather than a collection-level
+   "browse on Magic Eden" link — nothing else changes.
    ============================================================ */
 (function () {
   var script = document.currentScript;
@@ -117,8 +119,13 @@
     var el = e.target.closest && e.target.closest('[data-track="me"]');
     if (!el) return;
     try {
-      var context = el.getAttribute('data-track-context') || 'unknown';
-      navigator.sendBeacon(ME_CLICK_LOG_URL, JSON.stringify({ context: context }));
+      var symbol = el.getAttribute('data-track-context') || 'unknown';
+      // data-track-mint is only present on links to a specific listing/sale
+      // card — collection-level "browse on Magic Eden" CTAs have no single
+      // mint, so this comes back empty for those and the Worker files it
+      // under a "_collection" sentinel rather than a per-listing entry.
+      var mint = el.getAttribute('data-track-mint') || '';
+      navigator.sendBeacon(ME_CLICK_LOG_URL, JSON.stringify({ symbol: symbol, mint: mint }));
     } catch (err) {
       // Tracking must never be able to break a click — swallow and move on.
     }

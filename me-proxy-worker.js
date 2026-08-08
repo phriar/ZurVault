@@ -662,20 +662,24 @@ export default {
 
     // Outbound-to-Magic-Eden click tracking. Only ME links are ever tracked
     // here — Candy.io isn't a buy destination right now, so nothing on the
-    // client ever calls this for a Candy link, and this endpoint has no
-    // concept of "destination" at all, only "context" (a DC_COLLECTIONS
-    // symbol). POSTed via navigator.sendBeacon() as a fire-and-forget beacon
-    // alongside normal <a href> navigation — never a redirect the browser is
-    // routed through, and never something that can block or delay a click.
+    // client ever calls this for a Candy link. POSTed via
+    // navigator.sendBeacon() as a fire-and-forget beacon alongside normal
+    // <a href> navigation — never a redirect the browser is routed through,
+    // and never something that can block or delay a click.
     //
     // One KV entry per click, not a shared counter: KV writes to the same
     // key are rate-limited to roughly 1/sec, and a naive read-increment-write
     // counter can silently lose increments under concurrent clicks anyway.
-    // The context lives in the key itself (click:{context}:{timestamp}-{rand})
-    // so /v2/click-stats below can tally counts by listing keys and parsing
-    // their names — no per-entry .get() reads needed, which matters once
-    // this has accumulated thousands of entries. CLICK_TTL_SECONDS bounds
-    // this to a rolling 90-day window rather than growing forever.
+    // Both the collection symbol AND the specific mint (when the click was
+    // on an actual listing/sale card, not a collection-level "browse on ME"
+    // link) live in the key itself — key:${symbol}:${mint}:${timestamp}-${rand}
+    // — so /v2/click-stats below can both roll up by collection AND
+    // reconstruct a per-listing click feed purely by listing and parsing key
+    // names, no per-entry .get() reads needed even once this has accumulated
+    // thousands of entries. Links with no specific item (spotlight.html's
+    // and grails.html's "browse full collection" CTAs) use the "_collection"
+    // sentinel in the mint slot instead of a real mint address.
+    // CLICK_TTL_SECONDS bounds this to a rolling 90-day window.
     if (url.pathname === "/v2/click-log" && request.method === "POST") {
       let payload;
       try {
@@ -686,38 +690,60 @@ export default {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      // Not validated against the live DC_COLLECTIONS list — this runs on
-      // the hot path of a real click and shouldn't risk rejecting a
-      // legitimate click over a symbol that's momentarily out of sync
-      // between a page and this file. Sanitized to a safe key fragment.
-      const context = String(payload?.context || "unknown").slice(0, 80).replace(/[^a-zA-Z0-9_-]/g, "_") || "unknown";
-      const key = `click:${context}:${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+      // Neither field is validated against live data — this runs on the hot
+      // path of a real click and shouldn't risk rejecting a legitimate click
+      // over data that's momentarily out of sync with this file. Sanitized
+      // to safe key fragments; mint addresses are base58 already, but
+      // sanitized anyway rather than trusted as-is.
+      const sanitize = (s, fallback) => String(s || "").slice(0, 80).replace(/[^a-zA-Z0-9_-]/g, "_") || fallback;
+      const symbol = sanitize(payload?.symbol, "unknown");
+      const mint = sanitize(payload?.mint, "_collection");
+      const key = `click:${symbol}:${mint}:${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
       ctx.waitUntil(env.DC_CACHE.put(key, "1", { expirationTtl: CLICK_TTL_SECONDS }));
       // 204 with no body — sendBeacon never reads the response.
       return new Response(null, { status: 204, headers: corsHeaders });
     }
 
     // Not linked from anywhere in the live site — same "direct URL only"
-    // treatment as discover.html/candy-watcher.html. Tallies from key names
-    // only (see above), so this stays cheap even with a large backlog of
-    // click entries.
+    // treatment as discover.html/candy-watcher.html. Tallies and the recent
+    // feed both come from key names only (see above), so this stays cheap
+    // even with a large backlog of click entries. RECENT_CLICK_FEED_LIMIT
+    // caps the individual-click feed's response size; the bySymbol rollup
+    // still covers every entry regardless of that cap.
     if (url.pathname === "/v2/click-stats" && request.method === "GET") {
-      const counts = {};
+      const RECENT_CLICK_FEED_LIMIT = 200;
+      const bySymbol = {};
+      const listingClicks = [];
       let total = 0;
       let cursor;
       do {
         const page = await env.DC_CACHE.list({ prefix: "click:", cursor, limit: 1000 });
         for (const k of page.keys) {
-          const context = k.name.slice("click:".length).split(":")[0];
-          counts[context] = (counts[context] || 0) + 1;
+          const parts = k.name.slice("click:".length).split(":");
+          const [symbol, mint, tsRand] = parts;
+          bySymbol[symbol] = (bySymbol[symbol] || 0) + 1;
           total++;
+          if (mint && mint !== "_collection") {
+            const clickedAt = parseInt((tsRand || "").split("-")[0], 10) || null;
+            listingClicks.push({ symbol, mint, clickedAt, pdpUrl: `https://magiceden.io/item-details/${mint}` });
+          }
         }
         cursor = page.list_complete ? undefined : page.cursor;
       } while (cursor);
-      return new Response(JSON.stringify({ total, byContext: counts, retentionDays: CLICK_TTL_SECONDS / 86400 }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" },
-      });
+      listingClicks.sort((a, b) => (b.clickedAt || 0) - (a.clickedAt || 0));
+      return new Response(
+        JSON.stringify({
+          total,
+          bySymbol,
+          recentListingClicks: listingClicks.slice(0, RECENT_CLICK_FEED_LIMIT),
+          recentListingClicksTruncated: listingClicks.length > RECENT_CLICK_FEED_LIMIT,
+          retentionDays: CLICK_TTL_SECONDS / 86400,
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" },
+        }
+      );
     }
 
     const targetUrl = ME_ORIGIN + url.pathname + url.search;
