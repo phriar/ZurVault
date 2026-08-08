@@ -18,7 +18,7 @@
    (Barry Allen)") that a mechanical match would either choke on or
    guess wrong, the exact failure mode that produced the old Cover
    Artist bug (see CLAUDE.md). Leave characterId unset if the
-   character has no character.html hub page yet.
+   character has no collection.html?c= hub page yet.
 
    To add a grail: append an entry, confirm the symbol exists in
    DC_COLLECTIONS, and hand-check characterId against character-map.js

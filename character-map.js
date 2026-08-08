@@ -1,8 +1,16 @@
 /* ============================================================
-   ZurVault character map — shared by characters.html and character.html.
-   Curated by hand against DC_COLLECTIONS (see index.html / me-proxy-worker.js)
-   — most `sub` labels literally contain the character name, but this is a
-   judgment call on every entry, not a mechanical derivation.
+   ZurVault character map — shared by collections.html (its "Characters"
+   tab) and collection.html (`?c=<id>`). Curated by hand against
+   DC_COLLECTIONS (see index.html / me-proxy-worker.js) — most `sub`
+   labels literally contain the character name, but this is a judgment
+   call on every entry, not a mechanical derivation.
+
+   characters.html/character.html (the standalone page pair this map used
+   to serve) have been retired outright — character browsing now lives
+   inside collections.html/collection.html alongside the series-based
+   COLLECTIONS_MAP (collections-map.js). A handful of COLLECTIONS_MAP
+   entries (batman, wonder-woman, green-lantern, aquaman) are themselves
+   derived from this file's symbol lists — see that file's header for why.
 
    Deliberately excluded rather than force-tagged:
      - anthology titles with no single lead (Showcase, House of Mystery,
@@ -22,8 +30,10 @@
        Spirit World, Titans WIP Covers, "Green Lantern 52" whose actual
        symbol is a villains-themed pack, not confirmed Green Lantern)
 
-   To add a character: add an entry below, then link to it from
-   characters.html (id must match the `c` query param character.html reads).
+   To add a character: add an entry below — no manual per-page link
+   needed, collections.html's Characters tab renders every entry in this
+   map automatically. `id` must match the `c` query param collection.html
+   reads.
    ============================================================ */
 const CHARACTER_MAP = {
   batman: {

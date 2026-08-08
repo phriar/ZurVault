@@ -101,7 +101,7 @@
 <script src="spotlights-data.js"></script>
 
 <div class="wrap" id="content">
-  <a class="back-link" href="characters.html">&#8592; All Characters</a>
+  <a class="back-link" href="collections.html?tab=characters">&#8592; All Characters</a>
   <div class="empty" id="loading">Loading&hellip;</div>
 </div>
 
@@ -119,7 +119,7 @@ const loadingEl = document.getElementById('loading');
 const contentEl = document.getElementById('content');
 
 if(!entry){
-  loadingEl.innerHTML = `No spotlight matches "${esc(id)}".<br><a href="characters.html">&#8592; Back to Characters</a>`;
+  loadingEl.innerHTML = `No spotlight matches "${esc(id)}".<br><a href="collections.html?tab=characters">&#8592; Back to Characters</a>`;
 }else{
   document.title = `${entry.title} — ZurVault`;
   const character = entry.characterId ? CHARACTER_MAP[entry.characterId] : null;
@@ -129,7 +129,7 @@ if(!entry){
     ctaHtml = `
       <div class="cta">
         <div class="cta-text">See what's for sale &amp; sold</div>
-        <a class="cta-btn" href="character.html?c=${encodeURIComponent(entry.characterId)}">${esc(character.name)} Listings &#8599;</a>
+        <a class="cta-btn" href="collection.html?c=${encodeURIComponent(entry.characterId)}">${esc(character.name)} Listings &#8599;</a>
       </div>`;
   }else if(entry.collectionSymbol){
     ctaHtml = `
@@ -142,7 +142,7 @@ if(!entry){
   const bylineParts = [];
   if(entry.author) bylineParts.push(esc(entry.author));
   if(entry.publishedAt) bylineParts.push(esc(entry.publishedAt));
-  if(character) bylineParts.push(`<a class="char-link" href="character.html?c=${encodeURIComponent(entry.characterId)}">${esc(character.name)}</a>`);
+  if(character) bylineParts.push(`<a class="char-link" href="collection.html?c=${encodeURIComponent(entry.characterId)}">${esc(character.name)}</a>`);
 
   loadingEl.outerHTML = `
     <div class="eyebrow">Spotlight</div>

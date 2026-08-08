@@ -1,6 +1,6 @@
 /* ============================================================
-   ZurVault spotlight write-ups — shared by characters.html (teases the
-   latest entry) and spotlight.html (renders one by ?id=).
+   ZurVault spotlight write-ups — shared by collections.html's Characters
+   tab (teases the latest entry) and spotlight.html (renders one by ?id=).
 
    To publish a new spotlight: add an entry to the top of this array
    (newest first). `characterId` should match a key in character-map.js
@@ -37,7 +37,7 @@ const SPOTLIGHTS = [
       "</ul>" +
       "<h2>Featured Characters</h2>" +
       "<ul class=\"char-chips\">" +
-      "<li><a class=\"char-chip\" href=\"character.html?c=batman\">🦇 Batman</a></li>" +
+      "<li><a class=\"char-chip\" href=\"collection.html?c=batman\">🦇 Batman</a></li>" +
       "<li><span class=\"char-chip\">🃏 Joker</span></li>" +
       "<li><span class=\"char-chip\">🦇 Barbara Gordon</span></li>" +
       "<li><span class=\"char-chip\">👮 Commissioner James Gordon</span></li>" +

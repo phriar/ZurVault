@@ -276,7 +276,7 @@ function renderCard(grail){
   const chips = (grail.characters || []).map(c => {
     const known = c.characterId && typeof CHARACTER_MAP !== 'undefined' && CHARACTER_MAP[c.characterId];
     return known
-      ? `<li><a class="char-chip" href="character.html?c=${encodeURIComponent(c.characterId)}">${esc(c.name)}</a></li>`
+      ? `<li><a class="char-chip" href="collection.html?c=${encodeURIComponent(c.characterId)}">${esc(c.name)}</a></li>`
       : `<li><span class="char-chip">${esc(c.name)}</span></li>`;
   }).join('');
 

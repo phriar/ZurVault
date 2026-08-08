@@ -9,7 +9,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="site.webmanifest">
 <meta name="theme-color" content="#0a0a0a">
-<title>Browse by Series — ZurVault</title>
+<title>Collections — ZurVault</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -61,10 +61,49 @@
   }
   .back-link:hover{ color:var(--gold); border-color:rgba(143,111,232,0.5); }
 
+  .tabs{ display:flex; gap:0; margin-top:22px; border-bottom:1px solid var(--border); max-width:400px; }
+  .tab{
+    flex:1; text-align:center; padding:12px 8px; font-size:.94rem; letter-spacing:.15em;
+    text-transform:uppercase; color:rgba(255,255,255,0.3); cursor:pointer;
+    border-bottom:1px solid transparent; transition:color .15s;
+  }
+  .tab.active{ color:rgba(255,255,255,0.85); border-bottom-color:var(--cyan); }
+  .tab:hover{ color:rgba(255,255,255,0.6); }
+
   .section-label{
     padding:24px 32px 12px; font-size:.5rem; letter-spacing:.3em; text-transform:uppercase;
     color:rgba(255,255,255,0.2);
   }
+
+  .char-grid{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+    gap:1px; background:var(--border); padding:1px 32px 40px;
+  }
+  .char-tile{
+    background:var(--ink); overflow:hidden; text-decoration:none; color:#fff;
+    display:flex; flex-direction:column; transition:background .15s;
+  }
+  .char-tile:hover{ background:rgba(255,255,255,0.03); }
+  .char-tile img{ width:100%; aspect-ratio:1/1; object-fit:cover; background:rgba(255,255,255,0.03); display:block; }
+  .char-tile .body{ padding:12px 14px 16px; }
+  .char-tile .name{
+    font-family:'Cormorant Garamond',serif; font-weight:400; font-size:1.05rem; line-height:1.25;
+    color:rgba(255,255,255,0.88); margin-bottom:5px;
+  }
+  .char-tile .count{
+    font-family:'DM Mono',monospace; font-size:.42rem; letter-spacing:.14em; text-transform:uppercase;
+    color:rgba(143,111,232,0.55);
+  }
+
+  .spotlight-card{
+    margin:0 32px 32px; padding:18px 20px; border:1px solid rgba(143,111,232,0.2);
+    border-radius:4px; background:rgba(143,111,232,0.05); display:flex; gap:16px; align-items:center;
+    text-decoration:none; color:#fff; transition:border-color .15s;
+  }
+  .spotlight-card:hover{ border-color:rgba(143,111,232,0.5); }
+  .spotlight-card img{ width:56px; height:56px; object-fit:cover; border-radius:3px; flex-shrink:0; }
+  .spotlight-card .eyebrow{ font-size:.42rem; letter-spacing:.25em; text-transform:uppercase; color:var(--cyan); margin-bottom:4px; }
+  .spotlight-card .title{ font-family:'Cormorant Garamond',serif; font-size:1.1rem; color:rgba(255,255,255,0.9); }
 
   .coll-grid{
     display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
@@ -94,22 +133,35 @@
 <body>
 <script src="site-nav.js" data-active="collections"></script>
 <script src="collections-map.js"></script>
+<script src="character-map.js"></script>
+<script src="spotlights-data.js"></script>
 <div id="grain" style="position:fixed;inset:0;z-index:200;pointer-events:none;opacity:0.025;background-image:url(&quot;data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E&quot;);"></div>
 
 <header>
   <div class="brand"><a href="index.html">ZurVault</a> / Collections</div>
-  <h1>Browse by <span>Series</span></h1>
-  <p class="sub">Comic series, not just single issues — starting with DC's Absolute Universe line. Pick a series to see every tracked issue, what's currently for sale, and what's recently sold.</p>
+  <h1>Browse <span>Collections</span></h1>
+  <p class="sub">Comic series, and the characters who headline them. Pick a series to see every tracked issue, or a character to see everything they appear in — either way, what's currently for sale and what's recently sold.</p>
   <div class="quick-links">
-    <a class="back-link" href="characters.html">Browse by Character &#8599;</a>
     <a class="back-link" href="artists.html">Browse by Cover Artist &#8599;</a>
     <a class="back-link" href="long-box.html">Browse the Long Box &#8599;</a>
     <a class="back-link" href="guide.html">How to Buy, Sell &amp; Read &#8599;</a>
   </div>
+  <div class="tabs">
+    <div class="tab active" data-tab="series">Series</div>
+    <div class="tab" data-tab="characters">Characters</div>
+  </div>
 </header>
 
-<div class="section-label">Series</div>
-<div class="coll-grid" id="collGrid"></div>
+<div id="seriesPane">
+  <div class="section-label">Series</div>
+  <div class="coll-grid" id="collGrid"></div>
+</div>
+
+<div id="charactersPane" style="display:none">
+  <div class="section-label">Characters</div>
+  <div class="char-grid" id="charGrid"></div>
+  <div id="spotlightSlot"></div>
+</div>
 
 <footer>
   A ZurVault companion to <a href="https://candy.io" target="_blank" rel="noopener">candy.io</a> · <a href="index.html">zurvault.com</a>
@@ -120,11 +172,13 @@ const ME_PROXY_BASE = "https://zurvault-proxy.stholt.workers.dev";
 const ME_BASE = ME_PROXY_BASE + "/v2";
 
 const gridEl = document.getElementById('collGrid');
+const charGridEl = document.getElementById('charGrid');
+const spotlightSlot = document.getElementById('spotlightSlot');
 
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 
-// Populate tiles immediately from the static collections map — no network
-// wait needed for names/counts, same pattern characters.html uses.
+// Populate tiles immediately from the static maps — no network wait needed
+// for names/counts.
 function renderTiles(images){
   gridEl.innerHTML = Object.entries(COLLECTIONS_MAP).map(([id, s]) => `
     <a class="coll-tile" href="collection.html?s=${encodeURIComponent(id)}">
@@ -138,22 +192,75 @@ function renderTiles(images){
 }
 renderTiles({});
 
+function renderCharTiles(images){
+  charGridEl.innerHTML = Object.entries(CHARACTER_MAP).map(([id, c]) => `
+    <a class="char-tile" href="collection.html?c=${encodeURIComponent(id)}">
+      <img src="${images[id] || ''}" loading="lazy" onerror="this.style.opacity=0.15">
+      <div class="body">
+        <div class="name">${esc(c.name)}</div>
+        <div class="count">${c.symbols.length} collection${c.symbols.length === 1 ? '' : 's'}</div>
+      </div>
+    </a>
+  `).join('');
+}
+renderCharTiles({});
+
+// Spotlight teaser — latest entry, if any. Characters-tab-only, matching
+// its original characters.html-only presence.
+if (typeof SPOTLIGHTS !== 'undefined' && SPOTLIGHTS.length) {
+  const s = SPOTLIGHTS[0];
+  spotlightSlot.innerHTML = `
+    <a class="spotlight-card" href="spotlight.html?id=${encodeURIComponent(s.id)}">
+      <img src="${s.heroImage || ''}" onerror="this.style.opacity=0.2">
+      <div>
+        <div class="eyebrow">Spotlight</div>
+        <div class="title">${esc(s.title)}</div>
+      </div>
+    </a>
+  `;
+}
+
 // Then fetch the live aggregate once and backfill a representative image
-// per series from whichever of its issues has one.
+// per series/character from whichever of its issues has one.
 fetch(`${ME_BASE}/dc-summary`)
   .then(r => r.json())
   .then(data => {
     if (data.notReady) return;
     const items = [...(data.listings || []), ...(data.sales || [])];
-    const images = {};
+
+    const seriesImages = {};
     for (const [id, s] of Object.entries(COLLECTIONS_MAP)) {
       const symbolSet = new Set(s.symbols);
       const match = items.find(i => symbolSet.has(i.symbol) && i.image);
-      if (match) images[id] = match.image;
+      if (match) seriesImages[id] = match.image;
     }
-    renderTiles(images);
+    renderTiles(seriesImages);
+
+    const charImages = {};
+    for (const [id, c] of Object.entries(CHARACTER_MAP)) {
+      const symbolSet = new Set(c.symbols);
+      const match = items.find(i => symbolSet.has(i.symbol) && i.image);
+      if (match) charImages[id] = match.image;
+    }
+    renderCharTiles(charImages);
   })
   .catch(() => {}); // tiles already render fine without images
+
+// Tab toggle — Series vs Characters, deep-linkable via ?tab=characters.
+const seriesPaneEl = document.getElementById('seriesPane');
+const charactersPaneEl = document.getElementById('charactersPane');
+const tabEls = document.querySelectorAll('.tab');
+
+function setActiveTab(tab){
+  tabEls.forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  seriesPaneEl.style.display = tab === 'characters' ? 'none' : '';
+  charactersPaneEl.style.display = tab === 'characters' ? '' : 'none';
+}
+
+tabEls.forEach(t => t.addEventListener('click', () => setActiveTab(t.dataset.tab)));
+
+const initialTab = new URLSearchParams(window.location.search).get('tab') === 'characters' ? 'characters' : 'series';
+setActiveTab(initialTab);
 </script>
 </body>
 </html>

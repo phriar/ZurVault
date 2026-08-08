@@ -9,7 +9,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="site.webmanifest">
 <meta name="theme-color" content="#0a0a0a">
-<title>Series — ZurVault</title>
+<title>Collection — ZurVault</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -176,13 +176,14 @@
 <body>
 <script src="site-nav.js" data-active="collections"></script>
 <script src="collections-map.js"></script>
+<script src="character-map.js"></script>
 <div id="grain" style="position:fixed;inset:0;z-index:200;pointer-events:none;opacity:0.025;background-image:url(&quot;data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E&quot;);"></div>
 
 <header>
-  <div class="brand"><a href="collections.html">ZurVault</a> / Collections / <span id="collNameCrumb">…</span></div>
+  <div class="brand"><a href="collections.html" id="collCrumbHome">ZurVault</a> / <span id="collCrumbType">Collections</span> / <span id="collNameCrumb">…</span></div>
   <h1 id="collTitle">Loading&hellip;</h1>
   <p class="blurb" id="collBlurb"></p>
-  <a class="back-link" href="collections.html">&#8592; All Series</a>
+  <a class="back-link" id="collBackLink" href="collections.html">&#8592; All Series</a>
   <div class="tabs">
     <div class="tab active" data-view="listings">For Sale</div>
     <div class="tab" data-view="sales">Recently Sold</div>
@@ -223,6 +224,7 @@ let allListings = [];
 let allSales = [];
 let currentView = 'listings';
 let currentDisplay = 'grid';
+let currentKind = 'series';
 
 function setStatus(msg, isErr){
   statusEl.innerHTML = (isErr ? '' : '<span class="dot"></span>') + msg;
@@ -261,13 +263,14 @@ function renderHistory(collection){
 }
 
 // Curated "key issues" for this series (collections-map.js). Same pattern
-// as CHARACTER_MAP's `highlights` in character.html: each entry is just a
-// symbol + a note — pull the image/name from whatever live data we already
+// as CHARACTER_MAP's `highlights` (rendered here too, for `?c=` characters):
+// each entry is just a symbol + a note — pull the image/name from whatever live data we already
 // have for it (currently for sale, or sold in the last 7 days), and fall
 // back to a plain text card linking to Magic Eden if neither is available.
 function renderKeyIssues(collection){
   const keyIssues = collection.keyIssues || [];
   if(keyIssues.length === 0){ keyIssuesSlot.innerHTML = ''; return; }
+  const label = collection.kind === 'character' ? 'Essential Reading' : 'Key Issues';
 
   const cards = keyIssues.map(k => {
     const match = allListings.find(i => i.symbol === k.symbol) || allSales.find(i => i.symbol === k.symbol);
@@ -286,7 +289,7 @@ function renderKeyIssues(collection){
   }).join('');
 
   keyIssuesSlot.innerHTML = `
-    <div class="section-label">Key Issues</div>
+    <div class="section-label">${label}</div>
     <div class="key-issues">${cards}</div>
   `;
 }
@@ -300,7 +303,8 @@ function renderListings(){
   const items = allListings.slice().sort((a,b) => (b.listedAt ?? 0) - (a.listedAt ?? 0));
   if(items.length === 0){
     gridEl.className = currentDisplay;
-    gridEl.innerHTML = `<div class="empty">Nothing currently for sale in this series.<br>Check back later, or browse <a href="index.html" style="color:var(--gold)">all DC listings</a>.</div>`;
+    const noun = currentKind === 'character' ? "this character's tracked collections" : 'this series';
+    gridEl.innerHTML = `<div class="empty">Nothing currently for sale in ${noun}.<br>Check back later, or browse <a href="index.html" style="color:var(--gold)">all DC listings</a>.</div>`;
     return;
   }
 
@@ -341,7 +345,8 @@ function renderSales(){
   const items = allSales.slice().sort((a,b) => (b.soldAt ?? 0) - (a.soldAt ?? 0)).slice(0, 200);
   if(items.length === 0){
     gridEl.className = currentDisplay;
-    gridEl.innerHTML = `<div class="empty">No sales in the last 7 days for this series.<br>Check back later, or browse <a href="index.html" style="color:var(--gold)">all DC listings</a>.</div>`;
+    const noun = currentKind === 'character' ? 'this character' : 'this series';
+    gridEl.innerHTML = `<div class="empty">No sales in the last 7 days for ${noun}.<br>Check back later, or browse <a href="index.html" style="color:var(--gold)">all DC listings</a>.</div>`;
     return;
   }
 
@@ -379,15 +384,43 @@ function renderSales(){
 
 async function loadCollection(){
   const params = new URLSearchParams(window.location.search);
-  const collId = params.get('s') || '';
-  const collection = COLLECTIONS_MAP[collId];
+  const sId = params.get('s');
+  const cId = !sId ? params.get('c') : null;
+  const kind = sId ? 'series' : (cId ? 'character' : null);
+  const raw = kind === 'series' ? COLLECTIONS_MAP[sId] : (kind === 'character' ? CHARACTER_MAP[cId] : undefined);
 
-  if(!collection){
-    collTitleEl.textContent = 'Series not found';
+  const crumbTypeEl = document.getElementById('collCrumbType');
+  const crumbHomeEl = document.getElementById('collCrumbHome');
+  const backLinkEl = document.getElementById('collBackLink');
+
+  if(!raw){
+    collTitleEl.textContent = 'Not found';
     collNameCrumbEl.textContent = '?';
-    setStatus(`No series matches "${esc(collId)}". Go back and pick one from the list.`, true);
-    gridEl.innerHTML = `<div class="empty">Unknown series.<br><a href="collections.html" style="color:var(--gold)">&#8592; Back to all series</a></div>`;
+    setStatus(`No series or character matches "${esc(sId || cId || '')}". Go back and pick one from the list.`, true);
+    gridEl.innerHTML = `<div class="empty">Unknown series or character.<br><a href="collections.html" style="color:var(--gold)">&#8592; Back to all collections</a></div>`;
     return;
+  }
+
+  currentKind = kind;
+  const collection = {
+    name: raw.name,
+    blurb: raw.blurb,
+    history: raw.history,
+    keyIssues: raw.keyIssues || raw.highlights || [],
+    symbols: raw.symbols,
+    kind,
+  };
+
+  if(kind === 'character'){
+    crumbTypeEl.textContent = 'Characters';
+    crumbHomeEl.href = 'collections.html?tab=characters';
+    backLinkEl.textContent = '← All Characters';
+    backLinkEl.href = 'collections.html?tab=characters';
+  }else{
+    crumbTypeEl.textContent = 'Collections';
+    crumbHomeEl.href = 'collections.html';
+    backLinkEl.textContent = '← All Series';
+    backLinkEl.href = 'collections.html';
   }
 
   document.title = `${collection.name} — ZurVault`;
@@ -413,7 +446,8 @@ async function loadCollection(){
     renderKeyIssues(collection);
 
     const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
-    setStatus(`${allListings.length} for sale, ${allSales.length} sold in the last 7 days across ${collection.symbols.length} tracked issue(s) · updated ${updated}.`);
+    const noun = kind === 'character' ? 'tracked collection(s)' : 'tracked issue(s)';
+    setStatus(`${allListings.length} for sale, ${allSales.length} sold in the last 7 days across ${collection.symbols.length} ${noun} · updated ${updated}.`);
   }catch(e){
     console.error(e);
     setStatus('Could not reach the listings service. Try reloading in a moment.', true);
