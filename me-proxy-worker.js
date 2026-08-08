@@ -768,12 +768,18 @@ export default {
       );
     }
 
-    // One-time cleanup: deletes legacy click: entries (2-part keys, logged
-    // before mint-level tracking existed) — they can never appear in the
-    // per-listing feed anyway, just noise in the bySymbol/byDay totals.
-    // POST-only (not GET) so a stray crawl/bookmark visit can't trigger a
-    // delete by accident. Not meant to be permanent — remove this block
-    // once it's been run against the live KV namespace.
+    // One-time cleanup: deletes bad click: entries — both the 2-part legacy
+    // key shape (logged before mint-level tracking existed) and any entry
+    // with symbol "unknown" regardless of shape. The latter comes from
+    // browsers that had site-nav.js cached from before the click-log
+    // payload changed from {context} to {symbol, mint} — for up to 4 hours
+    // after each such deploy (site-nav.js's own cache TTL), those stale
+    // scripts kept POSTing the old {context: "..."} shape, which the
+    // current endpoint doesn't recognize and falls back to "unknown" for.
+    // Transient rollout artifact, not an ongoing bug — but still noise
+    // worth purging. POST-only (not GET) so a stray crawl/bookmark visit
+    // can't trigger a delete by accident. Not meant to be permanent —
+    // remove this block once it's been run against the live KV namespace.
     if (url.pathname === "/v2/__cleanup-legacy-clicks" && request.method === "POST") {
       let deleted = 0;
       let kept = 0;
@@ -782,7 +788,8 @@ export default {
         const page = await env.DC_CACHE.list({ prefix: "click:", cursor, limit: 1000 });
         for (const k of page.keys) {
           const parts = k.name.slice("click:".length).split(":");
-          if (parts.length < 3) {
+          const symbol = parts[0];
+          if (parts.length < 3 || symbol === "unknown") {
             await env.DC_CACHE.delete(k.name);
             deleted++;
           } else {
