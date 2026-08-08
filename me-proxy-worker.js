@@ -768,6 +768,35 @@ export default {
       );
     }
 
+    // One-time cleanup: deletes legacy click: entries (2-part keys, logged
+    // before mint-level tracking existed) — they can never appear in the
+    // per-listing feed anyway, just noise in the bySymbol/byDay totals.
+    // POST-only (not GET) so a stray crawl/bookmark visit can't trigger a
+    // delete by accident. Not meant to be permanent — remove this block
+    // once it's been run against the live KV namespace.
+    if (url.pathname === "/v2/__cleanup-legacy-clicks" && request.method === "POST") {
+      let deleted = 0;
+      let kept = 0;
+      let cursor;
+      do {
+        const page = await env.DC_CACHE.list({ prefix: "click:", cursor, limit: 1000 });
+        for (const k of page.keys) {
+          const parts = k.name.slice("click:".length).split(":");
+          if (parts.length < 3) {
+            await env.DC_CACHE.delete(k.name);
+            deleted++;
+          } else {
+            kept++;
+          }
+        }
+        cursor = page.list_complete ? undefined : page.cursor;
+      } while (cursor);
+      return new Response(JSON.stringify({ deleted, kept }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const targetUrl = ME_ORIGIN + url.pathname + url.search;
 
     // CORS headers are Origin-specific (reflect whichever allowed origin
