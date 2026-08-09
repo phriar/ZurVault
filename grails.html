@@ -164,7 +164,13 @@
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
   .item-time{ font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.55); margin-top:2px; }
-  .item-price{ font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.9); flex-shrink:0; }
+  .item-price-col{ display:flex; flex-direction:column; align-items:flex-end; gap:2px; flex-shrink:0; }
+  .item-price{ font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.9); }
+  /* Explicit "you're leaving to a third-party marketplace" cue placed
+     directly on the price/CTA itself, not just in the page-level banner —
+     rgba(77,232,255,0.7) on #0a0a0a computes to ~6.8:1 contrast, clears
+     the same WCAG AA bar the rest of this page's small text holds to. */
+  .me-tag{ font-family:'DM Mono',monospace; font-size:.62rem; letter-spacing:.05em; text-transform:uppercase; color:rgba(77,232,255,0.7); white-space:nowrap; }
   .item-panel-empty{ padding:14px; text-align:center; font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.4); }
 
   .card-cta{ margin-top:14px; }
@@ -302,7 +308,10 @@ function renderCard(grail){
           <div class="item-info">
             <div class="item-name">${esc(l.name)}</div>
           </div>
-          <div class="item-price">${l.price} SOL</div>
+          <div class="item-price-col">
+            <div class="item-price">${l.price} SOL</div>
+            <div class="me-tag">Magic Eden &#8599;</div>
+          </div>
         </a>
       `).join('')
     : `<div class="item-panel-empty">No active listings right now.</div>`;
@@ -315,7 +324,10 @@ function renderCard(grail){
             <div class="item-name">Sold &middot; ${shortMint(s.mint)}</div>
             ${s.soldAt ? `<div class="item-time">${timeAgo(s.soldAt)}</div>` : ''}
           </div>
-          <div class="item-price">${s.price} SOL</div>
+          <div class="item-price-col">
+            <div class="item-price">${s.price} SOL</div>
+            <div class="me-tag">Magic Eden &#8599;</div>
+          </div>
         </a>
       `).join('')
     : `<div class="item-panel-empty">No sales in the last 7 days.</div>`;

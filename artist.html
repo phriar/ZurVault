@@ -121,6 +121,12 @@
   .list-row .mint{ font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.5); margin-top:2px; white-space:nowrap; }
   .list-row .time{ font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.55); margin-top:2px; text-transform:uppercase; white-space:nowrap; }
 
+  /* Explicit "you're leaving to a third-party marketplace" cue placed
+     directly on the price/CTA itself, not just in the page-level banner —
+     rgba(77,232,255,0.7) on #0a0a0a computes to ~6.8:1 contrast, clears
+     the same WCAG AA bar the rest of this page's small text holds to. */
+  .me-tag{ font-family:'DM Mono',monospace; font-size:.62rem; letter-spacing:.05em; text-transform:uppercase; color:rgba(77,232,255,0.7); margin-top:2px; white-space:nowrap; }
+
   .empty{ padding:60px 32px; text-align:center; color:rgba(255,255,255,0.25); font-family:'Cormorant Garamond',serif; font-size:1.2rem; font-weight:300; line-height:1.6; }
 
   footer{ padding:28px 32px 44px; text-align:center; font-size:.42rem; letter-spacing:.12em; color:rgba(255,255,255,0.15); text-transform:uppercase; }
@@ -218,6 +224,7 @@ function renderListings(){
         </div>
         <div class="price-col">
           <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
+          <div class="me-tag">Magic Eden &#8599;</div>
           ${parseEdition(i.name) ? `<div class="mint">${parseEdition(i.name)}</div>` : ''}
           ${i.listedAt ? `<div class="time">${timeAgo(i.listedAt)}</div>` : ''}
         </div>
@@ -234,6 +241,7 @@ function renderListings(){
         <div class="sub">${esc(i.sub)}</div>
         <div class="name">${esc(i.name)}</div>
         <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
+        <div class="me-tag">Magic Eden &#8599;</div>
         ${i.listedAt ? `<div class="time">${timeAgo(i.listedAt)}</div>` : ''}
       </div>
     </a>

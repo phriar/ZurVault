@@ -191,6 +191,12 @@
   .list-row .mint{ font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.5); margin-top:2px; white-space:nowrap; }
   .list-row .time{ font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.55); margin-top:2px; text-transform:uppercase; white-space:nowrap; }
 
+  /* Explicit "you're leaving to a third-party marketplace" cue placed
+     directly on the price/CTA itself, not just in the page-level banner —
+     rgba(77,232,255,0.7) on #0a0a0a computes to ~6.8:1 contrast, clears
+     the same WCAG AA bar the rest of this page's small text holds to. */
+  .me-tag{ font-family:'DM Mono',monospace; font-size:.62rem; letter-spacing:.05em; text-transform:uppercase; color:rgba(77,232,255,0.7); margin-top:2px; white-space:nowrap; }
+
   /* Rank badge — Best Sellers (leaderboard rows) and Highest Sales
      (individual sales, still using the same list-row layout) both need
      a position number ahead of the thumbnail. */
@@ -615,6 +621,7 @@ function renderListings(){
         </div>
         <div class="price-col">
           <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
+          <div class="me-tag">Magic Eden &#8599;</div>
           ${parseEdition(i.name) ? `<div class="mint">${parseEdition(i.name)}</div>` : ''}
           ${i.listedAt ? `<div class="time">${timeAgo(i.listedAt)}</div>` : ''}
         </div>
@@ -631,6 +638,7 @@ function renderListings(){
         <div class="sub">${esc(i.sub)}</div>
         <div class="name">${esc(i.name)}</div>
         <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
+        <div class="me-tag">Magic Eden &#8599;</div>
         ${i.listedAt ? `<div class="time">${timeAgo(i.listedAt)}</div>` : ''}
       </div>
     </a>
@@ -658,6 +666,7 @@ function renderSales(){
         </div>
         <div class="price-col">
           <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
+          <div class="me-tag">Magic Eden &#8599;</div>
           ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
         </div>
       </a>
@@ -673,6 +682,7 @@ function renderSales(){
         <div class="sub">${esc(i.sub)}</div>
         <div class="name">Sold · ${shortMint(i.mint)}</div>
         <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
+        <div class="me-tag">Magic Eden &#8599;</div>
         ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
       </div>
     </a>
@@ -754,6 +764,7 @@ function renderHighestSales(){
         </div>
         <div class="price-col">
           <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
+          <div class="me-tag">Magic Eden &#8599;</div>
           ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
         </div>
       </a>
@@ -769,6 +780,7 @@ function renderHighestSales(){
         <div class="sub">${esc(i.sub)}</div>
         <div class="name">#${idx + 1} · Sold · ${shortMint(i.mint)}</div>
         <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
+        <div class="me-tag">Magic Eden &#8599;</div>
         ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
       </div>
     </a>
