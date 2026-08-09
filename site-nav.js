@@ -68,7 +68,10 @@
       'transition:color .15s,border-color .15s;}' +
     '#zv-banner .zv-link:hover{color:#4de8ff;}' +
     '#zv-banner .zv-link.active{color:rgba(255,255,255,0.88);border-color:#6b2fd6;cursor:default;pointer-events:none;}' +
-    'body.zv-has-banner{padding-top:52px;}';
+    'body.zv-has-banner{padding-top:52px;}' +
+    '#zv-disclaimer{padding:7px 16px;background:rgba(77,232,255,0.05);border-bottom:1px solid rgba(77,232,255,0.16);' +
+      'font-family:"DM Mono","JetBrains Mono",monospace;font-size:.66rem;line-height:1.5;letter-spacing:.01em;' +
+      'color:rgba(255,255,255,0.55);text-align:center;}';
   document.head.appendChild(style);
 
   var links = PAGES.map(function (p) {
@@ -83,15 +86,24 @@
         '<span class="zv-mark"></span><span class="zv-word">ZurVault</span>' +
       '</a>' +
       '<nav class="zv-links">' + links + '</nav>' +
-    '</div>';
+    '</div>' +
+    // Not fixed like #zv-banner — flows normally right below the fixed
+    // banner's reserved padding-top space, so it needs no offset math of
+    // its own and just pushes the rest of the page down. Deliberately on
+    // every page, above the fold, not buried in a footer: this project
+    // aggregates live third-party Magic Eden pricing/listings and shows
+    // DC-branded comic art, and a visitor should never be able to mistake
+    // it for an official storefront.
+    '<div id="zv-disclaimer">Unofficial fan project &mdash; not affiliated with or endorsed by DC Comics, Warner Bros. Discovery, or Magic Eden. Prices, listings, and sales shown are live third-party data; all purchases happen on Magic Eden, not here.</div>';
 
   script.insertAdjacentHTML('afterend', html);
   document.body.classList.add('zv-has-banner');
 
   var banner = document.getElementById('zv-banner');
+  var disclaimer = document.getElementById('zv-disclaimer');
   window.ZurVaultNav = {
-    hide: function () { banner.classList.add('zv-hidden'); },
-    show: function () { banner.classList.remove('zv-hidden'); }
+    hide: function () { banner.classList.add('zv-hidden'); if (disclaimer) disclaimer.style.display = 'none'; },
+    show: function () { banner.classList.remove('zv-hidden'); if (disclaimer) disclaimer.style.display = ''; }
   };
 
   // ----------------------------------------------------------------
