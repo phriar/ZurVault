@@ -527,6 +527,26 @@ async function refreshOneCollection(col, env) {
     const sales = deriveSales(Array.isArray(activities) ? activities : [], col);
     const entry = { symbol: col.symbol, sub: col.sub, listings, sales, updatedAt: Date.now() };
     await env.DC_CACHE.put(collectionKey(col.symbol), JSON.stringify(entry), { expirationTtl: KV_TTL_SECONDS });
+
+    // Persist each sale as its own KV entry, mirroring how clicks are
+    // tracked (see /v2/click-log below) — deriveSales() only reflects
+    // Magic Eden's live 7-day activity window and this collection's whole
+    // KV entry is overwritten every cron cycle, so without a separate
+    // record a sale would age out of view long before enough weekly
+    // history could accumulate for /v2/click-stats' conversion chart.
+    // Keyed by mint+soldAt (not a random suffix) so re-writing the same
+    // sale on every cron cycle it's still within the 7-day window is a
+    // harmless idempotent overwrite, never a duplicate entry. Same
+    // CLICK_TTL_SECONDS (90 days) as clicks, so a full matching window of
+    // weekly history is available once this has run for a while.
+    await Promise.all(
+      sales
+        .filter((s) => s.mint && s.soldAt)
+        .map((s) =>
+          env.DC_CACHE.put(`sale:${col.symbol}:${s.mint}:${s.soldAt}`, "1", { expirationTtl: CLICK_TTL_SECONDS })
+        )
+    );
+
     return { ok: true, symbol: col.symbol, listingCount: listings.length, saleCount: sales.length };
   } catch (err) {
     console.error(`refreshOneCollection: ${col.symbol} failed:`, err.message);
@@ -752,6 +772,62 @@ export default {
         cursor = page.list_complete ? undefined : page.cursor;
       } while (cursor);
       listingClicks.sort((a, b) => (b.clickedAt || 0) - (a.clickedAt || 0));
+
+      // Sales persisted per mint (see refreshOneCollection above) — cross-
+      // referenced against listingClicks below to find which clicked
+      // listings later sold, for the weekly conversion chart. Keyed on
+      // "symbol:mint" -> earliest soldAt in ms, since a click only needs to
+      // know *a* later sale happened, not every one. sale:{symbol}:{mint}:
+      // {soldAt} keys store soldAt as Magic Eden's blockTime, i.e. seconds —
+      // converted to ms here to compare directly against clickedAt.
+      const soldAtByKey = {};
+      let saleCursor;
+      do {
+        const page = await env.DC_CACHE.list({ prefix: "sale:", cursor: saleCursor, limit: 1000 });
+        for (const k of page.keys) {
+          const parts = k.name.slice("sale:".length).split(":");
+          if (parts.length < 3) continue;
+          const [symbol, mint, soldAtRaw] = parts;
+          const soldAt = (parseInt(soldAtRaw, 10) || 0) * 1000;
+          if (!soldAt) continue;
+          const mapKey = `${symbol}:${mint}`;
+          if (!soldAtByKey[mapKey] || soldAt < soldAtByKey[mapKey]) soldAtByKey[mapKey] = soldAt;
+        }
+        saleCursor = page.list_complete ? undefined : page.cursor;
+      } while (saleCursor);
+
+      // Rolling 12-week (~84 day) view, same "always a continuous timeline"
+      // approach as the 30-day daily chart — bounded by the 90-day
+      // click/sale retention window. Only individual listing clicks count
+      // (collection-level "_collection" clicks have no mint to cross-
+      // reference against a sale). A click "converts" if its own mint has
+      // any recorded sale at or after the click's own timestamp — this is a
+      // per-listing signal, not per-visitor attribution, since a listing
+      // clicked by several people before it sells credits all of them.
+      const WEEKLY_CONVERSION_WEEKS = 12;
+      const todayUTC = (() => {
+        const d = new Date();
+        return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) + 86400000; // end of today, exclusive
+      })();
+      const weeklyConversion = [];
+      for (let i = WEEKLY_CONVERSION_WEEKS - 1; i >= 0; i--) {
+        const weekEndMs = todayUTC - i * 7 * 86400000;
+        const weekStartMs = weekEndMs - 7 * 86400000;
+        weeklyConversion.push({ weekStart: new Date(weekStartMs).toISOString().slice(0, 10), clicks: 0, conversions: 0, weekStartMs, weekEndMs });
+      }
+      for (const c of listingClicks) {
+        if (!c.clickedAt) continue;
+        const bucket = weeklyConversion.find((w) => c.clickedAt >= w.weekStartMs && c.clickedAt < w.weekEndMs);
+        if (!bucket) continue; // older than the tracked window
+        bucket.clicks++;
+        const soldAt = soldAtByKey[`${c.symbol}:${c.mint}`];
+        if (soldAt && soldAt >= c.clickedAt) bucket.conversions++;
+      }
+      weeklyConversion.forEach((w) => {
+        delete w.weekStartMs;
+        delete w.weekEndMs;
+      });
+
       return new Response(
         JSON.stringify({
           total,
@@ -760,6 +836,7 @@ export default {
           recentListingClicks: listingClicks.slice(0, RECENT_CLICK_FEED_LIMIT),
           recentListingClicksTruncated: listingClicks.length > RECENT_CLICK_FEED_LIMIT,
           retentionDays: CLICK_TTL_SECONDS / 86400,
+          weeklyConversion,
         }),
         {
           status: 200,

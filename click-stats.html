@@ -90,6 +90,25 @@
     text-align:center; white-space:nowrap; overflow:visible; position:relative; z-index:1;
   }
 
+  /* Weekly clicks-vs-conversions chart — stacked, not a second set of bars
+     next to the single-series one above: each bar's full height is that
+     week's listing clicks, with the converted portion picked out in cyan,
+     so "how many of my clicks turned into a sale" reads directly off one
+     bar instead of requiring a mental diff between two side-by-side series. */
+  .conv-legend{ display:flex; gap:20px; margin-bottom:10px; font-size:.8rem; color:rgba(255,255,255,0.5); }
+  .conv-legend span{ display:inline-flex; align-items:center; gap:7px; }
+  .conv-legend i{ width:9px; height:9px; border-radius:2px; display:inline-block; }
+  .conv-swatch-click{ background:var(--gold); opacity:.55; }
+  .conv-swatch-conv{ background:var(--cyan); }
+  .conv-bar{
+    flex:1; min-width:12px; display:flex; flex-direction:column-reverse;
+    position:relative; opacity:.9; transition:opacity .12s;
+  }
+  .conv-bar:hover{ opacity:1; }
+  .conv-bar-click{ background:var(--gold); opacity:.55; border-radius:2px 2px 0 0; }
+  .conv-bar-conv{ background:var(--cyan); }
+  .conv-stat{ margin-bottom:18px; }
+
   table{ width:100%; border-collapse:collapse; }
   th, td{ text-align:left; padding:12px; border-bottom:1px solid var(--border); font-size:1.05rem; }
   th{
@@ -133,6 +152,26 @@
   <div class="chart-labels" id="chartLabels" style="display:none;"></div>
   <div class="empty" id="chartEmpty" style="display:none;">No clicks logged yet.</div>
 
+  <div class="section-label">Clicks vs. Conversions (Weekly)</div>
+  <p class="sub" style="font-size:.9rem; margin-bottom:16px;">A listing click "converts" if that same listing was later sold on Magic Eden — a per-listing signal, not proof any one click caused the sale (a listing clicked by several people before selling credits all of them). Conversions only reflect sales tracked going forward from when this chart shipped, so early weeks will under-count until history builds up.</p>
+  <div class="total-row conv-stat" id="convStatRow" style="display:none;">
+    <div class="stat">
+      <div class="stat-label">Conversion Rate (12wk)</div>
+      <div class="stat-value" id="convRateValue">0%</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Converted Clicks (12wk)</div>
+      <div class="stat-value" id="convCountValue">0</div>
+    </div>
+  </div>
+  <div class="conv-legend" id="convLegend" style="display:none;">
+    <span><i class="conv-swatch-click"></i>Clicked, not sold</span>
+    <span><i class="conv-swatch-conv"></i>Clicked, later sold</span>
+  </div>
+  <div class="chart" id="convChart" style="display:none;"></div>
+  <div class="chart-labels" id="convChartLabels" style="display:none;"></div>
+  <div class="empty" id="convChartEmpty" style="display:none;">No listing clicks logged yet.</div>
+
   <div class="section-label">Recent Listing Clicks</div>
   <table id="feedTable" style="display:none;">
     <thead><tr><th>When</th><th>Collection</th><th>Listing</th></tr></thead>
@@ -169,6 +208,13 @@ const feedEmptyEl = document.getElementById('feedEmpty');
 const chartEl = document.getElementById('chart');
 const chartLabelsEl = document.getElementById('chartLabels');
 const chartEmptyEl = document.getElementById('chartEmpty');
+const convStatRowEl = document.getElementById('convStatRow');
+const convRateValueEl = document.getElementById('convRateValue');
+const convCountValueEl = document.getElementById('convCountValue');
+const convLegendEl = document.getElementById('convLegend');
+const convChartEl = document.getElementById('convChart');
+const convChartLabelsEl = document.getElementById('convChartLabels');
+const convChartEmptyEl = document.getElementById('convChartEmpty');
 
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 
@@ -230,6 +276,53 @@ function renderDailyChart(byDay){
   chartLabelsEl.style.display = 'flex';
 }
 
+// weeklyConversion is already zero-filled and sorted oldest-to-newest by
+// the Worker (see /v2/click-stats in me-proxy-worker.js) — this just draws
+// it as stacked bars, same "always a continuous timeline" treatment as
+// renderDailyChart above.
+function renderWeeklyConversionChart(weeks){
+  const totalClicks = weeks.reduce((a, w) => a + w.clicks, 0);
+  const totalConversions = weeks.reduce((a, w) => a + w.conversions, 0);
+
+  convStatRowEl.style.display = 'flex';
+  convRateValueEl.textContent = totalClicks > 0 ? Math.round((totalConversions / totalClicks) * 100) + '%' : '—';
+  convCountValueEl.textContent = totalConversions;
+
+  if(totalClicks === 0){
+    convChartEl.style.display = 'none';
+    convChartLabelsEl.style.display = 'none';
+    convLegendEl.style.display = 'none';
+    convChartEmptyEl.style.display = 'block';
+    return;
+  }
+  convChartEmptyEl.style.display = 'none';
+  convLegendEl.style.display = 'flex';
+
+  const max = Math.max(...weeks.map(w => w.clicks), 1);
+  const labelEvery = Math.ceil(weeks.length / 6);
+
+  convChartEl.innerHTML = weeks.map((w) => {
+    const notSold = w.clicks - w.conversions;
+    const totalPct = Math.max((w.clicks / max) * 100, w.clicks > 0 ? 4 : 3);
+    const convShare = w.clicks > 0 ? (w.conversions / w.clicks) * 100 : 0;
+    const weekLabel = new Date(w.weekStart + 'T00:00:00Z').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const rate = w.clicks > 0 ? Math.round((w.conversions / w.clicks) * 100) : 0;
+    return `<div class="conv-bar" style="height:${totalPct}%">
+      <div class="conv-bar-conv" style="height:${convShare}%"></div>
+      <div class="conv-bar-click" style="height:${100 - convShare}%"></div>
+      <span class="chart-tooltip">Week of ${esc(weekLabel)}: ${w.clicks} click${w.clicks === 1 ? '' : 's'}, ${w.conversions} sold (${rate}%)</span>
+    </div>`;
+  }).join('');
+  convChartEl.style.display = 'flex';
+
+  convChartLabelsEl.innerHTML = weeks.map((w, i) => {
+    const show = i % labelEvery === 0 || i === weeks.length - 1;
+    const label = show ? new Date(w.weekStart + 'T00:00:00Z').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
+    return `<span>${esc(label)}</span>`;
+  }).join('');
+  convChartLabelsEl.style.display = 'flex';
+}
+
 async function load(){
   try{
     const res = await fetch(CLICK_STATS_URL);
@@ -245,6 +338,7 @@ async function load(){
     totalRowEl.style.display = 'flex';
 
     renderDailyChart(data.byDay || {});
+    renderWeeklyConversionChart(data.weeklyConversion || []);
 
     if(bySymbolEntries.length === 0){
       tableEl.style.display = 'none';
