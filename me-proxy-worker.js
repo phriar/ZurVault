@@ -301,6 +301,13 @@ const CLICK_TTL_SECONDS = 60 * 60 * 24 * 90; // 90 days — see /v2/click-log be
 const BATCH_SIZE = 5; // collections processed concurrently per batch — kept conservative given the 429s we saw; the real rate gate is throttleMagicEden() below, this just bounds how many writes are in flight at once
 const SALES_WINDOW_SECS = 7 * 24 * 60 * 60; // Recent Sales looks back one week
 const ACTIVITIES_MAX_PAGES = 5; // safety cap — a very active collection could otherwise page forever
+// Used by /v2/click-stats to flag a click as a "possible sale" — a sale of
+// the same mint landing within this window AFTER the click, not "sold at
+// any point later, however unrelated." Forward-only (a sale before the
+// click can't have been caused by it); ~5 min is generous enough to cover
+// browsing the listing on Magic Eden and confirming a wallet tx, without
+// being so wide it starts matching coincidental unrelated sales.
+const SALE_CLICK_WINDOW_SECS = 5 * 60;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -774,13 +781,14 @@ export default {
       listingClicks.sort((a, b) => (b.clickedAt || 0) - (a.clickedAt || 0));
 
       // Sales persisted per mint (see refreshOneCollection above) — cross-
-      // referenced against listingClicks below to find which clicked
-      // listings later sold, for the weekly conversion chart. Keyed on
-      // "symbol:mint" -> earliest soldAt in ms, since a click only needs to
-      // know *a* later sale happened, not every one. sale:{symbol}:{mint}:
-      // {soldAt} keys store soldAt as Magic Eden's blockTime, i.e. seconds —
-      // converted to ms here to compare directly against clickedAt.
-      const soldAtByKey = {};
+      // referenced against listingClicks below to flag "possible sale"
+      // clicks. Keyed on "symbol:mint" -> array of soldAt in ms, since a
+      // mint can in principle resell more than once inside the retention
+      // window and each sale needs its own check against SALE_CLICK_WINDOW_
+      // SECS. sale:{symbol}:{mint}:{soldAt} keys store soldAt as Magic
+      // Eden's blockTime, i.e. seconds — converted to ms here to compare
+      // directly against clickedAt.
+      const salesByKey = {};
       let saleCursor;
       do {
         const page = await env.DC_CACHE.list({ prefix: "sale:", cursor: saleCursor, limit: 1000 });
@@ -791,19 +799,27 @@ export default {
           const soldAt = (parseInt(soldAtRaw, 10) || 0) * 1000;
           if (!soldAt) continue;
           const mapKey = `${symbol}:${mint}`;
-          if (!soldAtByKey[mapKey] || soldAt < soldAtByKey[mapKey]) soldAtByKey[mapKey] = soldAt;
+          (salesByKey[mapKey] || (salesByKey[mapKey] = [])).push(soldAt);
         }
         saleCursor = page.list_complete ? undefined : page.cursor;
       } while (saleCursor);
+
+      // Flags each listing click with whether a sale of the same mint
+      // landed within SALE_CLICK_WINDOW_SECS afterward — a per-listing
+      // signal, not per-visitor attribution, since a listing clicked by
+      // several people shortly before it sells flags all of their clicks.
+      for (const c of listingClicks) {
+        const sales = salesByKey[`${c.symbol}:${c.mint}`] || [];
+        c.possibleSale =
+          c.clickedAt != null &&
+          sales.some((soldAt) => soldAt >= c.clickedAt && soldAt - c.clickedAt <= SALE_CLICK_WINDOW_SECS * 1000);
+      }
 
       // Rolling 12-week (~84 day) view, same "always a continuous timeline"
       // approach as the 30-day daily chart — bounded by the 90-day
       // click/sale retention window. Only individual listing clicks count
       // (collection-level "_collection" clicks have no mint to cross-
-      // reference against a sale). A click "converts" if its own mint has
-      // any recorded sale at or after the click's own timestamp — this is a
-      // per-listing signal, not per-visitor attribution, since a listing
-      // clicked by several people before it sells credits all of them.
+      // reference against a sale).
       const WEEKLY_CONVERSION_WEEKS = 12;
       const todayUTC = (() => {
         const d = new Date();
@@ -813,15 +829,14 @@ export default {
       for (let i = WEEKLY_CONVERSION_WEEKS - 1; i >= 0; i--) {
         const weekEndMs = todayUTC - i * 7 * 86400000;
         const weekStartMs = weekEndMs - 7 * 86400000;
-        weeklyConversion.push({ weekStart: new Date(weekStartMs).toISOString().slice(0, 10), clicks: 0, conversions: 0, weekStartMs, weekEndMs });
+        weeklyConversion.push({ weekStart: new Date(weekStartMs).toISOString().slice(0, 10), clicks: 0, possibleSales: 0, weekStartMs, weekEndMs });
       }
       for (const c of listingClicks) {
         if (!c.clickedAt) continue;
         const bucket = weeklyConversion.find((w) => c.clickedAt >= w.weekStartMs && c.clickedAt < w.weekEndMs);
         if (!bucket) continue; // older than the tracked window
         bucket.clicks++;
-        const soldAt = soldAtByKey[`${c.symbol}:${c.mint}`];
-        if (soldAt && soldAt >= c.clickedAt) bucket.conversions++;
+        if (c.possibleSale) bucket.possibleSales++;
       }
       weeklyConversion.forEach((w) => {
         delete w.weekStartMs;
@@ -836,6 +851,7 @@ export default {
           recentListingClicks: listingClicks.slice(0, RECENT_CLICK_FEED_LIMIT),
           recentListingClicksTruncated: listingClicks.length > RECENT_CLICK_FEED_LIMIT,
           retentionDays: CLICK_TTL_SECONDS / 86400,
+          saleClickWindowSecs: SALE_CLICK_WINDOW_SECS,
           weeklyConversion,
         }),
         {

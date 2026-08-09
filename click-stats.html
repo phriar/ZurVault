@@ -109,6 +109,12 @@
   .conv-bar-conv{ background:var(--cyan); }
   .conv-stat{ margin-bottom:18px; }
 
+  .sale-badge{
+    display:inline-block; margin-left:8px; padding:2px 7px; font-size:.68rem;
+    letter-spacing:.05em; text-transform:uppercase; color:var(--cyan);
+    border:1px solid rgba(77,232,255,0.35); border-radius:3px; vertical-align:middle;
+  }
+
   table{ width:100%; border-collapse:collapse; }
   th, td{ text-align:left; padding:12px; border-bottom:1px solid var(--border); font-size:1.05rem; }
   th{
@@ -152,21 +158,21 @@
   <div class="chart-labels" id="chartLabels" style="display:none;"></div>
   <div class="empty" id="chartEmpty" style="display:none;">No clicks logged yet.</div>
 
-  <div class="section-label">Clicks vs. Conversions (Weekly)</div>
-  <p class="sub" style="font-size:.9rem; margin-bottom:16px;">A listing click "converts" if that same listing was later sold on Magic Eden — a per-listing signal, not proof any one click caused the sale (a listing clicked by several people before selling credits all of them). Conversions only reflect sales tracked going forward from when this chart shipped, so early weeks will under-count until history builds up.</p>
+  <div class="section-label">Clicks vs. Possible Sales (Weekly)</div>
+  <p class="sub" style="font-size:.9rem; margin-bottom:16px;" id="convBlurb">A listing click is flagged as a "possible sale" if that same listing sold on Magic Eden within a few minutes afterward — a per-listing signal, not proof any one click caused the sale (a listing clicked by several people right before it sells flags all of them). Only reflects sales tracked going forward from when this chart shipped, so early weeks will under-count until history builds up.</p>
   <div class="total-row conv-stat" id="convStatRow" style="display:none;">
     <div class="stat">
-      <div class="stat-label">Conversion Rate (12wk)</div>
+      <div class="stat-label">Possible Sale Rate (12wk)</div>
       <div class="stat-value" id="convRateValue">0%</div>
     </div>
     <div class="stat">
-      <div class="stat-label">Converted Clicks (12wk)</div>
+      <div class="stat-label">Possible Sales (12wk)</div>
       <div class="stat-value" id="convCountValue">0</div>
     </div>
   </div>
   <div class="conv-legend" id="convLegend" style="display:none;">
-    <span><i class="conv-swatch-click"></i>Clicked, not sold</span>
-    <span><i class="conv-swatch-conv"></i>Clicked, later sold</span>
+    <span><i class="conv-swatch-click"></i>Clicked, no matching sale</span>
+    <span><i class="conv-swatch-conv"></i>Possible sale</span>
   </div>
   <div class="chart" id="convChart" style="display:none;"></div>
   <div class="chart-labels" id="convChartLabels" style="display:none;"></div>
@@ -208,6 +214,7 @@ const feedEmptyEl = document.getElementById('feedEmpty');
 const chartEl = document.getElementById('chart');
 const chartLabelsEl = document.getElementById('chartLabels');
 const chartEmptyEl = document.getElementById('chartEmpty');
+const convBlurbEl = document.getElementById('convBlurb');
 const convStatRowEl = document.getElementById('convStatRow');
 const convRateValueEl = document.getElementById('convRateValue');
 const convCountValueEl = document.getElementById('convCountValue');
@@ -282,11 +289,11 @@ function renderDailyChart(byDay){
 // renderDailyChart above.
 function renderWeeklyConversionChart(weeks){
   const totalClicks = weeks.reduce((a, w) => a + w.clicks, 0);
-  const totalConversions = weeks.reduce((a, w) => a + w.conversions, 0);
+  const totalPossibleSales = weeks.reduce((a, w) => a + w.possibleSales, 0);
 
   convStatRowEl.style.display = 'flex';
-  convRateValueEl.textContent = totalClicks > 0 ? Math.round((totalConversions / totalClicks) * 100) + '%' : '—';
-  convCountValueEl.textContent = totalConversions;
+  convRateValueEl.textContent = totalClicks > 0 ? Math.round((totalPossibleSales / totalClicks) * 100) + '%' : '—';
+  convCountValueEl.textContent = totalPossibleSales;
 
   if(totalClicks === 0){
     convChartEl.style.display = 'none';
@@ -302,15 +309,14 @@ function renderWeeklyConversionChart(weeks){
   const labelEvery = Math.ceil(weeks.length / 6);
 
   convChartEl.innerHTML = weeks.map((w) => {
-    const notSold = w.clicks - w.conversions;
     const totalPct = Math.max((w.clicks / max) * 100, w.clicks > 0 ? 4 : 3);
-    const convShare = w.clicks > 0 ? (w.conversions / w.clicks) * 100 : 0;
+    const convShare = w.clicks > 0 ? (w.possibleSales / w.clicks) * 100 : 0;
     const weekLabel = new Date(w.weekStart + 'T00:00:00Z').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    const rate = w.clicks > 0 ? Math.round((w.conversions / w.clicks) * 100) : 0;
+    const rate = w.clicks > 0 ? Math.round((w.possibleSales / w.clicks) * 100) : 0;
     return `<div class="conv-bar" style="height:${totalPct}%">
       <div class="conv-bar-conv" style="height:${convShare}%"></div>
       <div class="conv-bar-click" style="height:${100 - convShare}%"></div>
-      <span class="chart-tooltip">Week of ${esc(weekLabel)}: ${w.clicks} click${w.clicks === 1 ? '' : 's'}, ${w.conversions} sold (${rate}%)</span>
+      <span class="chart-tooltip">Week of ${esc(weekLabel)}: ${w.clicks} click${w.clicks === 1 ? '' : 's'}, ${w.possibleSales} possible sale${w.possibleSales === 1 ? '' : 's'} (${rate}%)</span>
     </div>`;
   }).join('');
   convChartEl.style.display = 'flex';
@@ -340,6 +346,11 @@ async function load(){
     renderDailyChart(data.byDay || {});
     renderWeeklyConversionChart(data.weeklyConversion || []);
 
+    if(data.saleClickWindowSecs){
+      const mins = Math.round(data.saleClickWindowSecs / 60);
+      convBlurbEl.textContent = `A listing click is flagged as a "possible sale" if that same listing sold on Magic Eden within ${mins} minute${mins === 1 ? '' : 's'} afterward — a per-listing signal, not proof any one click caused the sale (a listing clicked by several people right before it sells flags all of them). Only reflects sales tracked going forward from when this chart shipped, so early weeks will under-count until history builds up.`;
+    }
+
     if(bySymbolEntries.length === 0){
       tableEl.style.display = 'none';
     }else{
@@ -364,7 +375,7 @@ async function load(){
         <tr>
           <td class="time">${esc(timeAgo(c.clickedAt))}</td>
           <td class="context">${esc(c.symbol)}</td>
-          <td class="mint"><a href="${esc(c.pdpUrl)}" target="_blank" rel="noopener">${esc(shortMint(c.mint))} &#8599;</a></td>
+          <td class="mint"><a href="${esc(c.pdpUrl)}" target="_blank" rel="noopener">${esc(shortMint(c.mint))} &#8599;</a>${c.possibleSale ? '<span class="sale-badge">possible sale</span>' : ''}</td>
         </tr>
       `).join('');
       feedTableEl.style.display = 'table';
