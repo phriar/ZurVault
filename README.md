@@ -10,12 +10,13 @@ zurvault.com — a small static site for browsing and displaying a Solana NFT co
 | `collections.html` / `collection.html` / `collections-map.js` / `character-map.js` | Two ways to browse on one page: a "Series" tab (`collections-map.js`, mostly mechanical `sub`-prefix matching, some entries derived from `character-map.js`'s curation instead — see that file's header) and a "Characters" tab (`character-map.js`, hand-curated — absorbed from the retired `characters.html`/`character.html`). Detail page handles both: `collection.html?s=bat-cowl` or `collection.html?c=batman`, each with `history`/`keyIssues` (series) or `highlights` (characters). |
 | `artists.html` / `artist.html` | Same idea again, grouped by cover artist (`artist.html?a=Jim%20Lee`, matched on exact name). No static map — built live off `/v2/dc-summary` like `long-box.html`'s rarity filter, since Cover Artist varies per listing (variant covers), not per collection, the way character/series do. |
 | `long-box.html` | Cross-collection "cheapest first" browse across every tracked collection at once — searchable min/max SOL price range, name search, and rarity tier filter (Common/Uncommon/Rare/Epic/Legendary, **For Sale only**, no rarity data available for sold items). Grid/List toggle. Absorbed the standalone rarity.html page — retired once this covered everything it did. |
+| `dollar-bin.html` | The original, simpler "cheapest first" browse — revived 2026-08-10 by user request after `long-box.html` (its own later fork of the same file) replaced the 3 preset price buttons with a full search/rarity filter. Just "Under 0.05/0.1/0.25 SOL" pills + Grid/List toggle, deliberately minimal. Cross-linked with `long-box.html` and `index.html`. |
 | `spotlight.html` / `spotlights-data.js` | Templated long-form write-up page (`spotlight.html?id=...`) for curated pieces about a specific comic. |
 | `guide.html` | Static "how to buy on Magic Eden, then read on candy.io" walkthrough. |
 | `comics.html` | Standalone in-browser comic reader (CBZ/CBR/image drag-drop, or loaded via `?url=`). Not in the primary nav — candy.io is the primary reading experience now, this is a fallback. |
 | `candy-watcher.html` | Live/backfill dashboard watching Solana for new candy.io mint activity. Not in the primary nav — an internal/power-user tool. |
 | `discover.html` | **Internal tool, not linked from site nav.** Scans a wallet, resolves on-chain collections to Magic Eden symbols, and outputs a `DC_COLLECTIONS` config array to paste into `index.html`/`me-proxy-worker.js`. |
-| `site-nav.js` | Shared top banner (injected via `<script>`). Primary nav: Listings, Grails, Collections, Artists, Long Box, Spotlight, How To — `discover.html`, `comics.html`, and `candy-watcher.html` still work at their direct URLs but aren't in the banner. |
+| `site-nav.js` | Shared top banner (injected via `<script>`). Primary nav: Listings, Grails, Collections, Artists, Long Box, Dollar Bin, Spotlight, How To — `discover.html`, `comics.html`, and `candy-watcher.html` still work at their direct URLs but aren't in the banner. |
 | `me-proxy-worker.js` | Source for the Cloudflare Worker (`zurvault-proxy.stholt.workers.dev`) that proxies Magic Eden and runs the scheduled DC-collections aggregation. **In this repo, but deployed separately by hand — see Configuration below, and the pending-deploy reminder in "Things to remember."** |
 | `CNAME` | GitHub Pages custom domain (`zurvault.com`). |
 
@@ -25,7 +26,7 @@ zurvault.com — a small static site for browsing and displaying a Solana NFT co
 Browser ──> GitHub Pages (static HTML/CSS/JS, no build)
               │
               ├─ index.html, collection.html, collections.html,     ┐
-              │  artist.html, long-box.html                          ├─> Cloudflare Worker: GET /v2/dc-summary
+              │  artist.html, long-box.html, dollar-bin.html          ├─> Cloudflare Worker: GET /v2/dc-summary
               │  (each just filters/sorts the same merged            ┘   (reads pre-aggregated JSON from KV —
               │   response client-side — no per-page Worker route)       no Magic Eden calls in the request path)
               │

@@ -9,7 +9,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="site.webmanifest">
 <meta name="theme-color" content="#0a0a0a">
-<title>The Long Box — ZurVault</title>
+<title>Dollar Bin — ZurVault</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -60,22 +60,6 @@
   }
   .back-link:hover{ color:var(--gold); border-color:rgba(143,111,232,0.5); }
 
-  .controls{
-    display:flex; gap:8px; padding:16px 32px; flex-wrap:wrap; align-items:center; border-bottom:1px solid var(--border);
-    background:rgba(255,255,255,0.015);
-  }
-  .price-range{ display:flex; align-items:center; gap:6px; }
-  .price-input, .search-input{
-    background:rgba(0,0,0,0.5); border:1px solid var(--border); color:rgba(255,255,255,0.7);
-    font-family:'DM Mono',monospace; font-size:.5rem; letter-spacing:.1em; text-transform:uppercase;
-    padding:9px 12px; border-radius:2px;
-  }
-  .price-input{ width:90px; text-transform:none; }
-  .price-input:focus, .search-input:focus{ outline:1px solid rgba(143,111,232,0.4); }
-  .range-sep{ color:rgba(255,255,255,0.3); font-family:'DM Mono',monospace; font-size:.7rem; }
-  .search-input{ flex:1; min-width:160px; text-transform:none; letter-spacing:.02em; }
-  .search-input::placeholder{ color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:.1em; font-size:.5rem; }
-
   .pills{
     display:flex; gap:8px; padding:16px 32px; flex-wrap:wrap; border-bottom:1px solid var(--border);
     background:rgba(255,255,255,0.015);
@@ -88,20 +72,6 @@
   .pill:hover{ color:rgba(255,255,255,0.7); border-color:rgba(143,111,232,0.3); }
   .pill.active{ color:#fff; background:linear-gradient(135deg, var(--deep), var(--gold)); border-color:transparent; }
   .view-toggle{ display:flex; gap:8px; margin-left:auto; }
-
-  /* Same five-tier rarity color scheme used consistently across the site.
-     rarity.html itself was retired -- this page (plus the price range/name
-     search it already had) now covers everything it did. */
-  .rarity-badge{
-    display:inline-block; font-family:'DM Mono',monospace; font-size:.7rem; letter-spacing:.1em;
-    text-transform:uppercase; padding:3px 10px; border-radius:10px; border:1px solid; margin-bottom:8px;
-  }
-  .rarity-common     { color:#c2c6cc; border-color:rgba(194,198,204,0.4); background:rgba(194,198,204,0.08); }
-  .rarity-uncommon   { color:#4ade80; border-color:rgba(74,222,128,0.4); background:rgba(74,222,128,0.08); }
-  .rarity-rare       { color:var(--cyan); border-color:rgba(77,232,255,0.4); background:rgba(77,232,255,0.08); }
-  .rarity-epic       { color:var(--gold); border-color:rgba(143,111,232,0.5); background:rgba(143,111,232,0.1); }
-  .rarity-legendary  { color:#fbbf24; border-color:rgba(251,191,36,0.5); background:rgba(251,191,36,0.1); }
-  .list-row .rarity-badge{ margin-top:4px; margin-bottom:0; }
 
   #status{ padding:16px 32px; font-size:.48rem; letter-spacing:.1em; color:rgba(255,255,255,0.28); text-transform:uppercase; }
   #status.err{ color:#e07a5f; }
@@ -124,7 +94,8 @@
      .mint (5.37:1), and .tag (7.79:1) already passed contrast; sized up
      for general legibility (chips/CTA text stay compact by design —
      15px would look broken on a pill — but every one of these was
-     genuinely too small to read regardless of color).
+     genuinely too small to read regardless of color). .me-tag below
+     computes to ~6.8:1 the same way — see its own comment.
      Color-blindness: this card has no red/green pairing (the pair that
      actually breaks under deuteranopia/protanopia), and .sub/.name/
      .price/.tags/.mint are already each distinguished by font-family,
@@ -155,6 +126,12 @@
   }
   .card .read-link:hover{ color:rgba(255,255,255,0.7); border-color:rgba(143,111,232,0.3); }
 
+  /* Explicit "you're leaving to a third-party marketplace" cue placed
+     directly on the price/CTA itself, not just in the page-level banner —
+     rgba(77,232,255,0.7) on #0a0a0a computes to ~6.8:1 contrast, clears
+     the same WCAG AA bar the rest of this page's small text holds to. */
+  .me-tag{ font-family:'DM Mono',monospace; font-size:.62rem; letter-spacing:.05em; text-transform:uppercase; color:rgba(77,232,255,0.7); margin-top:2px; white-space:nowrap; }
+
   /* List view — same data as the card grid, but a full-width row per
      listing instead of a tile, so the name/mint-number text never needs
      clamping or truncation the way a narrow card does. */
@@ -180,12 +157,6 @@
   .list-row .price-col{ flex-shrink:0; text-align:right; padding-left:14px; }
   .list-row .price{ font-family:'DM Mono',monospace; font-size:1.05rem; color:rgba(255,255,255,0.9); white-space:nowrap; }
   .list-row .mint{ font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.5); margin-top:2px; white-space:nowrap; }
-
-  /* Explicit "you're leaving to a third-party marketplace" cue placed
-     directly on the price/CTA itself, not just in the page-level banner —
-     rgba(77,232,255,0.7) on #0a0a0a computes to ~6.8:1 contrast, clears
-     the same WCAG AA bar the rest of this page's small text holds to. */
-  .me-tag{ font-family:'DM Mono',monospace; font-size:.62rem; letter-spacing:.05em; text-transform:uppercase; color:rgba(77,232,255,0.7); margin-top:2px; white-space:nowrap; }
   .list-row .read-link{
     flex-shrink:0; display:flex; align-items:center; padding:0 14px; border-left:1px solid var(--border);
     font-family:'DM Mono',monospace; font-size:.5rem; letter-spacing:.1em; text-transform:uppercase;
@@ -201,40 +172,29 @@
 </style>
 </head>
 <body>
-<script src="site-nav.js" data-active="long-box"></script>
+<script src="site-nav.js" data-active="dollar-bin"></script>
 <script src="character-map.js"></script>
 <div id="grain" style="position:fixed;inset:0;z-index:200;pointer-events:none;opacity:0.025;background-image:url(&quot;data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E&quot;);"></div>
 
 <header>
-  <div class="brand"><a href="index.html">ZurVault</a> / Long Box</div>
-  <h1>The <span>Long Box</span></h1>
-  <p class="sub">Every currently-listed comic across every tracked DC collection, sorted cheapest first — instead of checking ~200 collection pages one at a time. Filter by price range, name, or rarity tier. Mint number (edition # / total supply) is shown where Magic Eden includes it in the listing name. Just want a quick "under X SOL" browse instead? Try <a href="dollar-bin.html" style="color:var(--gold)">the Dollar Bin</a>.</p>
+  <div class="brand"><a href="index.html">ZurVault</a> / Dollar Bin</div>
+  <h1>The <span>Dollar Bin</span></h1>
+  <p class="sub">Every currently-listed comic across every tracked DC collection, sorted cheapest first — instead of checking ~200 collection pages one at a time. Mint number (edition # / total supply) is shown where Magic Eden includes it in the listing name. Want rarity tiers, a name search, or an exact price range instead of quick presets? Try <a href="long-box.html" style="color:var(--gold)">the Long Box</a>.</p>
   <div class="quick-links">
-    <a class="back-link" href="dollar-bin.html">Browse the Dollar Bin &#8599;</a>
+    <a class="back-link" href="long-box.html">Browse the Long Box &#8599;</a>
     <a class="back-link" href="index.html">Latest DC Listings &#8599;</a>
   </div>
 </header>
 
-<div class="controls">
-  <div class="price-range">
-    <input type="number" id="minPrice" class="price-input" placeholder="Min SOL" min="0" step="0.01">
-    <span class="range-sep">&ndash;</span>
-    <input type="number" id="maxPrice" class="price-input" placeholder="Max SOL" min="0" step="0.01">
-  </div>
-  <input type="text" id="searchInput" class="search-input" placeholder="Search by name&hellip;">
+<div class="pills" id="pills">
+  <button class="pill active" data-max="">All</button>
+  <button class="pill" data-max="0.05">Under 0.05 SOL</button>
+  <button class="pill" data-max="0.1">Under 0.1 SOL</button>
+  <button class="pill" data-max="0.25">Under 0.25 SOL</button>
   <div class="view-toggle" id="viewToggle">
     <button class="pill active" data-view="grid">Grid</button>
     <button class="pill" data-view="list">List</button>
   </div>
-</div>
-
-<div class="pills" id="pills">
-  <button class="pill active" data-tier="">All Rarities</button>
-  <button class="pill" data-tier="Common">Common</button>
-  <button class="pill" data-tier="Uncommon">Uncommon</button>
-  <button class="pill" data-tier="Rare">Rare</button>
-  <button class="pill" data-tier="Epic">Epic</button>
-  <button class="pill" data-tier="Legendary">Legendary</button>
 </div>
 
 <div id="status"><span class="dot"></span>Loading&hellip;</div>
@@ -250,17 +210,11 @@ const ME_BASE = ME_PROXY_BASE + "/v2";
 
 const statusEl = document.getElementById('status');
 const gridEl = document.getElementById('grid');
-const viewToggleEl = document.getElementById('viewToggle');
-const minPriceEl = document.getElementById('minPrice');
-const maxPriceEl = document.getElementById('maxPrice');
-const searchInputEl = document.getElementById('searchInput');
 const pillsEl = document.getElementById('pills');
+const viewToggleEl = document.getElementById('viewToggle');
 
 let allListings = [];
-let minPrice = null;
 let maxPrice = null;
-let searchQuery = '';
-let selectedTier = null;
 let currentView = 'grid';
 
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
@@ -270,7 +224,7 @@ function setStatus(msg, isErr){
   statusEl.classList.toggle('err', !!isErr);
 }
 
-// Reverse index of CHARACTER_MAP (collection.html?c= goes character -> symbols;
+// Reverse index of CHARACTER_MAP (character.html goes character -> symbols;
 // this goes the other way, symbol -> characters) so a card can show which
 // character(s) a listing belongs to without a second lookup structure to
 // keep in sync by hand.
@@ -293,15 +247,6 @@ function parseEdition(name){
   return m ? `#${m[1]} / ${m[2]}` : null;
 }
 
-// rarityPct, when present, is that collection's fixed supply-distribution
-// percentage for the tier (e.g. "only 4.8% of this print run is
-// Legendary") — not every drop's metadata includes it.
-function rarityBadge(rarity, rarityPct){
-  if(!rarity) return '';
-  const pctText = typeof rarityPct === 'number' ? ` · ${rarityPct.toFixed(1)}%` : '';
-  return `<div class="rarity-badge rarity-${rarity.toLowerCase()}">${esc(rarity)}${pctText}</div>`;
-}
-
 function renderGrid(items){
   gridEl.className = 'grid';
   gridEl.innerHTML = items.map(i => {
@@ -315,7 +260,6 @@ function renderGrid(items){
           <div class="body">
             <div class="sub">${esc(i.sub)}</div>
             <div class="name">${esc(i.name)}</div>
-            ${rarityBadge(i.rarity, i.rarityPct)}
             ${tags ? `<div class="tags">${tags}</div>` : ''}
             <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
             <div class="me-tag">Magic Eden &#8599;</div>
@@ -344,7 +288,6 @@ function renderList(items){
           <div class="info">
             <div class="sub">${esc(i.sub)}</div>
             <div class="name">${esc(i.name)}</div>
-            ${rarityBadge(i.rarity, i.rarityPct)}
             ${tags ? `<div class="tags">${tags}</div>` : ''}
           </div>
           <div class="price-col">
@@ -361,19 +304,13 @@ function renderList(items){
 
 function render(){
   const items = allListings
-    .filter(i => minPrice === null || (i.price !== null && i.price >= minPrice))
     .filter(i => maxPrice === null || (i.price !== null && i.price <= maxPrice))
-    .filter(i => !searchQuery || `${i.name || ''} ${i.sub || ''}`.toLowerCase().includes(searchQuery))
-    .filter(i => !selectedTier || i.rarity === selectedTier)
     .slice()
     .sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
 
   if(items.length === 0){
     gridEl.className = currentView;
-    const hint = (minPrice !== null || maxPrice !== null || searchQuery || selectedTier)
-      ? 'Try a wider price range, a different search, or a different rarity tier.'
-      : 'Check back later.';
-    gridEl.innerHTML = `<div class="empty">Nothing matches this filter right now.<br>${hint}</div>`;
+    gridEl.innerHTML = `<div class="empty">Nothing matches this filter right now.<br>Try a wider price range, or check back later.</div>`;
     return;
   }
 
@@ -394,9 +331,8 @@ async function load(){
     }
 
     allListings = (data.listings || []).filter(i => i.price !== null);
-    const withRarity = allListings.filter(i => i.rarity).length;
     const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
-    setStatus(`${allListings.length} priced listing(s), ${withRarity} with rarity data · updated ${updated}.`);
+    setStatus(`${allListings.length} priced listing(s) tracked · updated ${updated}.`);
   }catch(e){
     console.error(e);
     setStatus('Could not reach the listings service. Try reloading in a moment.', true);
@@ -405,24 +341,13 @@ async function load(){
   render();
 }
 
-function parsePriceInput(el){
-  const v = parseFloat(el.value);
-  return el.value !== '' && !isNaN(v) && v >= 0 ? v : null;
-}
-
-minPriceEl.addEventListener('input', () => {
-  minPrice = parsePriceInput(minPriceEl);
-  render();
-});
-
-maxPriceEl.addEventListener('input', () => {
-  maxPrice = parsePriceInput(maxPriceEl);
-  render();
-});
-
-searchInputEl.addEventListener('input', () => {
-  searchQuery = searchInputEl.value.trim().toLowerCase();
-  render();
+pillsEl.querySelectorAll('.pill[data-max]').forEach(p => {
+  p.addEventListener('click', () => {
+    pillsEl.querySelectorAll('.pill[data-max]').forEach(x => x.classList.remove('active'));
+    p.classList.add('active');
+    maxPrice = p.dataset.max ? parseFloat(p.dataset.max) : null;
+    render();
+  });
 });
 
 viewToggleEl.querySelectorAll('.pill[data-view]').forEach(p => {
@@ -430,15 +355,6 @@ viewToggleEl.querySelectorAll('.pill[data-view]').forEach(p => {
     viewToggleEl.querySelectorAll('.pill[data-view]').forEach(x => x.classList.remove('active'));
     p.classList.add('active');
     currentView = p.dataset.view;
-    render();
-  });
-});
-
-pillsEl.querySelectorAll('.pill[data-tier]').forEach(p => {
-  p.addEventListener('click', () => {
-    pillsEl.querySelectorAll('.pill[data-tier]').forEach(x => x.classList.remove('active'));
-    p.classList.add('active');
-    selectedTier = p.dataset.tier || null;
     render();
   });
 });
