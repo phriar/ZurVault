@@ -396,10 +396,9 @@ function deriveListedTimes(activities) {
 // bare "EPIC"/"UNCOMMON" (all-caps, no suffix), others are "Common
 // (40.400)" (title case, with a rarity-weight percentage tacked on), and
 // at least one drop's base tier is labeled "CORE" instead of "Common".
-// Same normalization slideshow-legacy.html does client-side for the same reason
-// — strip any trailing "(...)" and alias core/base/standard to common —
-// so every collection reports one of five consistent values instead of
-// each drop's own raw string.
+// Strip any trailing "(...)" and alias core/base/standard to common — so
+// every collection reports one of five consistent values instead of each
+// drop's own raw string.
 //
 // The "(40.400)" isn't a per-token score — confirmed against live data
 // that every listing sharing a tier within one collection carries the
