@@ -96,7 +96,7 @@ Unlike character/series, both vary per individual listing rather than per collec
 
 ## Things to remember
 
-> **⚠️ Currently pending: `me-proxy-worker.js` needs another manual redeploy.** Three changes are sitting in git ahead of the live Worker: (1) `rarityPct` — the tier's fixed supply-distribution percentage, e.g. "Legendary, 4.8% of supply", where a collection's metadata includes it (`long-box.html` already renders it when present, it's just missing until deployed); (2) `coverArtists` on every listing, which `artists.html`/`artist.html` depend on **entirely** — without this deployed, those two pages will show empty/zero results, not stale-but-working data. Same paste-into-Cloudflare-dashboard step as always. This note should be deleted once that deploy has actually happened; if unsure, check both: `curl -s https://zurvault-proxy.stholt.workers.dev/v2/dc-summary | grep -o '"coverArtists":\[[^]]*\]' | head -3` and `| grep -o '"rarityPct":[0-9.]*' | head -1` — anything other than empty output on each means that piece is live.
+> **⚠️ Currently pending: `me-proxy-worker.js` needs another manual redeploy.** `deriveSales()` now captures `buyer` (the wallet address from Magic Eden's own `activities` response — no new API call, that field was already in the payload) on every sale, and `index.html`/`collection.html`'s Sold tabs now render "Sold to `<short buyer address>`" instead of the mint address, falling back to the old "Sold · `<short mint>`" wording when `buyer` is absent (older cached KV entries, or before this deploy happens at all). Same paste-into-Cloudflare-dashboard step as always. This note should be deleted once that deploy has actually happened; if unsure, check: `curl -s https://zurvault-proxy.stholt.workers.dev/v2/dc-summary | grep -o '"buyer":"[^"]*"' | head -3` — anything other than empty output means it's live (note this only appears on sales, so an unlucky sample with zero recent sales for the collections checked can still look empty even once deployed).
 
 - **Worker changes need manual redeploy.** Committing/pushing `me-proxy-worker.js` to GitHub has zero effect on the live Worker until you paste it into the Cloudflare dashboard yourself. This has bitten this project more than once — always double check after a Worker-touching change whether the deploy step actually happened, rather than assuming a `git push` covered it.
 - **Primary nav** (`site-nav.js`): Listings, Grails, Collections, Artists, Long Box, Spotlight, How To, Slideshow — `discover.html`, `comics.html`, and `candy-watcher.html` are deliberately unlinked (not deleted, still fully functional at their direct URLs), as secondary/power-user tools outside the main collector experience. `characters.html`/`character.html` were retired outright (not just unlinked) — character browsing now lives inside `collections.html`/`collection.html`.
@@ -133,7 +133,13 @@ curl -s https://zurvault-proxy.stholt.workers.dev/v2/dc-summary | head -c 500
 curl -s https://zurvault-proxy.stholt.workers.dev/v2/dc-summary | grep -o '"rarity":"[^"]*"' | head -3
 curl -s https://zurvault-proxy.stholt.workers.dev/v2/dc-summary | grep -o '"rarityPct":[0-9.]*' | head -3
 ```
-No output on the first means the live Worker predates `normalizeRarity()` entirely — `long-box.html`'s rarity filter will show 0 results for every tier. No output on the second (but the first works) means the tier data is live but the follow-up `rarityPct` change isn't yet — see the pending-deploy reminder above.
+No output on the first means the live Worker predates `normalizeRarity()` entirely — `long-box.html`'s rarity filter will show 0 results for every tier. No output on the second (but the first works) means the tier data is live but the follow-up `rarityPct` change isn't yet. (Both are confirmed live as of 2026-08-16 — this check is kept as a general diagnostic, not because it's currently pending.)
+
+**Has the `buyer` field on sales been deployed yet?**
+```
+curl -s https://zurvault-proxy.stholt.workers.dev/v2/dc-summary | grep -o '"buyer":"[^"]*"' | head -3
+```
+No output means the live Worker predates this change — `index.html`/`collection.html`'s Sold tabs will fall back to showing the mint address ("Sold · `<mint>`") instead of the buyer's wallet ("Sold to `<buyer>`"), which is the intended graceful-degradation behavior, not a bug. See the pending-deploy reminder above. Note a collection with zero sales in the current 7-day window will also show no output here even once deployed — check a couple of collections before concluding it's not live.
 
 **Is the price-history feature (`dashboard.html`) actually running?**
 ```

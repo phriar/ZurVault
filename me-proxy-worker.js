@@ -502,6 +502,7 @@ function deriveSales(activities, col) {
         image: a.image || "",
         price: a.price ?? null,
         mint: a.tokenMint,
+        buyer: a.buyer || null,
         soldAt: a.blockTime || null,
         pdpUrl: `https://magiceden.io/item-details/${a.tokenMint}`,
       });

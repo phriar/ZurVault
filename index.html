@@ -496,6 +496,13 @@ function shortMint(mint){
   return mint && mint.length > 8 ? mint.slice(0, 4) + '…' + mint.slice(-4) : (mint || '');
 }
 
+// Falls back to the mint address if buyer isn't present yet (older cached
+// KV entries written before the Worker started capturing it) — never shows
+// a blank label.
+function soldLabel(i){
+  return i.buyer ? `Sold to ${shortMint(i.buyer)}` : `Sold · ${shortMint(i.mint)}`;
+}
+
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 
 // Magic Eden listing names for these collections commonly end in
@@ -662,7 +669,7 @@ function renderSales(){
         <img src="${esc(i.image)}" loading="lazy" onerror="this.style.opacity=0.2">
         <div class="info">
           <div class="sub">${esc(i.sub)}</div>
-          <div class="name">Sold · ${shortMint(i.mint)}</div>
+          <div class="name">${soldLabel(i)}</div>
         </div>
         <div class="price-col">
           <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
@@ -680,7 +687,7 @@ function renderSales(){
       <img src="${esc(i.image)}" loading="lazy" onerror="this.style.opacity=0.2">
       <div class="body">
         <div class="sub">${esc(i.sub)}</div>
-        <div class="name">Sold · ${shortMint(i.mint)}</div>
+        <div class="name">${soldLabel(i)}</div>
         <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
         <div class="me-tag">Magic Eden &#8599;</div>
         ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
@@ -760,7 +767,7 @@ function renderHighestSales(){
         <img src="${esc(i.image)}" loading="lazy" onerror="this.style.opacity=0.2">
         <div class="info">
           <div class="sub">${esc(i.sub)}</div>
-          <div class="name">Sold · ${shortMint(i.mint)}</div>
+          <div class="name">${soldLabel(i)}</div>
         </div>
         <div class="price-col">
           <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
@@ -778,7 +785,7 @@ function renderHighestSales(){
       <img src="${esc(i.image)}" loading="lazy" onerror="this.style.opacity=0.2">
       <div class="body">
         <div class="sub">${esc(i.sub)}</div>
-        <div class="name">#${idx + 1} · Sold · ${shortMint(i.mint)}</div>
+        <div class="name">#${idx + 1} · ${soldLabel(i)}</div>
         <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
         <div class="me-tag">Magic Eden &#8599;</div>
         ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
