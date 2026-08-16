@@ -298,6 +298,25 @@ const DC_COLLECTIONS = [
 const collectionKey = (symbol) => `collection:${symbol}`;
 const KV_TTL_SECONDS = 2400; // 40 min
 const CLICK_TTL_SECONDS = 60 * 60 * 24 * 90; // 90 days — see /v2/click-log below
+
+// Daily floor-price history, one KV blob per collection (mirrors
+// collection:{symbol} above, not the sale:*/click:* one-key-per-event
+// pattern) — /v2/dc-history has to list+merge every collection's history
+// on each request the same way /v2/dc-summary does, so keeping one blob
+// per collection instead of one key per day keeps that read the same
+// shape/cost as the already-proven dc-summary merge instead of ballooning
+// it to (collections × days) keys.
+const historyKey = (symbol) => `history:${symbol}`;
+const HISTORY_MAX_POINTS = 90; // ~3 months of daily checkups
+// The points array is already self-trimming for display purposes, so this
+// TTL's only real job is garbage-collecting history:{symbol} for a
+// collection later removed from DC_COLLECTIONS (nothing else would ever
+// clear it). Every live write is a plain put() that resets the TTL, so
+// this never fires against an actively-tracked collection. 120 days =
+// the 90-day trim window plus a cushion, same "TTL should generously
+// outlast the interval it needs to survive" reasoning as KV_TTL_SECONDS's
+// 2x-cron-cadence margin above.
+const HISTORY_TTL_SECONDS = 60 * 60 * 24 * 120; // 120 days
 const BATCH_SIZE = 5; // collections processed concurrently per batch — kept conservative given the 429s we saw; the real rate gate is throttleMagicEden() below, this just bounds how many writes are in flight at once
 const SALES_WINDOW_SECS = 7 * 24 * 60 * 60; // Recent Sales looks back one week
 const ACTIVITIES_MAX_PAGES = 5; // safety cap — a very active collection could otherwise page forever
@@ -545,19 +564,62 @@ async function refreshOneCollection(col, env) {
     // harmless idempotent overwrite, never a duplicate entry. Same
     // CLICK_TTL_SECONDS (90 days) as clicks, so a full matching window of
     // weekly history is available once this has run for a while.
-    await Promise.all(
-      sales
+    //
+    // Runs alongside updateCollectionHistory() (below) — independent of
+    // each other and of the collection:* write above, no reason to
+    // serialize them.
+    await Promise.all([
+      updateCollectionHistory(col, listings, env),
+      ...sales
         .filter((s) => s.mint && s.soldAt)
         .map((s) =>
           env.DC_CACHE.put(`sale:${col.symbol}:${s.mint}:${s.soldAt}`, "1", { expirationTtl: CLICK_TTL_SECONDS })
-        )
-    );
+        ),
+    ]);
 
     return { ok: true, symbol: col.symbol, listingCount: listings.length, saleCount: sales.length };
   } catch (err) {
     console.error(`refreshOneCollection: ${col.symbol} failed:`, err.message);
     return { ok: false, symbol: col.symbol, error: err.message };
   }
+}
+
+// Derives today's floor (min priced listing) from data already fetched
+// this cycle — no extra Magic Eden calls. Dedupes by UTC calendar date: if
+// the stored array's last point is already today, overwrite it in place
+// (repeated cron cycles the same day just refine today's reading);
+// otherwise append a new point. Trims to HISTORY_MAX_POINTS oldest-first
+// so the array — and the KV value size — stay bounded regardless of how
+// long this has been running.
+async function updateCollectionHistory(col, listings, env) {
+  const priced = listings.filter((l) => l.price != null).map((l) => l.price);
+  if (priced.length === 0) return; // no priced listings this cycle — leave prior history untouched rather than write a misleading floor
+  const floor = Math.min(...priced);
+  const today = new Date().toISOString().slice(0, 10); // UTC "YYYY-MM-DD"
+
+  const raw = await env.DC_CACHE.get(historyKey(col.symbol));
+  let points = [];
+  if (raw) {
+    try {
+      points = JSON.parse(raw).points || [];
+    } catch {
+      points = [];
+    }
+  }
+  const point = { date: today, floor, listingCount: listings.length };
+  if (points.length && points[points.length - 1].date === today) {
+    points[points.length - 1] = point;
+  } else {
+    points.push(point);
+  }
+  if (points.length > HISTORY_MAX_POINTS) {
+    points = points.slice(points.length - HISTORY_MAX_POINTS);
+  }
+  await env.DC_CACHE.put(
+    historyKey(col.symbol),
+    JSON.stringify({ updatedAt: Date.now(), points }),
+    { expirationTtl: HISTORY_TTL_SECONDS }
+  );
 }
 
 // Loops every resolved collection in concurrent batches of BATCH_SIZE,
@@ -613,6 +675,40 @@ async function buildDCSummary(env) {
   return JSON.stringify({ listings, sales, updatedAt: oldestUpdatedAt, failed: [] });
 }
 
+// Lists every history:* KV entry and merges them into the per-collection
+// sparkline shape the dashboard reads — same list+Promise.all(get)+edge-
+// cache pattern as buildDCSummary above, and for the same reason: merging
+// ~198 individual KV entries per request is too costly to redo on every
+// uncached hit. updatedAt is the oldest of each collection's own
+// updatedAt, same honesty framing as buildDCSummary's.
+async function buildDCHistory(env) {
+  const list = await env.DC_CACHE.list({ prefix: "history:" });
+  if (list.keys.length === 0) {
+    return JSON.stringify({ collections: [], updatedAt: null, notReady: true });
+  }
+  const symbolToSub = new Map(DC_COLLECTIONS.map((c) => [c.symbol, c.sub]));
+  const entries = await Promise.all(list.keys.map((k) => env.DC_CACHE.get(k.name)));
+  const collections = [];
+  let oldestUpdatedAt = null;
+  for (let i = 0; i < list.keys.length; i++) {
+    const raw = entries[i];
+    if (!raw) continue;
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      continue;
+    }
+    if (!Array.isArray(parsed.points) || parsed.points.length === 0) continue;
+    const symbol = list.keys[i].name.slice("history:".length);
+    collections.push({ sub: symbolToSub.get(symbol) || symbol, symbol, points: parsed.points });
+    if (parsed.updatedAt && (oldestUpdatedAt === null || parsed.updatedAt < oldestUpdatedAt)) {
+      oldestUpdatedAt = parsed.updatedAt;
+    }
+  }
+  return JSON.stringify({ collections, updatedAt: oldestUpdatedAt });
+}
+
 // ---------------------------------------------------------------------
 
 export default {
@@ -653,6 +749,29 @@ export default {
           headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=30" },
         });
         ctx.waitUntil(cache.put(summaryCacheKey, toCache));
+      }
+      return new Response(body, {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" },
+      });
+    }
+
+    // Daily floor-price history for the dashboard's sparklines — same
+    // merge-from-KV-with-a-short-edge-cache shape as /v2/dc-summary just
+    // above, kept as a wholly separate endpoint/cache key so none of
+    // dc-summary's existing consumers (index.html, long-box.html, etc.)
+    // pay for a payload they never read.
+    if (url.pathname === "/v2/dc-history") {
+      const cache = caches.default;
+      const historyCacheKey = new Request(url.origin + "/__dc-history-merged", { method: "GET" });
+      const cachedHistory = await cache.match(historyCacheKey);
+      const body = cachedHistory ? await cachedHistory.text() : await buildDCHistory(env);
+      if (!cachedHistory) {
+        const toCache = new Response(body, {
+          status: 200,
+          headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=30" },
+        });
+        ctx.waitUntil(cache.put(historyCacheKey, toCache));
       }
       return new Response(body, {
         status: 200,
