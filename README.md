@@ -11,12 +11,13 @@ zurvault.com — a small static site for browsing and displaying a Solana NFT co
 | `artists.html` / `artist.html` | Same idea again, grouped by cover artist (`artist.html?a=Jim%20Lee`, matched on exact name). No static map — built live off `/v2/dc-summary` like `long-box.html`'s rarity filter, since Cover Artist varies per listing (variant covers), not per collection, the way character/series do. |
 | `long-box.html` | Cross-collection "cheapest first" browse across every tracked collection at once — searchable min/max SOL price range, name search, and rarity tier filter (Common/Uncommon/Rare/Epic/Legendary, **For Sale only**, no rarity data available for sold items). Grid/List toggle. Absorbed the standalone rarity.html page — retired once this covered everything it did. |
 | `dollar-bin.html` | The original, simpler "cheapest first" browse — revived 2026-08-10 by user request after `long-box.html` (its own later fork of the same file) replaced the 3 preset price buttons with a full search/rarity filter. Just "Under 0.05/0.1/0.25 SOL" pills + Grid/List toggle, deliberately minimal. Cross-linked with `long-box.html` and `index.html`. |
+| `dashboard.html` | Added 2026-08-15. Cross-collection floor-price trend dashboard — one sparkline row per tracked collection, sorted by biggest mover, so a daily market checkup doesn't require opening a tab per collection. Magic Eden only (no Tensor integration), via the Worker's `GET /v2/dc-history`. **Not yet in the primary nav** — same unlinked-but-fully-functional pattern as `discover.html`/`candy-watcher.html`, while it's being ironed out. History can't be backfilled (Magic Eden's API has no historical floor-price data) and is written once per UTC day, so expect one flat point per collection for the first day or two, real %-change readings from day 3, and a genuine ~7-day "biggest movers" signal only after about a week — see "Things to remember." |
 | `spotlight.html` / `spotlights-data.js` | Templated long-form write-up page (`spotlight.html?id=...`) for curated pieces about a specific comic. |
 | `guide.html` | Static "how to buy on Magic Eden, then read on candy.io" walkthrough. |
 | `comics.html` | Standalone in-browser comic reader (CBZ/CBR/image drag-drop, or loaded via `?url=`). Not in the primary nav — candy.io is the primary reading experience now, this is a fallback. |
 | `candy-watcher.html` | Live/backfill dashboard watching Solana for new candy.io mint activity. Not in the primary nav — an internal/power-user tool. |
 | `discover.html` | **Internal tool, not linked from site nav.** Scans a wallet, resolves on-chain collections to Magic Eden symbols, and outputs a `DC_COLLECTIONS` config array to paste into `index.html`/`me-proxy-worker.js`. |
-| `site-nav.js` | Shared top banner (injected via `<script>`). Primary nav: Listings, Grails, Collections, Artists, Long Box, Dollar Bin, Spotlight, How To — `discover.html`, `comics.html`, and `candy-watcher.html` still work at their direct URLs but aren't in the banner. |
+| `site-nav.js` | Shared top banner (injected via `<script>`). Primary nav: Listings, Grails, Collections, Artists, Long Box, Dollar Bin, Spotlight, How To — `discover.html`, `comics.html`, `candy-watcher.html`, and `dashboard.html` still work at their direct URLs but aren't in the banner. |
 | `me-proxy-worker.js` | Source for the Cloudflare Worker (`zurvault-proxy.stholt.workers.dev`) that proxies Magic Eden and runs the scheduled DC-collections aggregation. **In this repo, but deployed separately by hand — see Configuration below, and the pending-deploy reminder in "Things to remember."** |
 | `CNAME` | GitHub Pages custom domain (`zurvault.com`). |
 
@@ -30,13 +31,20 @@ Browser ──> GitHub Pages (static HTML/CSS/JS, no build)
               │  (each just filters/sorts the same merged            ┘   (reads pre-aggregated JSON from KV —
               │   response client-side — no per-page Worker route)       no Magic Eden calls in the request path)
               │
+              ├─ dashboard.html ─────────────────────────────────────> Cloudflare Worker: GET /v2/dc-history
+              │  (unlinked from nav for now — see "Things to               (lists + merges every history:{symbol}
+              │   remember"; reads a separate per-collection history        KV blob, same edge-cache pattern as
+              │   blob, not dc-summary's live snapshot)                     dc-summary but its own cache key)
+              │
               └─ discover.html / per-item lookups ──> Cloudflare Worker: GET /v2/...
                                   (pass-through proxy to Magic Eden, edge-cached)
 
 Cloudflare Worker (zurvault-proxy)
   ├─ fetch()      — CORS + pass-through proxy to Magic Eden, Cache API (60s edge cache)
-  │                 + the dedicated /v2/dc-summary route (lists + merges every
-  │                 collection:* KV entry, 30s edge cache on the merged result)
+  │                 + /v2/dc-summary (lists + merges every collection:* KV
+  │                 entry, 30s edge cache) + /v2/dc-history (same list+merge+
+  │                 edge-cache pattern, over history:* KV entries instead,
+  │                 own cache key so the two never collide)
   │                 + /v2/__trigger-refresh?key=<symbol> debug endpoint
   └─ scheduled()  — Cron Trigger, every 20 min: loops DC_COLLECTIONS in small
                      concurrent batches, throttled to Magic Eden's real rate
@@ -47,7 +55,11 @@ Cloudflare Worker (zurvault-proxy)
                      also carries a normalized `rarity` field now (see the
                      pending-deploy reminder below) — buildDCSummary's merge
                      needed no changes for this since it passes whatever
-                     fields exist straight through.
+                     fields exist straight through. Also derives that day's
+                     floor price from the same listings (no extra Magic
+                     Eden calls) and writes/overwrites one point in
+                     history:{symbol} — one point per UTC calendar day, not
+                     per cron cycle, added 2026-08-15 for dashboard.html.
 ```
 
 The key design point: `index.html` used to loop through ~200 collections client-side on every page load, which is what actually drove Worker request volume against Cloudflare's free tier (caching the Worker's *own* responses doesn't reduce request *count* — every invocation counts regardless of internal cache hits). That loop now runs **inside the Worker itself**, on its own schedule, decoupled from visitor traffic. The browser makes exactly one request (`/v2/dc-summary`) instead of ~400.
@@ -92,6 +104,7 @@ Unlike character/series, both vary per individual listing rather than per collec
 - **Rate limits, two layers**: Magic Eden's own (confirmed via a live 429: an explicit requests-per-minute limit), and the Worker's per-collection `caches.default` edge cache (60s TTL) that shields it from repeat calls. The cron aggregation calls Magic Eden directly in small concurrent batches (`BATCH_SIZE = 5`), globally throttled (`MAGIC_EDEN_MAX_REQUESTS_PER_SEC`) — if a collection's KV entry keeps going stale, check the Worker's logs (`refreshOneCollection` console.errors the real reason) or hit `/v2/__trigger-refresh?key=<symbol>` to test it directly.
 - **Rarity is per-token, not per-collection** — it varies copy-to-copy within the same comic issue, unlike Character/Artist/Series which are fixed per issue. That's why it can't be captured in a static hand-curated map and instead has to flow through live: NFT metadata → (server-side) `me-proxy-worker.js`'s `normalizeRarity()` → `/v2/dc-summary` → `long-box.html`'s rarity filter. Different candy.io drops format the raw trait inconsistently (bare `"EPIC"`, `"Common (40.400)"` with a weight percentage, `"CORE"` as one drop's name for the base tier) — `normalizeRarity()` handles this once for every page that reads `/v2/dc-summary`.
 - No test suite, linter, or formatter — verification is manual (see below).
+- **`dashboard.html` / `history:{symbol}` price history (added 2026-08-15).** One floor-price point per collection per UTC calendar day, written by the same `scheduled()` cron cycle that already fetches listings — no extra Magic Eden calls. Deliberately *not* one KV key per day (like `sale:*`/`click:*`); it's one blob per collection, appended/overwritten in place, so `/v2/dc-history` can list+merge it the same cheap way `/v2/dc-summary` already does. There's no way to backfill — Magic Eden's API has no historical floor-price data — so a fresh deploy always starts from a single flat point per collection. The dashboard's %-change badge and "Biggest Movers" sort intentionally show nothing (`Gathering history…`) until a collection has ≥3 daily points (day 3+ after deploy), and the comparison isn't a genuine 7-day reading until ~a week of cron cycles has actually run. Not linked from `site-nav.js` yet on purpose — check back in about a week before promoting it into `PAGES`.
 
 ## What's in use
 
@@ -121,6 +134,14 @@ curl -s https://zurvault-proxy.stholt.workers.dev/v2/dc-summary | grep -o '"rari
 curl -s https://zurvault-proxy.stholt.workers.dev/v2/dc-summary | grep -o '"rarityPct":[0-9.]*' | head -3
 ```
 No output on the first means the live Worker predates `normalizeRarity()` entirely — `long-box.html`'s rarity filter will show 0 results for every tier. No output on the second (but the first works) means the tier data is live but the follow-up `rarityPct` change isn't yet — see the pending-deploy reminder above.
+
+**Is the price-history feature (`dashboard.html`) actually running?**
+```
+curl -s https://zurvault-proxy.stholt.workers.dev/v2/dc-history | head -c 500
+```
+- `"notReady": true` or `"collections": []` → no `history:*` KV entries exist yet — either the Worker deploy with this feature hasn't happened, or the cron hasn't completed a cycle since it did.
+- Real data → each collection's `points` array should have exactly one entry per UTC calendar day since deploy (not one per 20-min cron cycle — same-day writes overwrite in place). To force one collection through immediately instead of waiting for the cron: `curl "https://zurvault-proxy.stholt.workers.dev/v2/__trigger-refresh?key=<symbol>"` then re-curl `dc-history` and confirm that symbol shows up with today's date.
+- Fewer than 3 points for a given collection is expected and not a bug — `dashboard.html` intentionally shows "Gathering history…" instead of a %-change badge until then.
 
 **Is the per-collection proxy cache working?**
 ```
