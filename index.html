@@ -191,19 +191,6 @@
   .list-row .mint{ font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.5); margin-top:2px; white-space:nowrap; }
   .list-row .time{ font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.55); margin-top:2px; text-transform:uppercase; white-space:nowrap; }
 
-  /* Full, unabbreviated buyer wallet address — list view only (grid cards
-     stay abbreviated via soldLabel(), there's no room there). Monospace
-     rather than the serif .name font: this is data to be read/copied
-     accurately (l/1/I, O/0 need to stay visually distinct), not a title.
-     word-break:break-all since a 44-char base58 string won't fit one line
-     in a narrow .info column. rgba(255,255,255,0.55) at .85rem computes to
-     6.26:1 against #0a0a0a, clearing the same 4.5:1 AA bar as this page's
-     other small text (see the accessibility comment above). */
-  .list-row .buyer-full{
-    font-family:'DM Mono',monospace; font-size:.85rem; letter-spacing:.01em;
-    color:rgba(255,255,255,0.55); word-break:break-all; margin-top:2px;
-  }
-
   /* Explicit "you're leaving to a third-party marketplace" cue placed
      directly on the price/CTA itself, not just in the page-level banner —
      rgba(77,232,255,0.7) on #0a0a0a computes to ~6.8:1 contrast, clears
@@ -683,8 +670,7 @@ function renderSales(){
         <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
         <div class="info">
           <div class="sub">${esc(i.sub)}</div>
-          <div class="name">${i.buyer ? 'Sold to' : soldLabel(i)}</div>
-          ${i.buyer ? `<div class="buyer-full">${esc(i.buyer)}</div>` : ''}
+          <div class="name">${soldLabel(i)}</div>
         </div>
         <div class="price-col">
           <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
@@ -782,8 +768,7 @@ function renderHighestSales(){
         <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
         <div class="info">
           <div class="sub">${esc(i.sub)}</div>
-          <div class="name">${i.buyer ? 'Sold to' : soldLabel(i)}</div>
-          ${i.buyer ? `<div class="buyer-full">${esc(i.buyer)}</div>` : ''}
+          <div class="name">${soldLabel(i)}</div>
         </div>
         <div class="price-col">
           <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
