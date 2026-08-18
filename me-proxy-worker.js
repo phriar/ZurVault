@@ -862,6 +862,8 @@ export default {
       const RECENT_CLICK_FEED_LIMIT = 200;
       const bySymbol = {};
       const byDay = {}; // "YYYY-MM-DD" (UTC) -> count, every click including collection-level ones
+      const byHour = {}; // 0-23 (UTC) -> count, same scope as byDay
+      const byWeekday = {}; // 0(Sun)-6(Sat) (UTC) -> count, same scope as byDay
       const listingClicks = [];
       let total = 0;
       let cursor;
@@ -889,8 +891,11 @@ export default {
           total++;
           const clickedAt = parseInt((tsRand || "").split("-")[0], 10) || null;
           if (clickedAt) {
-            const day = new Date(clickedAt).toISOString().slice(0, 10);
+            const d = new Date(clickedAt);
+            const day = d.toISOString().slice(0, 10);
             byDay[day] = (byDay[day] || 0) + 1;
+            byHour[d.getUTCHours()] = (byHour[d.getUTCHours()] || 0) + 1;
+            byWeekday[d.getUTCDay()] = (byWeekday[d.getUTCDay()] || 0) + 1;
           }
           if (mint && mint !== "_collection") {
             listingClicks.push({ symbol, mint, clickedAt, pdpUrl: `https://magiceden.io/item-details/${mint}` });
@@ -935,6 +940,60 @@ export default {
           sales.some((soldAt) => soldAt >= c.clickedAt && soldAt - c.clickedAt <= SALE_CLICK_WINDOW_SECS * 1000);
       }
 
+      // Most-clicked individual listings, not just most-clicked collections
+      // — "what people actually want," surfaced as its own leaderboard
+      // rather than only a chronological feed. Grouped by mint (not by
+      // click), so a listing clicked 5 times is one row with clicks:5, not
+      // 5 rows. possibleSale is true if ANY click on that mint converted —
+      // a per-listing flag, same semantics as the per-click one above.
+      const listingGroups = {};
+      for (const c of listingClicks) {
+        const key = `${c.symbol}:${c.mint}`;
+        const g = listingGroups[key] || (listingGroups[key] = {
+          symbol: c.symbol,
+          mint: c.mint,
+          pdpUrl: c.pdpUrl,
+          clicks: 0,
+          possibleSale: false,
+          lastClickedAt: 0,
+        });
+        g.clicks++;
+        if (c.possibleSale) g.possibleSale = true;
+        if (c.clickedAt && c.clickedAt > g.lastClickedAt) g.lastClickedAt = c.clickedAt;
+      }
+      const TOP_LISTINGS_LIMIT = 20;
+      const topListings = Object.values(listingGroups)
+        .sort((a, b) => b.clicks - a.clicks)
+        .slice(0, TOP_LISTINGS_LIMIT);
+
+      // Per-collection conversion — bySymbol above counts every click
+      // (including collection-level "browse on ME" clicks with no single
+      // listing to attribute), but a conversion rate only makes sense
+      // against listing-level clicks, since only those can be cross-
+      // referenced against a specific sale. conversionRate is null (never
+      // a fake 0) when a collection has no listing-level clicks yet, so a
+      // collection that's only had collection-level clicks doesn't
+      // misleadingly read as "0% converting."
+      const listingClicksBySymbol = {};
+      const possibleSalesBySymbol = {};
+      for (const c of listingClicks) {
+        listingClicksBySymbol[c.symbol] = (listingClicksBySymbol[c.symbol] || 0) + 1;
+        if (c.possibleSale) possibleSalesBySymbol[c.symbol] = (possibleSalesBySymbol[c.symbol] || 0) + 1;
+      }
+      const collectionBreakdown = Object.keys(bySymbol)
+        .map((symbol) => {
+          const listingClicksCount = listingClicksBySymbol[symbol] || 0;
+          const possibleSales = possibleSalesBySymbol[symbol] || 0;
+          return {
+            symbol,
+            totalClicks: bySymbol[symbol],
+            listingClicks: listingClicksCount,
+            possibleSales,
+            conversionRate: listingClicksCount > 0 ? possibleSales / listingClicksCount : null,
+          };
+        })
+        .sort((a, b) => b.totalClicks - a.totalClicks);
+
       // Rolling 12-week (~84 day) view, same "always a continuous timeline"
       // approach as the 30-day daily chart — bounded by the 90-day
       // click/sale retention window. Only individual listing clicks count
@@ -968,6 +1027,10 @@ export default {
           total,
           bySymbol,
           byDay,
+          byHour,
+          byWeekday,
+          topListings,
+          collectionBreakdown,
           recentListingClicks: listingClicks.slice(0, RECENT_CLICK_FEED_LIMIT),
           recentListingClicksTruncated: listingClicks.length > RECENT_CLICK_FEED_LIMIT,
           retentionDays: CLICK_TTL_SECONDS / 86400,

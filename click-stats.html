@@ -9,7 +9,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="site.webmanifest">
 <meta name="theme-color" content="#0a0a0a">
-<title>Click Tracking — ZurVault</title>
+<title>Engagement & Conversion — ZurVault</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -28,7 +28,7 @@
     font-family:'DM Mono',monospace; -webkit-font-smoothing:antialiased;
   }
 
-  .wrap{ max-width:820px; margin:0 auto; padding:96px 24px 60px; }
+  .wrap{ max-width:1000px; margin:0 auto; padding:96px 24px 60px; }
 
   .brand{ font-size:1rem; letter-spacing:.16em; color:rgba(255,255,255,0.2); text-transform:uppercase; }
   .brand a{ color:rgba(255,255,255,0.2); text-decoration:none; }
@@ -39,8 +39,16 @@
   }
   h1 span{ color:var(--gold); }
   p.sub{
-    max-width:600px; font-size:1.05rem; line-height:1.65; color:rgba(255,255,255,0.45);
-    margin-bottom:30px;
+    max-width:640px; font-size:1.05rem; line-height:1.65; color:rgba(255,255,255,0.45);
+    margin-bottom:14px;
+  }
+  /* Honest-scope note — this page reports real outbound-click and
+     conversion data only; session duration / page views / visitor counts
+     aren't instrumented anywhere in this codebase yet. Said once, plainly,
+     rather than either omitted or over-apologized for. */
+  p.scope-note{
+    max-width:640px; font-size:.85rem; line-height:1.6; color:rgba(255,255,255,0.35);
+    margin-bottom:30px; border-left:2px solid rgba(143,111,232,0.3); padding-left:12px;
   }
 
   .section-label{
@@ -48,6 +56,7 @@
     margin:36px 0 14px;
   }
   .section-label:first-of-type{ margin-top:0; }
+  .section-note{ font-size:.85rem; color:rgba(255,255,255,0.35); margin-bottom:16px; max-width:640px; line-height:1.55; }
   td.mint{ font-family:'DM Mono',monospace; color:rgba(255,255,255,0.6); }
   td.mint a{ color:rgba(143,111,232,0.95); text-decoration:none; }
   td.mint a:hover{ color:var(--gold); }
@@ -72,6 +81,7 @@
     display:flex; align-items:flex-end; gap:3px; height:150px;
     border-bottom:1px solid var(--border); padding:0 0 2px;
   }
+  .chart.chart-sm{ height:110px; }
   .chart-bar{
     flex:1; min-width:5px; background:var(--gold); border-radius:2px 2px 0 0;
     position:relative; opacity:.8; transition:opacity .12s;
@@ -89,6 +99,12 @@
     flex:1; min-width:5px; font-size:.72rem; color:rgba(255,255,255,0.35);
     text-align:center; white-space:nowrap; overflow:visible; position:relative; z-index:1;
   }
+
+  /* Two mini charts side by side (Browsing Patterns) — stacks to one
+     column below ~600px combined width rather than squeezing 24 hourly
+     bars into an unreadably narrow strip. */
+  .split-row{ display:flex; gap:36px; flex-wrap:wrap; }
+  .split-row > div{ flex:1; min-width:280px; }
 
   /* Weekly clicks-vs-conversions chart — stacked, not a second set of bars
      next to the single-series one above: each bar's full height is that
@@ -115,15 +131,62 @@
     border:1px solid rgba(77,232,255,0.35); border-radius:3px; vertical-align:middle;
   }
 
+  /* Top Clicked Listings leaderboard — new section. Same rank-badge +
+     thumbnail + info + count-on-the-right shape as index.html's Best
+     Sellers leaderboard (renderTopSellers), rebuilt here since this page
+     has never had card/list-row CSS of its own. Cover art/title come from
+     a client-side lookup against /v2/dc-summary (click data itself only
+     ever stores symbol+mint, see /v2/click-log) — falls back to the plain
+     shortMint() text used everywhere else on this page when a mint isn't
+     found in the live snapshot (already sold/delisted since it was
+     clicked). Image src is omitted entirely (not set to "") when there's
+     no cover, same fix applied sitewide, so a missing cover never shows a
+     broken-image icon. */
+  .lb-row{
+    display:flex; align-items:center; gap:14px; padding:10px 0;
+    border-bottom:1px solid var(--border); text-decoration:none; color:#fff;
+    transition:background .15s;
+  }
+  .lb-row:hover{ background:rgba(255,255,255,0.02); }
+  .lb-rank{
+    width:22px; flex-shrink:0; text-align:center; font-family:'DM Mono',monospace;
+    font-size:.9rem; color:rgba(143,111,232,0.6);
+  }
+  .lb-thumb{ width:36px; height:54px; object-fit:cover; border-radius:2px; flex-shrink:0; background:rgba(255,255,255,0.03); }
+  .lb-info{ flex:1; min-width:0; }
+  .lb-sub{
+    font-family:'DM Mono',monospace; font-size:.7rem; letter-spacing:.08em; text-transform:uppercase;
+    color:rgba(143,111,232,0.85); margin-bottom:2px;
+  }
+  .lb-name{ font-family:'Cormorant Garamond',serif; font-size:1.1rem; color:rgba(255,255,255,0.88); line-height:1.3; }
+  .lb-count{ flex-shrink:0; text-align:right; }
+  .lb-count .n{ font-family:'DM Mono',monospace; font-size:1.1rem; color:rgba(255,255,255,0.92); }
+  .lb-count .label{ display:block; font-family:'DM Mono',monospace; font-size:.62rem; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:.06em; margin-top:2px; }
+
   table{ width:100%; border-collapse:collapse; }
   th, td{ text-align:left; padding:12px; border-bottom:1px solid var(--border); font-size:1.05rem; }
   th{
     font-size:.75rem; letter-spacing:.08em; text-transform:uppercase; color:rgba(255,255,255,0.4);
     font-weight:400;
   }
+  th.num, td.count{ text-align:right; }
   td.context{ color:rgba(143,111,232,0.95); word-break:break-all; }
-  td.count{ font-family:'DM Mono',monospace; color:rgba(255,255,255,0.9); text-align:right; white-space:nowrap; }
+  td.count{ font-family:'DM Mono',monospace; color:rgba(255,255,255,0.9); white-space:nowrap; }
   tr:hover td{ background:rgba(255,255,255,0.02); }
+
+  /* Conversion-rate column — a small inline bar alongside the number gives
+     a same-table visual read on which collections convert best without
+     needing a separate chart. rgba(255,255,255,0.3) for the "no listing
+     clicks yet" dash: this is deliberately muted/de-emphasized text (not
+     a data value), same treatment as .empty below, so it's exempt from
+     the small-text contrast bar the real numeric cells hold to. */
+  td.rate{ font-family:'DM Mono',monospace; text-align:right; white-space:nowrap; }
+  td.rate .bar-track{
+    display:inline-block; width:56px; height:5px; background:rgba(255,255,255,0.08);
+    border-radius:3px; margin-right:9px; vertical-align:middle; overflow:hidden;
+  }
+  td.rate .bar-fill{ display:block; height:100%; background:var(--cyan); border-radius:3px; }
+  td.rate .na{ color:rgba(255,255,255,0.3); }
 
   .empty{ padding:40px 0; text-align:center; color:rgba(255,255,255,0.3); font-family:'Cormorant Garamond',serif; font-size:1.25rem; }
 
@@ -136,9 +199,10 @@
 <script src="site-nav.js" data-active="click-stats"></script>
 
 <div class="wrap">
-  <div class="brand"><a href="index.html">ZurVault</a> / Click Tracking</div>
-  <h1>Outbound <span>Click Tracking</span></h1>
-  <p class="sub">Every click on a Magic Eden listing/sale card, individually — not just a per-collection tally. Candy.io links are never tracked (no purchase flow there). Not linked from site nav; internal tool only. Counts a rolling 90-day window, since click entries expire after that.</p>
+  <div class="brand"><a href="index.html">ZurVault</a> / Engagement Report</div>
+  <h1>Engagement &amp; <span>Conversion</span></h1>
+  <p class="sub">How visitors interact with listings after landing on ZurVault — every outbound click to Magic Eden, tracked individually and cross-referenced against real sales, to show what's actually converting.</p>
+  <p class="scope-note">Scope: outbound click and sale-conversion data only, rolling 90-day window. Session duration, page views, and visitor counts aren't instrumented on this site yet.</p>
 
   <div id="status"><span class="dot"></span>Loading&hellip;</div>
 
@@ -151,12 +215,33 @@
       <div class="stat-label">Distinct Collections</div>
       <div class="stat-value" id="distinctValue">0</div>
     </div>
+    <div class="stat">
+      <div class="stat-label">Click &rarr; Possible Sale (90d)</div>
+      <div class="stat-value" id="overallRateValue">&mdash;</div>
+    </div>
   </div>
 
   <div class="section-label">Clicks Per Day (Last 30 Days)</div>
   <div class="chart" id="chart" style="display:none;"></div>
   <div class="chart-labels" id="chartLabels" style="display:none;"></div>
   <div class="empty" id="chartEmpty" style="display:none;">No clicks logged yet.</div>
+
+  <div class="section-label">Browsing Patterns</div>
+  <p class="section-note">All times UTC. Still filling in with only a few days of history — patterns get more reliable the longer this runs.</p>
+  <div class="split-row">
+    <div>
+      <div style="font-size:.85rem; color:rgba(255,255,255,0.5); margin-bottom:10px;">By Hour of Day</div>
+      <div class="chart chart-sm" id="hourChart" style="display:none;"></div>
+      <div class="chart-labels" id="hourChartLabels" style="display:none;"></div>
+      <div class="empty" id="hourChartEmpty" style="display:none;">No clicks logged yet.</div>
+    </div>
+    <div>
+      <div style="font-size:.85rem; color:rgba(255,255,255,0.5); margin-bottom:10px;">By Day of Week</div>
+      <div class="chart chart-sm" id="weekdayChart" style="display:none;"></div>
+      <div class="chart-labels" id="weekdayChartLabels" style="display:none;"></div>
+      <div class="empty" id="weekdayChartEmpty" style="display:none;">No clicks logged yet.</div>
+    </div>
+  </div>
 
   <div class="section-label">Clicks vs. Possible Sales (Weekly)</div>
   <p class="sub" style="font-size:.9rem; margin-bottom:16px;" id="convBlurb">A listing click is flagged as a "possible sale" if that same listing sold on Magic Eden within a few minutes afterward — a per-listing signal, not proof any one click caused the sale (a listing clicked by several people right before it sells flags all of them). Only reflects sales tracked going forward from when this chart shipped, so early weeks will under-count until history builds up.</p>
@@ -178,6 +263,18 @@
   <div class="chart-labels" id="convChartLabels" style="display:none;"></div>
   <div class="empty" id="convChartEmpty" style="display:none;">No listing clicks logged yet.</div>
 
+  <div class="section-label">Top Clicked Listings</div>
+  <p class="section-note">The individual comics getting the most outbound interest, not just the most popular collections.</p>
+  <div id="topListings"></div>
+  <div class="empty" id="topListingsEmpty" style="display:none;">No individual listing clicks logged yet.</div>
+
+  <div class="section-label">Conversion Rate by Collection</div>
+  <p class="section-note">Rate is possible sales &divide; listing-level clicks for that collection &mdash; collection-level "browse" clicks aren't counted in the denominator since they can't be tied to one sale. A dash means no listing-level clicks yet, not a 0% rate.</p>
+  <table id="table" style="display:none;">
+    <thead><tr><th>Collection Symbol</th><th class="num">Clicks</th><th class="num">Possible Sales</th><th class="num">Rate</th></tr></thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+
   <div class="section-label">Recent Listing Clicks</div>
   <table id="feedTable" style="display:none;">
     <thead><tr><th>When</th><th>Collection</th><th>Listing</th></tr></thead>
@@ -185,12 +282,6 @@
   </table>
   <div class="truncated-note" id="feedTruncatedNote" style="display:none;"></div>
   <div class="empty" id="feedEmpty" style="display:none;">No individual listing clicks logged yet.</div>
-
-  <div class="section-label">By Collection</div>
-  <table id="table" style="display:none;">
-    <thead><tr><th>Collection Symbol</th><th style="text-align:right">Clicks</th></tr></thead>
-    <tbody id="tableBody"></tbody>
-  </table>
 </div>
 
 <footer>
@@ -200,11 +291,13 @@
 <script>
 const ME_PROXY_BASE = "https://zurvault-proxy.stholt.workers.dev";
 const CLICK_STATS_URL = ME_PROXY_BASE + "/v2/click-stats";
+const DC_SUMMARY_URL = ME_PROXY_BASE + "/v2/dc-summary";
 
 const statusEl = document.getElementById('status');
 const totalRowEl = document.getElementById('totalRow');
 const totalValueEl = document.getElementById('totalValue');
 const distinctValueEl = document.getElementById('distinctValue');
+const overallRateValueEl = document.getElementById('overallRateValue');
 const tableEl = document.getElementById('table');
 const tableBodyEl = document.getElementById('tableBody');
 const feedTableEl = document.getElementById('feedTable');
@@ -214,6 +307,12 @@ const feedEmptyEl = document.getElementById('feedEmpty');
 const chartEl = document.getElementById('chart');
 const chartLabelsEl = document.getElementById('chartLabels');
 const chartEmptyEl = document.getElementById('chartEmpty');
+const hourChartEl = document.getElementById('hourChart');
+const hourChartLabelsEl = document.getElementById('hourChartLabels');
+const hourChartEmptyEl = document.getElementById('hourChartEmpty');
+const weekdayChartEl = document.getElementById('weekdayChart');
+const weekdayChartLabelsEl = document.getElementById('weekdayChartLabels');
+const weekdayChartEmptyEl = document.getElementById('weekdayChartEmpty');
 const convBlurbEl = document.getElementById('convBlurb');
 const convStatRowEl = document.getElementById('convStatRow');
 const convRateValueEl = document.getElementById('convRateValue');
@@ -222,6 +321,8 @@ const convLegendEl = document.getElementById('convLegend');
 const convChartEl = document.getElementById('convChart');
 const convChartLabelsEl = document.getElementById('convChartLabels');
 const convChartEmptyEl = document.getElementById('convChartEmpty');
+const topListingsEl = document.getElementById('topListings');
+const topListingsEmptyEl = document.getElementById('topListingsEmpty');
 
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 
@@ -283,6 +384,60 @@ function renderDailyChart(byDay){
   chartLabelsEl.style.display = 'flex';
 }
 
+const HOUR_LABELS = ['12a','1a','2a','3a','4a','5a','6a','7a','8a','9a','10a','11a','12p','1p','2p','3p','4p','5p','6p','7p','8p','9p','10p','11p'];
+
+// byHour comes back keyed 0-23 (UTC) — zero-filled the same way the daily
+// chart is, so a quiet hour reads as "quiet," not as a gap in the data.
+function renderHourlyChart(byHour){
+  const counts = [];
+  for(let h = 0; h < 24; h++) counts.push((byHour && byHour[h]) || 0);
+  const total = counts.reduce((a, b) => a + b, 0);
+
+  if(total === 0){
+    hourChartEl.style.display = 'none';
+    hourChartLabelsEl.style.display = 'none';
+    hourChartEmptyEl.style.display = 'block';
+    return;
+  }
+  hourChartEmptyEl.style.display = 'none';
+
+  const max = Math.max(...counts, 1);
+  hourChartEl.innerHTML = counts.map((c, i) => {
+    const pct = Math.max((c / max) * 100, c > 0 ? 4 : 3);
+    return `<div class="chart-bar" style="height:${pct}%"><span class="chart-tooltip">${HOUR_LABELS[i]} UTC: ${c} click${c === 1 ? '' : 's'}</span></div>`;
+  }).join('');
+  hourChartEl.style.display = 'flex';
+
+  hourChartLabelsEl.innerHTML = counts.map((c, i) => `<span>${i % 4 === 0 ? HOUR_LABELS[i] : ''}</span>`).join('');
+  hourChartLabelsEl.style.display = 'flex';
+}
+
+const WEEKDAY_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+function renderWeekdayChart(byWeekday){
+  const counts = [];
+  for(let d = 0; d < 7; d++) counts.push((byWeekday && byWeekday[d]) || 0);
+  const total = counts.reduce((a, b) => a + b, 0);
+
+  if(total === 0){
+    weekdayChartEl.style.display = 'none';
+    weekdayChartLabelsEl.style.display = 'none';
+    weekdayChartEmptyEl.style.display = 'block';
+    return;
+  }
+  weekdayChartEmptyEl.style.display = 'none';
+
+  const max = Math.max(...counts, 1);
+  weekdayChartEl.innerHTML = counts.map((c, i) => {
+    const pct = Math.max((c / max) * 100, c > 0 ? 4 : 3);
+    return `<div class="chart-bar" style="height:${pct}%"><span class="chart-tooltip">${WEEKDAY_LABELS[i]}: ${c} click${c === 1 ? '' : 's'}</span></div>`;
+  }).join('');
+  weekdayChartEl.style.display = 'flex';
+
+  weekdayChartLabelsEl.innerHTML = counts.map((c, i) => `<span>${WEEKDAY_LABELS[i]}</span>`).join('');
+  weekdayChartLabelsEl.style.display = 'flex';
+}
+
 // weeklyConversion is already zero-filled and sorted oldest-to-newest by
 // the Worker (see /v2/click-stats in me-proxy-worker.js) — this just draws
 // it as stacked bars, same "always a continuous timeline" treatment as
@@ -329,6 +484,84 @@ function renderWeeklyConversionChart(weeks){
   convChartLabelsEl.style.display = 'flex';
 }
 
+// mint -> {name, image, sub} — enrichment only, purely cosmetic. Click
+// data itself only ever stores symbol+mint (see /v2/click-log's sanitize
+// step), so this cross-references the live /v2/dc-summary snapshot to
+// turn Top Clicked Listings from a wall of addresses into real comic
+// covers/titles. A mint that's since sold outside the 7-day sales window
+// or been delisted just won't resolve — renderTopListings() falls back to
+// shortMint() for those, same as the Recent Listing Clicks feed already
+// does for every listing, resolved or not.
+let mintInfo = {};
+let lastTopListings = [];
+async function loadMintInfo(){
+  try{
+    const res = await fetch(DC_SUMMARY_URL);
+    if(!res.ok) return;
+    const data = await res.json();
+    const all = [...(data.listings || []), ...(data.sales || [])];
+    for(const item of all){
+      const mint = item.mintAddress || item.mint;
+      if(!mint || !item.symbol) continue;
+      const key = `${item.symbol}:${mint}`;
+      if(!mintInfo[key]){
+        mintInfo[key] = { name: item.name || null, image: item.image || '', sub: item.sub || '' };
+      }
+    }
+  }catch(e){
+    console.error('dc-summary fetch failed (cover-art enrichment only, non-fatal):', e);
+  }
+}
+
+function renderTopListings(list){
+  if(!list || list.length === 0){
+    topListingsEl.innerHTML = '';
+    topListingsEmptyEl.style.display = 'block';
+    return;
+  }
+  topListingsEmptyEl.style.display = 'none';
+  topListingsEl.innerHTML = list.map((item, idx) => {
+    const key = `${item.symbol}:${item.mint}`;
+    const info = mintInfo[key];
+    const name = info && info.name ? info.name : shortMint(item.mint);
+    const sub = info && info.sub ? info.sub : item.symbol;
+    const image = info && info.image ? info.image : '';
+    return `
+      <a class="lb-row" href="${esc(item.pdpUrl)}" target="_blank" rel="noopener">
+        <div class="lb-rank">#${idx + 1}</div>
+        <img class="lb-thumb" ${image ? `src="${esc(image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
+        <div class="lb-info">
+          <div class="lb-sub">${esc(sub)}</div>
+          <div class="lb-name">${esc(name)}${item.possibleSale ? '<span class="sale-badge">possible sale</span>' : ''}</div>
+        </div>
+        <div class="lb-count"><span class="n">${item.clicks}</span><span class="label">click${item.clicks === 1 ? '' : 's'}</span></div>
+      </a>
+    `;
+  }).join('');
+}
+
+function renderConversionTable(rows){
+  if(!rows || rows.length === 0){
+    tableEl.style.display = 'none';
+    return;
+  }
+  tableBodyEl.innerHTML = rows.map(r => {
+    const ratePct = r.conversionRate === null ? null : Math.round(r.conversionRate * 100);
+    const rateHtml = ratePct === null
+      ? `<span class="na">&mdash;</span>`
+      : `<span class="bar-track"><span class="bar-fill" style="width:${Math.min(ratePct, 100)}%"></span></span>${ratePct}%`;
+    return `
+      <tr>
+        <td class="context">${esc(r.symbol)}</td>
+        <td class="count">${r.totalClicks}</td>
+        <td class="count">${r.possibleSales}</td>
+        <td class="rate">${rateHtml}</td>
+      </tr>
+    `;
+  }).join('');
+  tableEl.style.display = 'table';
+}
+
 async function load(){
   try{
     const res = await fetch(CLICK_STATS_URL);
@@ -343,24 +576,25 @@ async function load(){
     distinctValueEl.textContent = bySymbolEntries.length;
     totalRowEl.style.display = 'flex';
 
+    // Overall (90-day) click-to-possible-sale rate, distinct from the
+    // 12-week rate shown further down — computed from collectionBreakdown
+    // rather than duplicating logic already run server-side.
+    const breakdown = data.collectionBreakdown || [];
+    const totalListingClicks = breakdown.reduce((a, r) => a + r.listingClicks, 0);
+    const totalPossibleSales = breakdown.reduce((a, r) => a + r.possibleSales, 0);
+    overallRateValueEl.textContent = totalListingClicks > 0 ? Math.round((totalPossibleSales / totalListingClicks) * 100) + '%' : '—';
+
     renderDailyChart(data.byDay || {});
+    renderHourlyChart(data.byHour || {});
+    renderWeekdayChart(data.byWeekday || {});
     renderWeeklyConversionChart(data.weeklyConversion || []);
+    lastTopListings = data.topListings || [];
+    renderTopListings(lastTopListings);
+    renderConversionTable(breakdown);
 
     if(data.saleClickWindowSecs){
       const mins = Math.round(data.saleClickWindowSecs / 60);
       convBlurbEl.textContent = `A listing click is flagged as a "possible sale" if that same listing sold on Magic Eden within ${mins} minute${mins === 1 ? '' : 's'} afterward — a per-listing signal, not proof any one click caused the sale (a listing clicked by several people right before it sells flags all of them). Only reflects sales tracked going forward from when this chart shipped, so early weeks will under-count until history builds up.`;
-    }
-
-    if(bySymbolEntries.length === 0){
-      tableEl.style.display = 'none';
-    }else{
-      tableBodyEl.innerHTML = bySymbolEntries.map(([symbol, count]) => `
-        <tr>
-          <td class="context">${esc(symbol)}</td>
-          <td class="count">${count}</td>
-        </tr>
-      `).join('');
-      tableEl.style.display = 'table';
     }
 
     // Individual listing clicks — the actual "everyone who clicked a
@@ -395,8 +629,13 @@ async function load(){
   }
 }
 
+const REFRESH_INTERVAL = 45000;
+const MINT_INFO_REFRESH_INTERVAL = 5 * 60 * 1000; // cover-art lookup is cosmetic only — no need to refetch the full dc-summary payload every 45s
+
 load();
-setInterval(load, 45000);
+setInterval(load, REFRESH_INTERVAL);
+loadMintInfo().then(() => lastTopListings.length && renderTopListings(lastTopListings));
+setInterval(loadMintInfo, MINT_INFO_REFRESH_INTERVAL);
 </script>
 </body>
 </html>
