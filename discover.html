@@ -274,7 +274,7 @@ async function run(){
     const g = groups[key];
     return `
       <div class="row">
-        <img src="${esc(g.image)}" onerror="this.style.opacity=0.2">
+        <img ${g.image ? `src="${esc(g.image)}"` : ''} onerror="this.style.opacity=0.2">
         <div class="meta">
           <div class="name">${esc(g.name)}</div>
           <div class="sub mono">${key.slice(0,4)}…${key.slice(-4)}</div>

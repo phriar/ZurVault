@@ -311,7 +311,7 @@ function renderGrid(items){
     return `
       <div class="card">
         <a class="card-link" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}" data-track-mint="${esc(i.mintAddress)}">
-          <img src="${esc(i.image)}" loading="lazy" onerror="this.style.opacity=0.2">
+          <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
           <div class="body">
             <div class="sub">${esc(i.sub)}</div>
             <div class="name">${esc(i.name)}</div>
@@ -340,7 +340,7 @@ function renderList(items){
     return `
       <div class="list-row">
         <a class="row-link" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}" data-track-mint="${esc(i.mintAddress)}">
-          <img src="${esc(i.image)}" loading="lazy" onerror="this.style.opacity=0.2">
+          <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
           <div class="info">
             <div class="sub">${esc(i.sub)}</div>
             <div class="name">${esc(i.name)}</div>

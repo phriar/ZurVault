@@ -211,7 +211,7 @@ if (typeof SPOTLIGHTS !== 'undefined' && SPOTLIGHTS.length) {
   const s = SPOTLIGHTS[0];
   spotlightSlot.innerHTML = `
     <a class="spotlight-card" href="spotlight.html?id=${encodeURIComponent(s.id)}">
-      <img src="${s.heroImage || ''}" onerror="this.style.opacity=0.2">
+      <img ${s.heroImage ? `src="${s.heroImage}"` : ''} onerror="this.style.opacity=0.2">
       <div>
         <div class="eyebrow">Spotlight</div>
         <div class="title">${esc(s.title)}</div>

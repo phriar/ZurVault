@@ -304,7 +304,7 @@ function renderCard(grail){
   const listingsPanel = listings.length
     ? listings.map(l => `
         <a class="item-row" href="${esc(l.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(l.symbol)}" data-track-mint="${esc(l.mintAddress)}">
-          <img src="${esc(l.image)}" loading="lazy" onerror="this.style.opacity=0.2">
+          <img ${l.image ? `src="${esc(l.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
           <div class="item-info">
             <div class="item-name">${esc(l.name)}</div>
           </div>
@@ -319,7 +319,7 @@ function renderCard(grail){
   const salesPanel = sales.length
     ? sales.map(s => `
         <a class="item-row" href="${esc(s.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(s.symbol)}" data-track-mint="${esc(s.mint)}">
-          <img src="${esc(s.image)}" loading="lazy" onerror="this.style.opacity=0.2">
+          <img ${s.image ? `src="${esc(s.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
           <div class="item-info">
             <div class="item-name">Sold &middot; ${shortMint(s.mint)}</div>
             ${s.soldAt ? `<div class="item-time">${timeAgo(s.soldAt)}</div>` : ''}
