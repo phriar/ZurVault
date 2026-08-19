@@ -719,17 +719,26 @@ async function buildDCHistory(env) {
 
 // Live SOL/USD spot price for click-stats.html's possible-sale GMV
 // estimate. Edge-cached (Cache API, same pattern as dc-summary/dc-history
-// above) for SOL_USD_CACHE_SECONDS: in practice this hits CoinGecko about
-// once per cache window total, shared across every visitor, regardless of
-// click-stats poll frequency — negligible added latency on almost every
-// request, and nowhere near CoinGecko's free-tier rate limit. No cron/KV
-// involvement needed: unlike collection/history data, this doesn't need
-// to survive a cold cache — a miss just costs one extra fetch on that one
-// request, same tradeoff already accepted for the pass-through proxy's
-// own 60s edge cache. Returns null (never a fake price) on any failure,
-// so the GMV feature degrades to "SOL volume only, no USD estimate"
-// instead of showing a wrong dollar figure.
-const SOL_USD_CACHE_SECONDS = 600; // 10 min — plenty fresh for a rough estimate, far under CoinGecko's rate limit
+// above) for SOL_USD_CACHE_SECONDS: in practice this hits the price API
+// about once per cache window total, shared across every visitor,
+// regardless of click-stats poll frequency. No cron/KV involvement
+// needed: unlike collection/history data, this doesn't need to survive a
+// cold cache — a miss just costs one extra fetch on that one request,
+// same tradeoff already accepted for the pass-through proxy's own 60s
+// edge cache. Returns null (never a fake price) on any failure, so the
+// GMV feature degrades to "SOL volume only, no USD estimate" instead of
+// showing a wrong dollar figure.
+//
+// Coinbase's public spot-price endpoint, not CoinGecko: confirmed live
+// (2026-08-18) that CoinGecko's public API reliably returns nothing when
+// called from this Worker despite working fine from an ordinary IP —
+// consistent with CoinGecko's well-known aggressive rate-limiting of
+// shared cloud/edge egress ranges (Cloudflare Workers' IPs are shared
+// across every tenant hitting CoinGecko from that edge, not just this
+// site's own traffic). Binance's public ticker was also tried and ruled
+// out — it 451s entirely for some regions, which would make results
+// depend on which Cloudflare PoP happens to run the request.
+const SOL_USD_CACHE_SECONDS = 600; // 10 min — plenty fresh for a rough estimate
 async function getSolUsdPrice(url, env) {
   const cache = caches.default;
   const cacheKey = new Request(url.origin + "/__sol-usd-price", { method: "GET" });
@@ -739,21 +748,23 @@ async function getSolUsdPrice(url, env) {
     return body.price;
   }
   try {
-    const res = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd", {
+    const res = await fetch("https://api.coinbase.com/v2/prices/SOL-USD/spot", {
       headers: { Accept: "application/json" },
     });
     if (!res.ok) return null;
     const data = await res.json();
-    const price = typeof data?.solana?.usd === "number" ? data.solana.usd : null;
-    if (price != null) {
+    const raw = data?.data?.amount;
+    const price = raw != null ? parseFloat(raw) : null;
+    if (price != null && !isNaN(price)) {
       await cache.put(
         cacheKey,
         new Response(JSON.stringify({ price }), {
           headers: { "Content-Type": "application/json", "Cache-Control": `public, max-age=${SOL_USD_CACHE_SECONDS}` },
         })
       );
+      return price;
     }
-    return price;
+    return null;
   } catch (err) {
     console.error("getSolUsdPrice failed:", err.message);
     return null;
