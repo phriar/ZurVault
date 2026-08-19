@@ -237,6 +237,14 @@
   <button class="pill" data-tier="Legendary">Legendary</button>
 </div>
 
+<!-- Item Type (Collectible/Pack/Comic, etc.) isn't a fixed known set the
+     way rarity tiers are — it's built from whatever distinct values are
+     actually present in the live data (see buildItemTypePills()), same
+     "don't hardcode what varies per drop" lesson as Cover Artist. Hidden
+     entirely if fewer than 2 distinct types are currently live — a
+     single-value filter row is just noise. -->
+<div class="pills" id="itemTypePills" style="display:none;"></div>
+
 <div id="status"><span class="dot"></span>Loading&hellip;</div>
 <div id="grid" class="grid"></div>
 
@@ -255,8 +263,10 @@ const minPriceEl = document.getElementById('minPrice');
 const maxPriceEl = document.getElementById('maxPrice');
 const searchInputEl = document.getElementById('searchInput');
 const pillsEl = document.getElementById('pills');
+const itemTypePillsEl = document.getElementById('itemTypePills');
 
 let allListings = [];
+let selectedItemType = null;
 let minPrice = null;
 let maxPrice = null;
 let searchQuery = '';
@@ -365,13 +375,14 @@ function render(){
     .filter(i => maxPrice === null || (i.price !== null && i.price <= maxPrice))
     .filter(i => !searchQuery || `${i.name || ''} ${i.sub || ''}`.toLowerCase().includes(searchQuery))
     .filter(i => !selectedTier || i.rarity === selectedTier)
+    .filter(i => !selectedItemType || i.itemType === selectedItemType)
     .slice()
     .sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
 
   if(items.length === 0){
     gridEl.className = currentView;
-    const hint = (minPrice !== null || maxPrice !== null || searchQuery || selectedTier)
-      ? 'Try a wider price range, a different search, or a different rarity tier.'
+    const hint = (minPrice !== null || maxPrice !== null || searchQuery || selectedTier || selectedItemType)
+      ? 'Try a wider price range, a different search, a different rarity tier, or a different item type.'
       : 'Check back later.';
     gridEl.innerHTML = `<div class="empty">Nothing matches this filter right now.<br>${hint}</div>`;
     return;
@@ -379,6 +390,36 @@ function render(){
 
   if(currentView === 'list') renderList(items);
   else renderGrid(items);
+}
+
+// Item Type isn't a fixed known set the way rarity tiers are (candy.io
+// drops don't all use the same vocabulary) — built from whatever distinct
+// values are actually present in this load's listings, same live-data-
+// driven approach already used for Cover Artist. Re-run on every load()
+// rather than once, since which types exist can change over time (e.g.
+// "Pack" listings appearing where there weren't any before).
+function buildItemTypePills(items){
+  const types = [...new Set(items.map(i => i.itemType).filter(Boolean))].sort();
+  if(types.length < 2){
+    itemTypePillsEl.style.display = 'none';
+    itemTypePillsEl.innerHTML = '';
+    if(selectedItemType && !types.includes(selectedItemType)) selectedItemType = null;
+    return;
+  }
+  if(selectedItemType && !types.includes(selectedItemType)) selectedItemType = null;
+  itemTypePillsEl.innerHTML = [
+    `<button class="pill${selectedItemType ? '' : ' active'}" data-item-type="">All Types</button>`,
+    ...types.map(t => `<button class="pill${selectedItemType === t ? ' active' : ''}" data-item-type="${esc(t)}">${esc(t)}</button>`),
+  ].join('');
+  itemTypePillsEl.querySelectorAll('.pill[data-item-type]').forEach(p => {
+    p.addEventListener('click', () => {
+      itemTypePillsEl.querySelectorAll('.pill[data-item-type]').forEach(x => x.classList.remove('active'));
+      p.classList.add('active');
+      selectedItemType = p.dataset.itemType || null;
+      render();
+    });
+  });
+  itemTypePillsEl.style.display = 'flex';
 }
 
 async function load(){
@@ -395,6 +436,7 @@ async function load(){
 
     allListings = (data.listings || []).filter(i => i.price !== null);
     const withRarity = allListings.filter(i => i.rarity).length;
+    buildItemTypePills(allListings);
     const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
     setStatus(`${allListings.length} priced listing(s), ${withRarity} with rarity data · updated ${updated}.`);
   }catch(e){

@@ -493,6 +493,22 @@ function extractCoverArtists(attributes) {
     .filter(Boolean);
 }
 
+// Item Type ("Collectible", "Pack", "Comic" confirmed live) is the same
+// story as Rarity/Cover Artist above — varies per listing within a
+// collection, not per collection (confirmed: tales_of_the_teen_titans_
+// 19801988_44 has both Collectible and Pack listings live at once), so it
+// has to come from each listing's own attributes rather than a static
+// map. Unlike Rarity's raw values, nothing inconsistent has been observed
+// in Item Type's formatting yet (no embedded percentages, no per-drop
+// casing drift) — kept as a light trim-and-passthrough rather than a
+// RARITY_ALIASES-style lookup table until real inconsistency shows up.
+function extractItemType(attributes) {
+  const attr = (attributes || []).find((a) => /^item type$/i.test(a?.trait_type || ""));
+  if (!attr) return null;
+  const raw = String(attr.value || "").trim();
+  return raw || null;
+}
+
 function deriveSales(activities, col) {
   const cutoff = Date.now() / 1000 - SALES_WINDOW_SECS;
   const sales = [];
@@ -542,14 +558,15 @@ async function refreshOneCollection(col, env) {
         pdpUrl: `https://magiceden.io/item-details/${mint}`,
         // Only listings carry attributes from Magic Eden's response —
         // activities (what sales are derived from, below) don't include
-        // token.attributes at all, so sold items have no rarity/cover-artist
-        // captured here. Getting either onto sales would mean a separate
-        // per-mint metadata fetch for every sale, which isn't worth the
-        // added load on top of the rate limiting this file already fights
-        // — deferred, same as rarity.
+        // token.attributes at all, so sold items have no rarity/cover-artist/
+        // item-type captured here. Getting any of these onto sales would
+        // mean a separate per-mint metadata fetch for every sale, which
+        // isn't worth the added load on top of the rate limiting this file
+        // already fights — deferred, same as rarity.
         rarity: rarityInfo.tier,
         rarityPct: rarityInfo.pct,
         coverArtists: extractCoverArtists(item?.token?.attributes),
+        itemType: extractItemType(item?.token?.attributes),
       };
     });
     const sales = deriveSales(Array.isArray(activities) ? activities : [], col);
