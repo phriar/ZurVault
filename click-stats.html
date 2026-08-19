@@ -51,6 +51,16 @@
     margin-bottom:30px; border-left:2px solid rgba(143,111,232,0.3); padding-left:12px;
   }
 
+  /* Sits directly under the raw click/collection counts specifically so a
+     "90-day window" label never gets read as "this many clicks accumulated
+     over three months" while the product is still new — the count and its
+     actual start date are never more than one line apart. rgba(255,255,255,0.35)
+     was 3.14:1 (fail); 0.45 clears the 4.5:1 AA bar this page holds small
+     text to elsewhere. */
+  p.tracking-since{
+    font-size:.8rem; color:rgba(255,255,255,0.45); margin:-14px 0 32px; letter-spacing:.02em;
+  }
+
   .section-label{
     font-size:.8rem; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,0.4);
     margin:36px 0 14px;
@@ -208,18 +218,37 @@
 
   <div class="total-row" id="totalRow" style="display:none;">
     <div class="stat">
-      <div class="stat-label">Total Clicks (90d)</div>
+      <div class="stat-label">Total Clicks (90d window)</div>
       <div class="stat-value" id="totalValue">0</div>
     </div>
     <div class="stat">
       <div class="stat-label">Distinct Collections</div>
       <div class="stat-value" id="distinctValue">0</div>
     </div>
+  </div>
+  <p class="tracking-since" id="trackingSince" style="display:none;"></p>
+
+  <div class="section-label">Possible-Sale Volume</div>
+  <p class="section-note">Every click flagged as a "possible sale" (see Weekly Conversion below for the definition), valued at its actual Magic Eden sale price and summed once per sale &mdash; not once per click, so a listing viewed by several people right before it sold still counts as one sale. USD is a rough estimate at the current SOL price, not the historical rate on each sale's date.</p>
+  <div class="total-row" id="gmvRow" style="display:none;">
     <div class="stat">
-      <div class="stat-label">Click &rarr; Possible Sale (90d)</div>
-      <div class="stat-value" id="overallRateValue">&mdash;</div>
+      <div class="stat-label">Possible Sales</div>
+      <div class="stat-value" id="gmvCountValue">0</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Possible-Sale Rate</div>
+      <div class="stat-value" id="gmvRateValue">&mdash;</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Possible-Sale Volume</div>
+      <div class="stat-value" id="gmvSolValue">0 SOL</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Est. USD Volume</div>
+      <div class="stat-value" id="gmvUsdValue">&mdash;</div>
     </div>
   </div>
+  <p class="truncated-note" id="gmvUnknownNote" style="display:none;"></p>
 
   <div class="section-label">Clicks Per Day (Last 30 Days)</div>
   <div class="chart" id="chart" style="display:none;"></div>
@@ -297,7 +326,13 @@ const statusEl = document.getElementById('status');
 const totalRowEl = document.getElementById('totalRow');
 const totalValueEl = document.getElementById('totalValue');
 const distinctValueEl = document.getElementById('distinctValue');
-const overallRateValueEl = document.getElementById('overallRateValue');
+const trackingSinceEl = document.getElementById('trackingSince');
+const gmvRowEl = document.getElementById('gmvRow');
+const gmvCountValueEl = document.getElementById('gmvCountValue');
+const gmvRateValueEl = document.getElementById('gmvRateValue');
+const gmvSolValueEl = document.getElementById('gmvSolValue');
+const gmvUsdValueEl = document.getElementById('gmvUsdValue');
+const gmvUnknownNoteEl = document.getElementById('gmvUnknownNote');
 const tableEl = document.getElementById('table');
 const tableBodyEl = document.getElementById('tableBody');
 const feedTableEl = document.getElementById('feedTable');
@@ -576,13 +611,47 @@ async function load(){
     distinctValueEl.textContent = bySymbolEntries.length;
     totalRowEl.style.display = 'flex';
 
-    // Overall (90-day) click-to-possible-sale rate, distinct from the
-    // 12-week rate shown further down — computed from collectionBreakdown
-    // rather than duplicating logic already run server-side.
+    // "Tracking since" — earliestClickDay is the oldest day currently in
+    // the 90-day window, not a fixed launch date (see the Worker's own
+    // comment on this field), but that distinction doesn't matter yet at
+    // this stage and this is exactly the number that makes the "(90d
+    // window)" label above stop reading as "3 months of data" when the
+    // product just launched.
+    if(data.earliestClickDay){
+      const since = new Date(data.earliestClickDay + 'T00:00:00Z');
+      const days = Math.max(1, Math.round((Date.now() - since.getTime()) / 86400000));
+      const sinceLabel = since.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+      trackingSinceEl.textContent = `Tracking since ${sinceLabel} (${days} day${days === 1 ? '' : 's'}) — not a full 90-day history yet.`;
+      trackingSinceEl.style.display = 'block';
+    }else{
+      trackingSinceEl.style.display = 'none';
+    }
+
+    // Possible-Sale Volume — the commercially-relevant headline block.
+    // possibleSaleCount/Volume come pre-deduped from the Worker (summed
+    // once per underlying sale, not once per click that flagged it — see
+    // matchedSales in /v2/click-stats). Rate uses the same unique-sale
+    // count over total listing-level clicks, not the per-click count
+    // shown in the Weekly Conversion section below — the two are usually
+    // close but not guaranteed identical, and this one is the correct
+    // denominator for a "how much of our click volume is real commerce"
+    // headline number.
     const breakdown = data.collectionBreakdown || [];
     const totalListingClicks = breakdown.reduce((a, r) => a + r.listingClicks, 0);
-    const totalPossibleSales = breakdown.reduce((a, r) => a + r.possibleSales, 0);
-    overallRateValueEl.textContent = totalListingClicks > 0 ? Math.round((totalPossibleSales / totalListingClicks) * 100) + '%' : '—';
+    const possibleSaleCount = data.possibleSaleCount ?? 0;
+    gmvCountValueEl.textContent = possibleSaleCount;
+    gmvRateValueEl.textContent = totalListingClicks > 0 ? ((possibleSaleCount / totalListingClicks) * 100).toFixed(1) + '%' : '—';
+    gmvSolValueEl.textContent = (data.possibleSaleVolumeSol ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' SOL';
+    gmvUsdValueEl.textContent = data.possibleSaleVolumeUsd != null
+      ? '$' + data.possibleSaleVolumeUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })
+      : '—';
+    gmvRowEl.style.display = 'flex';
+    if(data.possibleSaleVolumeUnknownCount){
+      gmvUnknownNoteEl.textContent = `${data.possibleSaleVolumeUnknownCount} possible sale(s) tracked before price capture shipped aren't included in the SOL/USD totals above (still counted in "Possible Sales").`;
+      gmvUnknownNoteEl.style.display = 'block';
+    }else{
+      gmvUnknownNoteEl.style.display = 'none';
+    }
 
     renderDailyChart(data.byDay || {});
     renderHourlyChart(data.byHour || {});

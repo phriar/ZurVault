@@ -570,12 +570,18 @@ async function refreshOneCollection(col, env) {
     // Runs alongside updateCollectionHistory() (below) — independent of
     // each other and of the collection:* write above, no reason to
     // serialize them.
+    // Price rides in the key itself (not the value) — same "encode
+    // everything in the key, no per-entry .get() needed on read" pattern
+    // as the rest of this KV namespace, so /v2/click-stats' possible-sale
+    // GMV total stays a pure .list() scan instead of one .get() per sale.
+    // A price-less legacy 3-part key (from before this field existed)
+    // just won't contribute a dollar figure — no way to backfill it.
     await Promise.all([
       updateCollectionHistory(col, listings, env),
       ...sales
         .filter((s) => s.mint && s.soldAt)
         .map((s) =>
-          env.DC_CACHE.put(`sale:${col.symbol}:${s.mint}:${s.soldAt}`, "1", { expirationTtl: CLICK_TTL_SECONDS })
+          env.DC_CACHE.put(`sale:${col.symbol}:${s.mint}:${s.soldAt}:${s.price ?? ""}`, "1", { expirationTtl: CLICK_TTL_SECONDS })
         ),
     ]);
 
@@ -709,6 +715,49 @@ async function buildDCHistory(env) {
     }
   }
   return JSON.stringify({ collections, updatedAt: oldestUpdatedAt });
+}
+
+// Live SOL/USD spot price for click-stats.html's possible-sale GMV
+// estimate. Edge-cached (Cache API, same pattern as dc-summary/dc-history
+// above) for SOL_USD_CACHE_SECONDS: in practice this hits CoinGecko about
+// once per cache window total, shared across every visitor, regardless of
+// click-stats poll frequency — negligible added latency on almost every
+// request, and nowhere near CoinGecko's free-tier rate limit. No cron/KV
+// involvement needed: unlike collection/history data, this doesn't need
+// to survive a cold cache — a miss just costs one extra fetch on that one
+// request, same tradeoff already accepted for the pass-through proxy's
+// own 60s edge cache. Returns null (never a fake price) on any failure,
+// so the GMV feature degrades to "SOL volume only, no USD estimate"
+// instead of showing a wrong dollar figure.
+const SOL_USD_CACHE_SECONDS = 600; // 10 min — plenty fresh for a rough estimate, far under CoinGecko's rate limit
+async function getSolUsdPrice(url, env) {
+  const cache = caches.default;
+  const cacheKey = new Request(url.origin + "/__sol-usd-price", { method: "GET" });
+  const cached = await cache.match(cacheKey);
+  if (cached) {
+    const body = await cached.json();
+    return body.price;
+  }
+  try {
+    const res = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd", {
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const price = typeof data?.solana?.usd === "number" ? data.solana.usd : null;
+    if (price != null) {
+      await cache.put(
+        cacheKey,
+        new Response(JSON.stringify({ price }), {
+          headers: { "Content-Type": "application/json", "Cache-Control": `public, max-age=${SOL_USD_CACHE_SECONDS}` },
+        })
+      );
+    }
+    return price;
+  } catch (err) {
+    console.error("getSolUsdPrice failed:", err.message);
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------
@@ -907,12 +956,17 @@ export default {
 
       // Sales persisted per mint (see refreshOneCollection above) — cross-
       // referenced against listingClicks below to flag "possible sale"
-      // clicks. Keyed on "symbol:mint" -> array of soldAt in ms, since a
-      // mint can in principle resell more than once inside the retention
+      // clicks. Keyed on "symbol:mint" -> Map<soldAtMs, price|null>, since
+      // a mint can in principle resell more than once inside the retention
       // window and each sale needs its own check against SALE_CLICK_WINDOW_
-      // SECS. sale:{symbol}:{mint}:{soldAt} keys store soldAt as Magic
-      // Eden's blockTime, i.e. seconds — converted to ms here to compare
-      // directly against clickedAt.
+      // SECS. sale:{symbol}:{mint}:{soldAt}:{price} keys store soldAt as
+      // Magic Eden's blockTime, i.e. seconds — converted to ms here to
+      // compare directly against clickedAt. Keying the inner collection by
+      // soldAt (not pushing to an array) also absorbs the one-time
+      // transition where an older price-less 3-part key and a newer
+      // 4-part price-carrying key can briefly coexist for the same sale
+      // (the price-carrying write just wins), so a sale is never
+      // double-counted toward GMV below.
       const salesByKey = {};
       let saleCursor;
       do {
@@ -920,11 +974,15 @@ export default {
         for (const k of page.keys) {
           const parts = k.name.slice("sale:".length).split(":");
           if (parts.length < 3) continue;
-          const [symbol, mint, soldAtRaw] = parts;
+          const [symbol, mint, soldAtRaw, priceRaw] = parts;
           const soldAt = (parseInt(soldAtRaw, 10) || 0) * 1000;
           if (!soldAt) continue;
+          const price = priceRaw !== undefined && priceRaw !== "" ? parseFloat(priceRaw) : null;
           const mapKey = `${symbol}:${mint}`;
-          (salesByKey[mapKey] || (salesByKey[mapKey] = [])).push(soldAt);
+          const m = salesByKey[mapKey] || (salesByKey[mapKey] = new Map());
+          if (!m.has(soldAt) || (price != null && m.get(soldAt) == null)) {
+            m.set(soldAt, price);
+          }
         }
         saleCursor = page.list_complete ? undefined : page.cursor;
       } while (saleCursor);
@@ -933,12 +991,50 @@ export default {
       // landed within SALE_CLICK_WINDOW_SECS afterward — a per-listing
       // signal, not per-visitor attribution, since a listing clicked by
       // several people shortly before it sells flags all of their clicks.
+      // Also records which underlying sale(s) each click matched, keyed by
+      // "symbol:mint:soldAt" -> price, so a sale flagged possible by
+      // several different clicks (several people viewed it right before
+      // it sold) still contributes its price to GMV exactly once below —
+      // GMV counts real sales, not clicks.
+      const matchedSales = new Map();
       for (const c of listingClicks) {
-        const sales = salesByKey[`${c.symbol}:${c.mint}`] || [];
-        c.possibleSale =
-          c.clickedAt != null &&
-          sales.some((soldAt) => soldAt >= c.clickedAt && soldAt - c.clickedAt <= SALE_CLICK_WINDOW_SECS * 1000);
+        const sales = salesByKey[`${c.symbol}:${c.mint}`];
+        c.possibleSale = false;
+        if (sales && c.clickedAt != null) {
+          for (const [soldAt, price] of sales) {
+            if (soldAt >= c.clickedAt && soldAt - c.clickedAt <= SALE_CLICK_WINDOW_SECS * 1000) {
+              c.possibleSale = true;
+              matchedSales.set(`${c.symbol}:${c.mint}:${soldAt}`, { symbol: c.symbol, price });
+            }
+          }
+        }
       }
+
+      // Possible-sale GMV — summed once per unique matched sale (see
+      // matchedSales above), not once per click. priceUnknownCount covers
+      // sales matched from a legacy price-less sale:* key (written before
+      // this field existed) — excluded from the SOL total rather than
+      // silently treated as 0, since a real sale with an unknown price
+      // isn't the same as a $0 sale.
+      let possibleSaleVolumeSol = 0;
+      let possibleSaleVolumeUnknownCount = 0;
+      const possibleSalesBySymbol = {};
+      for (const { symbol, price } of matchedSales.values()) {
+        possibleSalesBySymbol[symbol] = (possibleSalesBySymbol[symbol] || 0) + 1;
+        if (price != null && !isNaN(price)) possibleSaleVolumeSol += price;
+        else possibleSaleVolumeUnknownCount++;
+      }
+      const possibleSaleCount = matchedSales.size;
+
+      // Rough estimate only — uses the current SOL/USD spot price for
+      // every sale regardless of when it happened, not the historical
+      // rate on that sale's actual date (fetching a historical rate per
+      // sale is real added complexity for a number that's already framed
+      // as an estimate). getSolUsdPrice() is edge-cached for 10 minutes,
+      // so this adds no meaningful latency or CoinGecko rate-limit risk
+      // on the vast majority of requests.
+      const solUsdPrice = await getSolUsdPrice(url, env);
+      const possibleSaleVolumeUsd = solUsdPrice != null ? possibleSaleVolumeSol * solUsdPrice : null;
 
       // Most-clicked individual listings, not just most-clicked collections
       // — "what people actually want," surfaced as its own leaderboard
@@ -973,12 +1069,13 @@ export default {
       // referenced against a specific sale. conversionRate is null (never
       // a fake 0) when a collection has no listing-level clicks yet, so a
       // collection that's only had collection-level clicks doesn't
-      // misleadingly read as "0% converting."
+      // misleadingly read as "0% converting." possibleSalesBySymbol is the
+      // same unique-sale-based map built above (near matchedSales), not
+      // re-derived by click count here — same "count sales, not clicks"
+      // reasoning as the GMV total.
       const listingClicksBySymbol = {};
-      const possibleSalesBySymbol = {};
       for (const c of listingClicks) {
         listingClicksBySymbol[c.symbol] = (listingClicksBySymbol[c.symbol] || 0) + 1;
-        if (c.possibleSale) possibleSalesBySymbol[c.symbol] = (possibleSalesBySymbol[c.symbol] || 0) + 1;
       }
       const collectionBreakdown = Object.keys(bySymbol)
         .map((symbol) => {
@@ -1036,6 +1133,20 @@ export default {
           retentionDays: CLICK_TTL_SECONDS / 86400,
           saleClickWindowSecs: SALE_CLICK_WINDOW_SECS,
           weeklyConversion,
+          possibleSaleCount,
+          possibleSaleVolumeSol,
+          possibleSaleVolumeUnknownCount,
+          solUsdPrice,
+          possibleSaleVolumeUsd,
+          // Earliest UTC day with a click in the *current* 90-day window,
+          // not a fixed "launch date" — this will start drifting forward
+          // once entries older than CLICK_TTL_SECONDS begin expiring
+          // (~90 days after tracking began), which is fine for a page
+          // whose whole point right now is "we just launched, look at the
+          // growth curve" but stops being literally true well past that
+          // point. Revisit with a real fixed launch-date constant if this
+          // page is still using this field after that.
+          earliestClickDay: Object.keys(byDay).sort()[0] || null,
         }),
         {
           status: 200,
