@@ -1,7 +1,7 @@
 /* ============================================================
    ZurVault shared top banner. Include right after <body> opens:
      <script src="site-nav.js" data-active="index"></script>
-   data-active values: index | discover | collections | artists | long-box | dollar-bin | spotlight | guide | comics | candy | grails
+   data-active values: index | discover | collections | artists | long-box | dollar-bin | spotlight | guide | comics | candy | grails | packs
 
    Self-injects its own <style> + markup, so every page shares one
    consistent site identity strip instead of duplicating markup.
@@ -23,28 +23,33 @@
 
   var COWL_URL = 'https://arweave.net/uyG3Nvb1UKTtm3q-tdHs4GNYOiEyaSTc7O0zhsc9gIQ';
 
-  // Primary nav is intentionally short — the site's focus is the
-  // series-collector experience (Listings, Grails, Collections).
-  // discover.html, comics.html, and candy-watcher.html are deliberately
-  // unlisted here (config-generation tool, reading fallback now that
-  // candy.io is primary, and a power-user watcher tool, respectively) —
-  // all three still work fine at their direct URLs and still include
-  // site-nav.js, they're just not in the banner.
+  // Primary nav is intentionally short. discover.html, comics.html,
+  // candy-watcher.html, click-stats.html, and dashboard.html are
+  // deliberately unlisted here (config-generation tool, reading fallback
+  // now that candy.io is primary, a power-user watcher tool, an internal
+  // report, and a page still being ironed out, respectively) — all still
+  // work fine at their direct URLs and still include site-nav.js, they're
+  // just not in the banner. grails.html, collections.html, and
+  // spotlight.html joined that same unlisted-but-functional group
+  // 2026-08-19 by user request (own direct-URL cross-links from other
+  // pages — e.g. index.html's spotlight teaser, collection.html's
+  // back-link — are untouched and still work; only the persistent top-
+  // banner entry was removed). packs.html moved the other direction the
+  // same day: added to the primary nav after shipping unlinked first.
   // characters.html/character.html, by contrast, were retired outright,
   // not just unlisted — character browsing now lives inside
   // collections.html as a "Characters" tab (?tab=characters) and inside
   // collection.html via ?c=<id>, both still under the `collections` nav
-  // id below. slideshow.html was pulled the same way on 2026-08-09 —
-  // removed from the repo, not just unlinked, alongside slideshow-legacy.html
-  // — while the Safe Browsing review is active.
+  // id even though that id is no longer in PAGES below. slideshow.html
+  // was pulled the same way on 2026-08-09 — removed from the repo, not
+  // just unlinked, alongside slideshow-legacy.html — while the Safe
+  // Browsing review is active.
   var PAGES = [
     { id: 'index',       label: 'Listings',      href: 'index.html' },
-    { id: 'grails',      label: 'Grails',        href: 'grails.html' },
-    { id: 'collections', label: 'Collections',   href: 'collections.html' },
     { id: 'artists',     label: 'Artists',       href: 'artists.html' },
     { id: 'long-box',    label: 'Long Box',      href: 'long-box.html' },
     { id: 'dollar-bin',  label: 'Dollar Bin',    href: 'dollar-bin.html' },
-    { id: 'spotlight',   label: 'Spotlight',     href: 'spotlight.html?id=why-the-killing-joke-still-matters' },
+    { id: 'packs',       label: 'Packs',         href: 'packs.html' },
     { id: 'guide',       label: 'How To',        href: 'guide.html' },
   ];
 
