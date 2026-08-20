@@ -130,6 +130,8 @@ Unlike character/series, all three vary per individual listing rather than per c
 
 ## Verifying things are working
 
+**A pushed static-file change (`.html`/`.js`, not the Worker) not showing up on zurvault.com after GitHub Pages should have deployed?** Discovered 2026-08-19 (`site-nav.js` edit): the custom domain sits behind Cloudflare's CDN cache — response headers show `cf-cache-status: HIT` and `cache-control: max-age=14400` (4 hours) for static assets, a completely separate caching layer from the Worker's own `caches.default` edge cache described elsewhere in this doc. GitHub Pages' origin can have the new file within seconds of a push while zurvault.com keeps serving a stale cached copy for up to 4 hours. To confirm the origin actually has the new content without waiting: `curl "https://zurvault.com/path/to/file.js?cachebust=$(date +%s)"` — a query string Cloudflare hasn't cached under forces a fresh fetch from origin. If that shows the right content, the deploy worked and it's purely a cache-freshness wait (or a manual Cloudflare dashboard cache purge) standing between it and a normal browser visit — not a real bug.
+
 **Local dev**: `python3 -m http.server 8000` from the repo root — `localhost:8000` is already in the Worker's `ALLOWED_ORIGINS`.
 
 **Is the Worker's aggregation actually running?**
