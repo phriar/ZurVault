@@ -1,7 +1,7 @@
 /* ============================================================
    ZurVault shared top banner. Include right after <body> opens:
      <script src="site-nav.js" data-active="index"></script>
-   data-active values: index | discover | collections | artists | long-box | dollar-bin | spotlight | guide | comics | candy | grails | packs
+   data-active values: index | discover | collections | artists | long-box | dollar-bin | spotlight | guide | comics | candy | grails | packs | quests
 
    Self-injects its own <style> + markup, so every page shares one
    consistent site identity strip instead of duplicating markup.
@@ -43,13 +43,18 @@
   // id even though that id is no longer in PAGES below. slideshow.html
   // was pulled the same way on 2026-08-09 — removed from the repo, not
   // just unlinked, alongside slideshow-legacy.html — while the Safe
-  // Browsing review is active.
+  // Browsing review is active. quests.html shipped straight into the
+  // primary nav (2026-08-21) rather than launching unlisted first, since
+  // Candy's live weekly quests are time-sensitive — a page nobody can
+  // find until a later promotion isn't useful for something with a
+  // deadline.
   var PAGES = [
     { id: 'index',       label: 'Listings',      href: 'index.html' },
     { id: 'artists',     label: 'Artists',       href: 'artists.html' },
     { id: 'long-box',    label: 'Long Box',      href: 'long-box.html' },
     { id: 'dollar-bin',  label: 'Dollar Bin',    href: 'dollar-bin.html' },
     { id: 'packs',       label: 'Packs',         href: 'packs.html' },
+    { id: 'quests',      label: 'Quests',        href: 'quests.html' },
     { id: 'guide',       label: 'How To',        href: 'guide.html' },
   ];
 
