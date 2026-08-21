@@ -283,7 +283,18 @@ const DC_COLLECTIONS = [
   { sub: "Abs Martian Manhunter 1 238", symbol: "absolute_martian_manhunter_2025_1" },
   { sub: "Superman (2023)", symbol: "superman_2023_1" },
   { sub: "Legends (1986-1987)", symbol: "legends_19861987_1" },
-  { sub: "Green Lantern 52 428", symbol: "dc3_super_power_packs_series_villains" },
+  // "sub" was originally "Green Lantern 52 428" -- a single sampled listing's
+  // name from discover.html's wallet scan, not a real collection label. Like
+  // the other dc3_super_power_packs_series_* entries, this collection's `sub`
+  // is whatever ONE issue happened to be sampled, but "villains" (unlike
+  // "superman"/"aquaman"/etc. above) is a themed multi-character pack, not a
+  // single-character one -- it also holds Penguin/Flash-villain issues, which
+  // were showing up under a "Green Lantern" search on long-box.html because
+  // every listing built from this symbol shares this one hardcoded `col.sub`
+  // (see refreshOneCollection() below). Fixed 2026-08-21 -- needs a manual
+  // Cloudflare redeploy of this file before it's live (see README's
+  // "Currently pending" note); index.html's copy is a static-file push only.
+  { sub: "DC Super Power Packs: Villains", symbol: "dc3_super_power_packs_series_villains" },
   { sub: "Batman (1940-2011)", symbol: "batman_19402011_655" },
   { sub: "Wonder Woman (1987-2006)", symbol: "wonder_woman_19872006_1" },
 ];
