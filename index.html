@@ -535,6 +535,22 @@ async function loadAll(isRefresh){
     subFilterEl.innerHTML = '<option value="">All sub-collections</option>' +
       DC_COLLECTIONS.slice().sort((a, b) => a.sub.localeCompare(b.sub))
         .map(c => `<option value="${c.sub}">${c.sub}</option>`).join('');
+
+    // Deep-link support: ?symbol=<Magic Eden symbol> pre-selects the
+    // matching sub-collection, so an external site (zurcovers.com's wallet
+    // viewer, so far) that only knows a listing's ME symbol — not this
+    // page's own "sub" display label — can link straight into that
+    // collection's listings instead of the unfiltered view. Silent no-op
+    // on an unknown/UNRESOLVED_* symbol: leaves the dropdown at "All
+    // sub-collections", same as a visitor who arrived with no param at
+    // all. No render() call needed here — loadAll() always calls it once
+    // real data has loaded, a few lines down, so the filtered view renders
+    // on the very first paint rather than needing a second render pass.
+    const symbolParam = new URLSearchParams(location.search).get('symbol');
+    if(symbolParam){
+      const match = DC_COLLECTIONS.find(c => c.symbol === symbolParam);
+      if(match) subFilterEl.value = match.sub;
+    }
   }
 
   setStatus(isRefresh ? 'Refreshing…' : 'Loading…');
