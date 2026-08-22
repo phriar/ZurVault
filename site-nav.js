@@ -28,28 +28,34 @@
   // here (config-generation tool, reading fallback now that candy.io is
   // primary, a power-user watcher tool, and an internal report,
   // respectively) — all still work fine at their direct URLs and still
-  // include site-nav.js, they're just not in the banner. grails.html,
-  // collections.html, and spotlight.html joined that same
-  // unlisted-but-functional group 2026-08-19 by user request (own
-  // direct-URL cross-links from other pages — e.g. index.html's spotlight
+  // include site-nav.js, they're just not in the banner. grails.html and
+  // spotlight.html joined that same unlisted-but-functional group
+  // 2026-08-19 by user request (own direct-URL cross-links from other
+  // pages — e.g. index.html's spotlight
   // teaser, collection.html's back-link — are untouched and still work;
   // only the persistent top-banner entry was removed). packs.html moved
   // the other direction the same day: added to the primary nav after
   // shipping unlinked first. dashboard.html did the same on 2026-08-22,
   // once its price-history data had a few days to build up and the
-  // Gainers/Losers tabs had something real to show.
-  // characters.html/character.html, by contrast, were retired outright,
-  // not just unlisted — character browsing now lives inside
-  // collections.html as a "Characters" tab (?tab=characters) and inside
-  // collection.html via ?c=<id>, both still under the `collections` nav
-  // id even though that id is no longer in PAGES below. slideshow.html
-  // was pulled the same way on 2026-08-09 — removed from the repo, not
-  // just unlinked, alongside slideshow-legacy.html — while the Safe
-  // Browsing review is active.
+  // Gainers/Losers tabs had something real to show. collections.html
+  // unlisted 2026-08-19 alongside grails.html/spotlight.html, then
+  // relisted 2026-08-22 by user request — labeled "Characters" and
+  // deep-linked straight to the Characters tab (?tab=characters) instead
+  // of "Collections", since browsing by character (pick one, see every
+  // comic featuring them across collections, cheapest first) is the
+  // entry point that matters now — the Series tab is still one click away
+  // inside the same page. Still the same collections.html/collection.html
+  // pair, under the `collections` nav id, that character browsing has
+  // lived in since characters.html/character.html were retired outright —
+  // that retirement wasn't reversed, this is a nav-link change only.
+  // slideshow.html was pulled the same way on 2026-08-09 — removed from
+  // the repo, not just unlisted, alongside slideshow-legacy.html — while
+  // the Safe Browsing review is active.
   var PAGES = [
     { id: 'index',       label: 'Listings',      href: 'index.html' },
+    { id: 'collections', label: 'Characters',    href: 'collections.html?tab=characters' },
     { id: 'artists',     label: 'Artists',       href: 'artists.html' },
-    { id: 'long-box',    label: 'Long Box',      href: 'long-box.html' },
+    { id: 'long-box',    label: 'Back Issue Bin', href: 'long-box.html' },
     { id: 'dollar-bin',  label: 'Dollar Bin',    href: 'dollar-bin.html' },
     { id: 'packs',       label: 'Packs',         href: 'packs.html' },
     { id: 'dashboard',   label: 'Dashboard',     href: 'dashboard.html' },
