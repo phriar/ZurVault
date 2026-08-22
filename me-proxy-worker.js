@@ -283,7 +283,7 @@ const DC_COLLECTIONS = [
   { sub: "Abs Martian Manhunter 1 238", symbol: "absolute_martian_manhunter_2025_1" },
   { sub: "Superman (2023)", symbol: "superman_2023_1" },
   { sub: "Legends (1986-1987)", symbol: "legends_19861987_1" },
-  { sub: "Green Lantern 52 428", symbol: "dc3_super_power_packs_series_villains" },
+  { sub: "Villains (Super Power Pack)", symbol: "dc3_super_power_packs_series_villains" },
   { sub: "Batman (1940-2011)", symbol: "batman_19402011_655" },
   { sub: "Wonder Woman (1987-2006)", symbol: "wonder_woman_19872006_1" },
 ];

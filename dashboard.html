@@ -140,15 +140,15 @@
   <div class="brand"><a href="index.html">ZurVault</a> / Dashboard</div>
   <h1>Price <span>Dashboard</span></h1>
   <p class="sub">Daily floor-price trend across every tracked collection at once, sorted by biggest mover — a quick scan instead of opening a tab per collection.</p>
-  <p class="note">Work in progress, not yet linked from the main nav. Magic Eden has no historical floor-price API, so history can't be backfilled — it only starts accumulating from when this page first shipped. Expect flat single-point sparklines for the first few days.</p>
+  <p class="note">Magic Eden has no historical floor-price API, so history can't be backfilled — it only started accumulating from when this page first shipped. New collections still show a flat single-point sparkline until a few daily cron cycles have run.</p>
 
   <div id="status"><span class="dot"></span>Loading&hellip;</div>
   <div id="banner"></div>
 
   <div class="sort-row" id="sortRow">
-    <button class="pill active" data-sort="movers">Biggest Movers</button>
-    <button class="pill" data-sort="price">Price</button>
-    <button class="pill" data-sort="name">Name</button>
+    <button class="pill active" data-sort="all">All</button>
+    <button class="pill" data-sort="gainers">Biggest Gainers</button>
+    <button class="pill" data-sort="losers">Biggest Losers</button>
   </div>
 
   <div class="rows" id="rows"></div>
@@ -168,7 +168,7 @@ const rowsEl = document.getElementById('rows');
 const sortRowEl = document.getElementById('sortRow');
 
 let allCollections = [];
-let currentSort = 'movers';
+let currentSort = 'all';
 
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 
@@ -227,6 +227,16 @@ function sortMovers(list){
   return [...withChange, ...withoutChange];
 }
 
+// Gainers/losers exclude collections still gathering history (change ===
+// null) entirely, rather than sinking them to the bottom like the "All"
+// tab does — a pending collection isn't a gainer or a loser, it's neither.
+function sortGainers(list){
+  return list.filter(c => c.change !== null && c.change > 0).sort((a, b) => b.change - a.change);
+}
+function sortLosers(list){
+  return list.filter(c => c.change !== null && c.change < 0).sort((a, b) => a.change - b.change);
+}
+
 function render(){
   if(allCollections.length === 0){
     rowsEl.innerHTML = `<div class="empty">No price history yet.<br>Check back after the Worker has run a few cron cycles.</div>`;
@@ -235,14 +245,24 @@ function render(){
   }
 
   let sorted = allCollections.slice();
-  if(currentSort === 'movers') sorted = sortMovers(sorted);
-  else if(currentSort === 'price') sorted.sort((a, b) => a.latest.floor - b.latest.floor);
-  else sorted.sort((a, b) => (a.sub || '').localeCompare(b.sub || ''));
+  if(currentSort === 'gainers') sorted = sortGainers(sorted);
+  else if(currentSort === 'losers') sorted = sortLosers(sorted);
+  else sorted = sortMovers(sorted);
 
   const anyWithHistory = allCollections.some(c => c.change !== null);
   bannerEl.style.display = anyWithHistory ? 'none' : 'block';
   if(!anyWithHistory){
-    bannerEl.textContent = 'Every tracked collection is still gathering its first few days of history — trend percentages and the "Biggest Movers" sort will fill in as more daily cron cycles run.';
+    bannerEl.textContent = 'Every tracked collection is still gathering its first few days of history — trend percentages and the Gainers/Losers tabs will fill in as more daily cron cycles run.';
+  }
+
+  if(sorted.length === 0 && anyWithHistory){
+    const msg = currentSort === 'gainers'
+      ? 'Nothing is up right now.<br>Every collection with enough history is flat or down.'
+      : currentSort === 'losers'
+        ? 'Nothing is down right now.<br>Every collection with enough history is flat or up.'
+        : 'No price history yet.<br>Check back after the Worker has run a few cron cycles.';
+    rowsEl.innerHTML = `<div class="empty">${msg}</div>`;
+    return;
   }
 
   rowsEl.innerHTML = sorted.map(c => {

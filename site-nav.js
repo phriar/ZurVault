@@ -1,7 +1,7 @@
 /* ============================================================
    ZurVault shared top banner. Include right after <body> opens:
      <script src="site-nav.js" data-active="index"></script>
-   data-active values: index | discover | collections | artists | long-box | dollar-bin | spotlight | guide | comics | candy | grails | packs
+   data-active values: index | discover | collections | artists | long-box | dollar-bin | spotlight | guide | comics | candy | grails | packs | dashboard
 
    Self-injects its own <style> + markup, so every page shares one
    consistent site identity strip instead of duplicating markup.
@@ -24,18 +24,20 @@
   var COWL_URL = 'https://arweave.net/uyG3Nvb1UKTtm3q-tdHs4GNYOiEyaSTc7O0zhsc9gIQ';
 
   // Primary nav is intentionally short. discover.html, comics.html,
-  // candy-watcher.html, click-stats.html, and dashboard.html are
-  // deliberately unlisted here (config-generation tool, reading fallback
-  // now that candy.io is primary, a power-user watcher tool, an internal
-  // report, and a page still being ironed out, respectively) — all still
-  // work fine at their direct URLs and still include site-nav.js, they're
-  // just not in the banner. grails.html, collections.html, and
-  // spotlight.html joined that same unlisted-but-functional group
-  // 2026-08-19 by user request (own direct-URL cross-links from other
-  // pages — e.g. index.html's spotlight teaser, collection.html's
-  // back-link — are untouched and still work; only the persistent top-
-  // banner entry was removed). packs.html moved the other direction the
-  // same day: added to the primary nav after shipping unlinked first.
+  // candy-watcher.html, and click-stats.html are deliberately unlisted
+  // here (config-generation tool, reading fallback now that candy.io is
+  // primary, a power-user watcher tool, and an internal report,
+  // respectively) — all still work fine at their direct URLs and still
+  // include site-nav.js, they're just not in the banner. grails.html,
+  // collections.html, and spotlight.html joined that same
+  // unlisted-but-functional group 2026-08-19 by user request (own
+  // direct-URL cross-links from other pages — e.g. index.html's spotlight
+  // teaser, collection.html's back-link — are untouched and still work;
+  // only the persistent top-banner entry was removed). packs.html moved
+  // the other direction the same day: added to the primary nav after
+  // shipping unlinked first. dashboard.html did the same on 2026-08-22,
+  // once its price-history data had a few days to build up and the
+  // Gainers/Losers tabs had something real to show.
   // characters.html/character.html, by contrast, were retired outright,
   // not just unlisted — character browsing now lives inside
   // collections.html as a "Characters" tab (?tab=characters) and inside
@@ -50,6 +52,7 @@
     { id: 'long-box',    label: 'Long Box',      href: 'long-box.html' },
     { id: 'dollar-bin',  label: 'Dollar Bin',    href: 'dollar-bin.html' },
     { id: 'packs',       label: 'Packs',         href: 'packs.html' },
+    { id: 'dashboard',   label: 'Dashboard',     href: 'dashboard.html' },
     { id: 'guide',       label: 'How To',        href: 'guide.html' },
   ];
 
