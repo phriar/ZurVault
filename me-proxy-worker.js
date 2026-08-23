@@ -246,6 +246,7 @@ const DC_COLLECTIONS = [
   { sub: "Future State Wonder Woman 1 525", symbol: "future_state_wonder_woman_2021_1" },
   { sub: "House of Secrets 92 1226", symbol: "house_of_secrets_19561978_92" },
   { sub: "Detective Comics (1937-)", symbol: "detective_comics_1937_40" },
+  { sub: "Detective Comics 1059 514", symbol: "detective_comics_2016_1059" },
   { sub: "Military Comics 1 207", symbol: "military_comics_19411945_1" },
   { sub: "Abs Batman Ashcan Special 358", symbol: "absolute_batman_ashcan_special_edition_2024_1" },
   { sub: "Immortal Legend Batman 1 60", symbol: "immortal_legend_batman_2025_1" },

@@ -59,7 +59,7 @@
   }
   .hero-marquee .tagline{
     margin-top:16px; font-family:'DM Mono',monospace; font-size:.6rem;
-    letter-spacing:.25em; text-transform:uppercase; color:rgba(255,255,255,0.4);
+    letter-spacing:.25em; text-transform:uppercase; color:rgba(255,255,255,0.6);
   }
   .hero-marquee .cta-row{
     margin-top:30px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;
@@ -86,8 +86,8 @@
     background:linear-gradient(to bottom, rgba(10,10,10,0.55) 0%, rgba(10,10,10,0.75) 45%, rgba(10,10,10,0.97) 90%);
   }
   header > *{ position:relative; z-index:1; }
-  header .brand{ font-size:.94rem; letter-spacing:.18em; color:rgba(255,255,255,0.18); text-transform:uppercase; }
-  header .brand a{ color:rgba(255,255,255,0.18); text-decoration:none; }
+  header .brand{ font-size:.94rem; letter-spacing:.18em; color:rgba(255,255,255,0.5); text-transform:uppercase; }
+  header .brand a{ color:rgba(255,255,255,0.5); text-decoration:none; }
   header .brand a:hover{ color:var(--gold); }
   header h1{
     font-family:'Cormorant Garamond',serif; font-weight:300; letter-spacing:.02em;
@@ -97,7 +97,7 @@
 
   .back-link{
     display:inline-block; margin-top:14px; font-family:'DM Mono',monospace; font-size:.94rem;
-    letter-spacing:.12em; text-transform:uppercase; color:rgba(143,111,232,0.6); text-decoration:none;
+    letter-spacing:.12em; text-transform:uppercase; color:rgba(143,111,232,0.92); text-decoration:none;
     border:1px solid rgba(143,111,232,0.2); padding:6px 14px; border-radius:2px; transition:all .15s;
   }
   .back-link:hover{ color:var(--gold); border-color:rgba(143,111,232,0.5); }
@@ -105,7 +105,7 @@
   .tabs{ display:flex; gap:0; flex-wrap:wrap; margin-top:22px; border-bottom:1px solid var(--border); }
   .tab{
     flex:1; min-width:120px; text-align:center; padding:12px 8px; font-size:.94rem; letter-spacing:.15em;
-    text-transform:uppercase; color:rgba(255,255,255,0.3); cursor:pointer;
+    text-transform:uppercase; color:rgba(255,255,255,0.55); cursor:pointer;
     border-bottom:1px solid transparent; transition:color .15s;
   }
   .tab.active{ color:rgba(255,255,255,0.85); border-bottom-color:var(--cyan); }
@@ -117,21 +117,21 @@
   }
   select{
     background:rgba(0,0,0,0.5); border:1px solid var(--border); color:rgba(255,255,255,0.7);
-    font-family:'DM Mono',monospace; font-size:.5rem; letter-spacing:.1em; text-transform:uppercase;
+    font-family:'DM Mono',monospace; font-size:.68rem; letter-spacing:.1em; text-transform:uppercase;
     padding:9px 12px; border-radius:2px;
   }
   select:focus{ outline:1px solid rgba(143,111,232,0.4); }
 
   .pill{
-    font-family:'DM Mono',monospace; font-size:.5rem; letter-spacing:.12em; text-transform:uppercase;
-    color:rgba(255,255,255,0.4); padding:8px 14px; border:1px solid var(--border); border-radius:20px;
+    font-family:'DM Mono',monospace; font-size:.68rem; letter-spacing:.12em; text-transform:uppercase;
+    color:rgba(255,255,255,0.6); padding:8px 14px; border:1px solid var(--border); border-radius:20px;
     cursor:pointer; transition:all .15s; background:transparent;
   }
   .pill:hover{ color:rgba(255,255,255,0.7); border-color:rgba(143,111,232,0.3); }
   .pill.active{ color:#fff; background:linear-gradient(135deg, var(--deep), var(--gold)); border-color:transparent; }
   .view-toggle{ display:flex; gap:8px; margin-left:auto; }
 
-  #status{ padding:16px 32px; font-size:.48rem; letter-spacing:.1em; color:rgba(255,255,255,0.28); text-transform:uppercase; }
+  #status{ padding:16px 32px; font-size:.66rem; letter-spacing:.1em; color:rgba(255,255,255,0.55); text-transform:uppercase; }
   #status.err{ color:#e07a5f; }
   #status .dot{ display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--cyan); margin-right:8px; }
 
@@ -202,14 +202,14 @@
      a position number ahead of the thumbnail. */
   .list-row .rank{
     flex-shrink:0; width:24px; text-align:center; font-family:'DM Mono',monospace;
-    font-size:.94rem; color:rgba(143,111,232,0.6);
+    font-size:.94rem; color:rgba(143,111,232,0.92);
   }
   .leaderboard-row{ cursor:pointer; }
 
-  .empty{ padding:60px 32px; text-align:center; color:rgba(255,255,255,0.25); font-family:'Cormorant Garamond',serif; font-size:1.2rem; font-weight:300; line-height:1.6; }
+  .empty{ padding:60px 32px; text-align:center; color:rgba(255,255,255,0.55); font-family:'Cormorant Garamond',serif; font-size:1.2rem; font-weight:300; line-height:1.6; }
 
-  footer{ padding:28px 32px 44px; text-align:center; font-size:.42rem; letter-spacing:.12em; color:rgba(255,255,255,0.15); text-transform:uppercase; }
-  footer a{ color:rgba(143,111,232,0.5); text-decoration:none; }
+  footer{ padding:28px 32px 44px; text-align:center; font-size:.64rem; letter-spacing:.12em; color:rgba(255,255,255,0.5); text-transform:uppercase; }
+  footer a{ color:rgba(143,111,232,0.92); text-decoration:none; }
   footer a:hover{ color:var(--gold); }
 </style>
 </head>
@@ -430,6 +430,7 @@ const DC_COLLECTIONS = [
   { sub: "Future State Wonder Woman 1 525", symbol: "future_state_wonder_woman_2021_1" },
   { sub: "House of Secrets 92 1226", symbol: "house_of_secrets_19561978_92" },
   { sub: "Detective Comics (1937-)", symbol: "detective_comics_1937_40" },
+  { sub: "Detective Comics 1059 514", symbol: "detective_comics_2016_1059" },
   { sub: "Military Comics 1 207", symbol: "military_comics_19411945_1" },
   { sub: "Abs Batman Ashcan Special 358", symbol: "absolute_batman_ashcan_special_edition_2024_1" },
   { sub: "Immortal Legend Batman 1 60", symbol: "immortal_legend_batman_2025_1" },

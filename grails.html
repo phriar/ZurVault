@@ -47,8 +47,8 @@
     background:linear-gradient(to bottom, rgba(10,10,10,0.55) 0%, rgba(10,10,10,0.75) 45%, rgba(10,10,10,0.97) 90%);
   }
   header > *{ position:relative; z-index:1; }
-  header .brand{ font-size:.94rem; letter-spacing:.18em; color:rgba(255,255,255,0.18); text-transform:uppercase; }
-  header .brand a{ color:rgba(255,255,255,0.18); text-decoration:none; }
+  header .brand{ font-size:.94rem; letter-spacing:.18em; color:rgba(255,255,255,0.5); text-transform:uppercase; }
+  header .brand a{ color:rgba(255,255,255,0.5); text-decoration:none; }
   header .brand a:hover{ color:var(--gold); }
   header h1{
     font-family:'Cormorant Garamond',serif; font-weight:300; letter-spacing:.02em;
@@ -65,14 +65,14 @@
     background:rgba(255,255,255,0.015);
   }
   .pill{
-    font-family:'DM Mono',monospace; font-size:.5rem; letter-spacing:.12em; text-transform:uppercase;
-    color:rgba(255,255,255,0.4); padding:8px 14px; border:1px solid var(--border); border-radius:20px;
+    font-family:'DM Mono',monospace; font-size:.68rem; letter-spacing:.12em; text-transform:uppercase;
+    color:rgba(255,255,255,0.6); padding:8px 14px; border:1px solid var(--border); border-radius:20px;
     cursor:pointer; transition:all .15s; background:transparent;
   }
   .pill:hover{ color:rgba(255,255,255,0.7); border-color:rgba(143,111,232,0.3); }
   .pill.active{ color:#fff; background:linear-gradient(135deg, var(--deep), var(--gold)); border-color:transparent; }
 
-  #status{ padding:16px 32px; font-size:.48rem; letter-spacing:.1em; color:rgba(255,255,255,0.28); text-transform:uppercase; }
+  #status{ padding:16px 32px; font-size:.66rem; letter-spacing:.1em; color:rgba(255,255,255,0.55); text-transform:uppercase; }
   #status.err{ color:#e07a5f; }
   #status .dot{ display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--cyan); margin-right:8px; }
 
@@ -87,10 +87,10 @@
     width:76px; aspect-ratio:2/3; object-fit:cover; border-radius:3px; flex-shrink:0;
     background:rgba(255,255,255,0.04);
   }
-  .card-cover.placeholder{ display:flex; align-items:center; justify-content:center; font-size:.48rem; letter-spacing:.08em; color:rgba(255,255,255,0.2); text-align:center; padding:6px; }
+  .card-cover.placeholder{ display:flex; align-items:center; justify-content:center; font-size:.66rem; letter-spacing:.08em; color:rgba(255,255,255,0.5); text-align:center; padding:6px; }
 
   .era-badge{
-    display:inline-block; font-size:.5rem; letter-spacing:.1em; text-transform:uppercase;
+    display:inline-block; font-size:.68rem; letter-spacing:.1em; text-transform:uppercase;
     color:var(--cyan); border:1px solid rgba(77,232,255,0.3); background:rgba(77,232,255,0.06);
     padding:3px 9px; border-radius:10px; margin-bottom:8px;
   }
@@ -99,7 +99,7 @@
     color:rgba(255,255,255,0.92);
   }
   .grail-year{
-    font-family:'DM Mono',monospace; font-size:.94rem; letter-spacing:.05em; color:rgba(255,255,255,0.4);
+    font-family:'DM Mono',monospace; font-size:.94rem; letter-spacing:.05em; color:rgba(255,255,255,0.6);
     margin-top:4px;
   }
 
@@ -109,7 +109,7 @@
     letter-spacing:.03em; padding:4px 10px; border-radius:20px; border:1px solid rgba(143,111,232,0.25);
     color:rgba(255,255,255,0.7); text-decoration:none;
   }
-  a.char-chip{ color:rgba(143,111,232,0.85); border-color:rgba(143,111,232,0.4); }
+  a.char-chip{ color:rgba(143,111,232,0.92); border-color:rgba(143,111,232,0.4); }
   a.char-chip:hover{ color:var(--gold); border-color:var(--gold); }
 
   .significance{
@@ -121,16 +121,16 @@
     color:rgba(255,255,255,0.55); border-left:2px solid rgba(255,255,255,0.15);
     padding-left:10px; margin-bottom:16px;
   }
-  .grail-note .label{ color:rgba(255,255,255,0.35); text-transform:uppercase; letter-spacing:.08em; font-size:.75rem; margin-right:6px; }
+  .grail-note .label{ color:rgba(255,255,255,0.6); text-transform:uppercase; letter-spacing:.08em; font-size:.75rem; margin-right:6px; }
 
   .market-row{
     display:flex; gap:22px; flex-wrap:wrap; padding-top:14px; margin-top:auto;
     border-top:1px solid var(--border);
   }
   .market-stat{ flex:1; min-width:120px; }
-  .market-stat .stat-label{ font-size:.5rem; letter-spacing:.1em; text-transform:uppercase; color:rgba(255,255,255,0.35); margin-bottom:3px; }
+  .market-stat .stat-label{ font-size:.68rem; letter-spacing:.1em; text-transform:uppercase; color:rgba(255,255,255,0.6); margin-bottom:3px; }
   .market-stat .stat-value{ font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.85); }
-  .market-stat .stat-value.muted{ color:rgba(255,255,255,0.35); }
+  .market-stat .stat-value.muted{ color:rgba(255,255,255,0.6); }
 
   /* Listings/Sales toggles — clicking one reveals the individual items
      (image, price, link) so a visitor can pick a specific copy before
@@ -138,7 +138,7 @@
      a generic "go browse the whole collection on Magic Eden" button. */
   .toggle-row{ display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
   .toggle-btn{
-    font-family:'DM Mono',monospace; font-size:.5rem; letter-spacing:.1em; text-transform:uppercase;
+    font-family:'DM Mono',monospace; font-size:.68rem; letter-spacing:.1em; text-transform:uppercase;
     color:rgba(255,255,255,0.5); background:transparent; border:1px solid var(--border);
     padding:7px 12px; border-radius:20px; cursor:pointer; transition:all .15s;
   }
@@ -171,19 +171,19 @@
      rgba(77,232,255,0.7) on #0a0a0a computes to ~6.8:1 contrast, clears
      the same WCAG AA bar the rest of this page's small text holds to. */
   .me-tag{ font-family:'DM Mono',monospace; font-size:.62rem; letter-spacing:.05em; text-transform:uppercase; color:rgba(77,232,255,0.7); white-space:nowrap; }
-  .item-panel-empty{ padding:14px; text-align:center; font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.4); }
+  .item-panel-empty{ padding:14px; text-align:center; font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.6); }
 
   .card-cta{ margin-top:14px; }
   .browse-link{
-    font-family:'DM Mono',monospace; font-size:.5rem; letter-spacing:.08em; text-transform:uppercase;
-    color:rgba(255,255,255,0.35); text-decoration:none;
+    font-family:'DM Mono',monospace; font-size:.68rem; letter-spacing:.08em; text-transform:uppercase;
+    color:rgba(255,255,255,0.6); text-decoration:none;
   }
   .browse-link:hover{ color:var(--gold); }
 
-  .empty{ padding:60px 32px; text-align:center; color:rgba(255,255,255,0.25); font-family:'Cormorant Garamond',serif; font-size:1.2rem; font-weight:300; line-height:1.6; }
+  .empty{ padding:60px 32px; text-align:center; color:rgba(255,255,255,0.55); font-family:'Cormorant Garamond',serif; font-size:1.2rem; font-weight:300; line-height:1.6; }
 
-  footer{ padding:28px 32px 44px; text-align:center; font-size:.42rem; letter-spacing:.12em; color:rgba(255,255,255,0.15); text-transform:uppercase; }
-  footer a{ color:rgba(143,111,232,0.5); text-decoration:none; }
+  footer{ padding:28px 32px 44px; text-align:center; font-size:.64rem; letter-spacing:.12em; color:rgba(255,255,255,0.5); text-transform:uppercase; }
+  footer a{ color:rgba(143,111,232,0.92); text-decoration:none; }
   footer a:hover{ color:var(--gold); }
 </style>
 </head>
@@ -295,7 +295,7 @@ function renderCard(grail){
     : `<div class="stat-value muted">No active listings</div>`;
 
   const lastSaleHtml = market.lastSale
-    ? `<div class="stat-value">${market.lastSale.price} SOL <span style="color:rgba(255,255,255,0.35)">&middot; ${timeAgo(market.lastSale.soldAt)}</span></div>`
+    ? `<div class="stat-value">${market.lastSale.price} SOL <span style="color:rgba(255,255,255,0.6)">&middot; ${timeAgo(market.lastSale.soldAt)}</span></div>`
     : `<div class="stat-value muted">No recent sales</div>`;
 
   const listings = market.listings || [];
