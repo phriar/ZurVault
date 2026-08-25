@@ -88,10 +88,11 @@
     '#zv-disclaimer{padding:7px 16px;background:rgba(77,232,255,0.05);border-bottom:1px solid rgba(77,232,255,0.16);' +
       'font-family:"DM Mono","JetBrains Mono",monospace;font-size:.66rem;line-height:1.5;letter-spacing:.01em;' +
       'color:rgba(255,255,255,0.55);text-align:center;}' +
-    // Hamburger toggle — DOM element exists at every width, this just
-    // controls whether it's visible. display:none above the breakpoint
-    // means it never affects the desktop layout at all.
-    '#zv-banner .zv-hamburger{display:none;flex-direction:column;justify-content:center;' +
+    // Hamburger + dropdown, at every width now (started mobile-only,
+    // widened to desktop too by request — the horizontal link row is
+    // gone entirely rather than kept as a separate desktop-only layout).
+    '#zv-banner .zv-links{display:none;}' +
+    '#zv-banner .zv-hamburger{display:flex;flex-direction:column;justify-content:center;' +
       'align-items:center;gap:5px;width:32px;height:32px;background:none;border:none;' +
       'cursor:pointer;padding:0;flex-shrink:0;-webkit-tap-highlight-color:transparent;}' +
     '#zv-banner .zv-bar{display:block;width:20px;height:1.5px;background:rgba(255,255,255,0.78);' +
@@ -100,23 +101,20 @@
     '#zv-banner.zv-menu-open .zv-bar:nth-child(1){transform:translateY(6.5px) rotate(45deg);}' +
     '#zv-banner.zv-menu-open .zv-bar:nth-child(2){opacity:0;}' +
     '#zv-banner.zv-menu-open .zv-bar:nth-child(3){transform:translateY(-6.5px) rotate(-45deg);}' +
-    // Below this width the horizontal scrolling link row (confirmed the
-    // actual complaint: on a phone it's a strip you have to swipe through)
-    // becomes a dropdown instead — hidden until the hamburger opens it.
-    // Nothing above this breakpoint changes at all.
-    '@media (max-width:700px){' +
-      '#zv-banner .zv-links{display:none;}' +
-      '#zv-banner .zv-hamburger{display:flex;}' +
-      '#zv-banner.zv-menu-open .zv-links{display:flex;flex-direction:column;align-items:stretch;' +
-        'position:absolute;top:52px;left:0;right:0;background:rgba(6,6,6,0.97);' +
-        'backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);' +
-        'border-bottom:1px solid rgba(255,255,255,0.08);padding:6px 0;' +
-        'max-height:calc(100vh - 52px);overflow-y:auto;gap:0;}' +
-      '#zv-banner.zv-menu-open .zv-link{padding:14px 20px;white-space:normal;' +
-        'border-bottom:1px solid rgba(255,255,255,0.06);}' +
-      '#zv-banner.zv-menu-open .zv-link.active{border-color:rgba(255,255,255,0.06);' +
-        'border-left:2px solid #6b2fd6;padding-left:18px;}' +
-    '}';
+    // Right-aligned, width-capped panel rather than a full-bleed strip —
+    // reads like a normal dropdown menu on a wide desktop screen instead
+    // of an odd edge-to-edge overlay, and still comfortably fits a phone
+    // screen (the calc() caps it against the viewport minus margin).
+    '#zv-banner.zv-menu-open .zv-links{display:flex;flex-direction:column;align-items:stretch;' +
+      'position:absolute;top:52px;right:16px;width:min(260px,calc(100vw - 32px));' +
+      'background:rgba(6,6,6,0.97);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);' +
+      'border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:6px 0;' +
+      'max-height:calc(100vh - 68px);overflow-y:auto;gap:0;}' +
+    '#zv-banner.zv-menu-open .zv-link{padding:14px 20px;white-space:normal;' +
+      'border-bottom:1px solid rgba(255,255,255,0.06);}' +
+    '#zv-banner.zv-menu-open .zv-link:last-child{border-bottom:none;}' +
+    '#zv-banner.zv-menu-open .zv-link.active{border-color:rgba(255,255,255,0.06);' +
+      'border-left:2px solid #6b2fd6;padding-left:18px;}';
   document.head.appendChild(style);
 
   var links = PAGES.map(function (p) {
@@ -161,10 +159,7 @@
     show: function () { banner.classList.remove('zv-hidden'); if (disclaimer) disclaimer.style.display = ''; }
   };
 
-  // Mobile dropdown toggle. The hamburger only ever renders (via the
-  // max-width:700px media query above) below the breakpoint, but the
-  // listeners are harmless to attach unconditionally at every width —
-  // clicking a hidden button can't happen.
+  // Dropdown toggle — same hamburger at every width now, not mobile-only.
   if (hamburger) {
     hamburger.addEventListener('click', function (e) {
       e.stopPropagation();

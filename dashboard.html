@@ -30,9 +30,6 @@
 
   .wrap{ max-width:960px; margin:0 auto; padding:96px 24px 60px; }
 
-  .brand{ font-size:1rem; letter-spacing:.16em; color:rgba(255,255,255,0.5); text-transform:uppercase; }
-  .brand a{ color:rgba(255,255,255,0.5); text-decoration:none; }
-  .brand a:hover{ color:var(--gold); }
   h1{
     font-family:'Cormorant Garamond',serif; font-weight:300; letter-spacing:.01em;
     font-size:clamp(1.9rem,5vw,2.5rem); color:rgba(255,255,255,0.94); margin:10px 0 10px;
@@ -146,7 +143,6 @@
 <script src="site-nav.js" data-active="dashboard"></script>
 
 <div class="wrap">
-  <div class="brand"><a href="index.html">ZurVault</a> / Dashboard</div>
   <h1>Price <span>Dashboard</span></h1>
   <p class="sub">Daily floor-price trend across every tracked collection at once, sorted by biggest mover — a quick scan instead of opening a tab per collection.</p>
   <p class="note">Magic Eden has no historical floor-price API, so history can't be backfilled — it only started accumulating from when this page first shipped. New collections still show a flat single-point sparkline until a few daily cron cycles have run.</p>
