@@ -218,6 +218,7 @@
     padding:2px 9px; border-radius:10px; border:1px solid; margin-bottom:12px;
   }
   .method-declared{ color:#4ade80; border-color:rgba(74,222,128,0.4); background:rgba(74,222,128,0.08); }
+  .method-print-run{ color:var(--cyan); border-color:rgba(77,232,255,0.4); background:rgba(77,232,255,0.08); }
   .method-estimated{ color:var(--gold); border-color:rgba(143,111,232,0.5); background:rgba(143,111,232,0.1); }
   .method-limited{ color:#e07a5f; border-color:rgba(224,122,95,0.45); background:rgba(224,122,95,0.08); }
 
@@ -291,11 +292,12 @@
 <div class="methodology" id="methodology" style="display:none;">
   <div class="title">⚠ Where these odds come from — read before trusting a number</div>
   <div class="body">
-    <p><strong>Nothing here is official.</strong> ZurVault has no access to candy.io's actual pack-fill configuration. Every bar below is inferred from the same live Magic Eden listing data every other page on this site reads — no other source.</p>
-    <p><strong>Sample:</strong> for each series that currently has at least one Pack for sale, we take every <em>other</em> currently-for-sale item in that same series (<code>itemType !== "Pack"</code>) and tally its <code>Rarity</code> trait. Sales/activity data is <strong>not</strong> included — Magic Eden's sales feed doesn't carry item-type, so a sold Pack couldn't be reliably excluded from that sample.</p>
-    <p><strong>"Declared" tiers</strong> (green badge) use a rarity-weight percentage some candy.io drops publish directly on the trait itself (e.g. <code>"Legendary (4.8)"</code>) — that's the drop's actual configured print-run split, not something we computed. As of this writing, none of the tracked series currently publish this — every number you're looking at right now is "Estimated," not "Declared."</p>
-    <p><strong>"Estimated" tiers</strong> (purple badge) have no published percentage, so the bar is just <code>(items of this tier currently listed) &divide; (all non-Pack items currently listed)</code> for that series. This measures what hasn't sold yet, not the true pack-fill rate — if scarce items get bought fast, this under-counts them; if they sit unsold, it over-counts them. There's no way to tell which is happening from this data alone.</p>
-    <p><strong>"Limited data"</strong> (red badge) means fewer than 5 items are currently listed for that series — too small a sample to estimate from, so only declared tiers (if any) are shown.</p>
+    <p><strong>Nothing here is official.</strong> ZurVault has no access to candy.io's actual pack-fill configuration. Every bar below is inferred from the same live Magic Eden listing/sales data every other page on this site reads — no other source.</p>
+    <p><strong>"Declared" tiers</strong> (green badge) use a rarity-weight percentage some candy.io drops publish directly on the trait itself (e.g. <code>"Legendary (4.8)"</code>) — that's the drop's actual configured print-run split, not something we computed. None of the tracked series currently publish this.</p>
+    <p><strong>"Print Run" tiers</strong> (cyan badge, the usual case) — each copy's name carries a serial number like <code>(92/500)</code>, and it turns out the "500" isn't the whole issue's print run, it's specific to that <em>one rarity tier</em>: every "Rare" copy of a given issue shares the same total, every "Epic" copy shares a different (usually smaller) total, and so on. Once we've seen just one copy of a tier — For Sale or already Sold, it doesn't matter which — we know that tier's real planned size, and <code>tier size &divide; sum of all tiers' sizes</code> is a genuine odds figure grounded in the mint's own numbering, not a guess from market activity. This is why a Legendary that sold out in one minute doesn't skew the number the way a pure "what's currently listed" estimate would.</p>
+    <p><strong>Where Print Run can still be wrong:</strong> some series have variant covers or bonus/insert items that get their own separate numbering pool within what's nominally the same tier — when that happens the tiers can sum to more than the series' advertised total edition count, inflating every percentage slightly. We haven't found a way to detect this automatically yet, so treat Print Run as "grounded in real mint data" rather than "certified exact."</p>
+    <p><strong>"Estimated" tiers</strong> (purple badge) are the fallback for a series where no copy's name carries a parseable serial number at all, so there's no print-run total to anchor to. The bar falls back to <code>(items of this tier currently listed) &divide; (all non-Pack items currently listed)</code> — the old, market-activity-based estimate, with the same bias Print Run exists to avoid: it measures what hasn't sold, not the true pack-fill rate.</p>
+    <p><strong>"Limited data"</strong> (red badge) means too little data exists to compute any of the above for that series.</p>
     <p>See something that looks wrong? The raw counts are printed next to each bar — check them against Magic Eden's own listings for that series and flag it.</p>
   </div>
 </div>
@@ -325,6 +327,7 @@ const oddsGridEl = document.getElementById('oddsGrid');
 
 let allPackListings = [];
 let allListings = []; // every For Sale item, unfiltered — the odds tab needs the non-Pack items too
+let allSales = []; // recent sales — odds tab only uses these for their name (edition/print-run size), not as a market-activity sample
 let searchQuery = '';
 let oddsSearchQuery = '';
 let currentView = 'grid';
@@ -359,6 +362,13 @@ if(typeof CHARACTER_MAP !== 'undefined'){
 function parseEdition(name){
   const m = /\((\d+)\s*\/\s*(\d+)\)\s*$/.exec(name || '');
   return m ? `#${m[1]} / ${m[2]}` : null;
+}
+
+// The "/N" half of a serial number like "(92/500)" — used by computeOdds()
+// as a per-rarity-tier print-run size, not just a display string.
+function editionTotal(name){
+  const m = /\((\d+)\s*\/\s*(\d+)\)\s*$/.exec(name || '');
+  return m ? parseInt(m[2], 10) : null;
 }
 
 function rarityBadge(rarity, rarityPct){
@@ -422,40 +432,87 @@ function renderList(items){
 }
 
 // For each series that currently has at least one Pack for sale, tallies
-// every *other* currently-for-sale item in that same series by Rarity
-// tier. Sales data is deliberately excluded — see the on-page methodology
-// panel (#methodology) for the full reasoning; this comment sticks to the
-// "what," that panel carries the "why" for a non-technical reader.
+// every *other* item in that same series — currently-for-sale or recently
+// sold — by Rarity tier. See the on-page methodology panel (#methodology)
+// for the full "why"; this comment sticks to the "what."
+//
+// Sold items are included ONLY to learn a tier's print-run size from its
+// name (see editionTotal() below) or, failing that, as raw counts for the
+// estimated-method fallback — never to distinguish Pack sales from comic
+// sales, since Magic Eden's sales feed doesn't carry item-type. That's
+// safe here because Pack listings never carry a Rarity trait (confirmed
+// against live data — 0 of ~190 tracked Pack listings had one), so a sold
+// Pack always has rarity:null and is naturally excluded from every tier
+// group below regardless of source.
 function computeOdds(){
   const packSymbols = new Set(allPackListings.map(i => i.symbol));
-  const bySymbol = new Map(); // symbol -> { sub, items: [] }
+  const bySymbol = new Map(); // symbol -> { sub, listingItems: [], allItems: [] }
   for(const i of allListings){
     if(i.itemType === 'Pack' || !packSymbols.has(i.symbol)) continue;
-    if(!bySymbol.has(i.symbol)) bySymbol.set(i.symbol, { sub: i.sub, items: [] });
-    bySymbol.get(i.symbol).items.push(i);
+    if(!bySymbol.has(i.symbol)) bySymbol.set(i.symbol, { sub: i.sub, listingItems: [], allItems: [] });
+    const g = bySymbol.get(i.symbol);
+    g.listingItems.push(i);
+    g.allItems.push(i);
+  }
+  for(const s of allSales){
+    const g = bySymbol.get(s.symbol);
+    if(!g) continue; // only care about sales in series we already track a Pack + listings for
+    g.allItems.push(s);
   }
 
   const results = [];
   for(const [symbol, group] of bySymbol){
-    const items = group.items;
-    const total = items.length;
-    const tierRows = RARITY_TIERS.map(tier => {
-      const tierItems = items.filter(i => i.rarity === tier);
-      const count = tierItems.length;
+    // "count" (the "X seen" text) stays based on currently-listed items
+    // only — allItems (which also pulls in sales) exists purely to widen
+    // the pool of names available for editionTotal() to learn a tier's
+    // print-run size from, since a tier that always sells out fast might
+    // never actually be visible in listingItems at all.
+    const total = group.listingItems.length;
+
+    const editionTierRows = RARITY_TIERS.map(tier => {
+      const listingTierItems = group.listingItems.filter(i => i.rarity === tier);
+      const count = listingTierItems.length;
+      const totals = new Set();
+      for(const i of group.allItems){
+        if(i.rarity !== tier) continue;
+        const t = editionTotal(i.name);
+        if(t) totals.add(t);
+      }
+      return { tier, count, totals };
+    });
+    // Print Run only applies to the whole card at once (mixing it with the
+    // market-activity estimate in the same card would put two
+    // incompatible denominators on one set of bars) — every tier that has
+    // any items seen at all needs a resolvable print-run size, or the
+    // whole card falls back to the estimated method instead.
+    const printRunEligible = editionTierRows.every(r => r.count === 0 || r.totals.size > 0);
+    const printRunGrandTotal = printRunEligible
+      ? editionTierRows.reduce((sum, r) => sum + [...r.totals].reduce((a, b) => a + b, 0), 0)
+      : 0;
+
+    const tierRows = editionTierRows.map(({ tier, count, totals }) => {
       // Confirmed elsewhere in this codebase (me-proxy-worker.js's
       // normalizeRarity()) that every listing sharing a tier within one
       // collection carries the same declared rarityPct — so any one
       // non-null value found for this tier is the drop's real configured
       // percentage, not something we're estimating.
-      const declared = tierItems.find(i => typeof i.rarityPct === 'number');
-      if(declared) return { tier, count, pct: declared.rarityPct, source: 'declared' };
+      const declaredItem = group.listingItems.find(i => i.rarity === tier && typeof i.rarityPct === 'number');
+      if(declaredItem) return { tier, count, pct: declaredItem.rarityPct, source: 'declared' };
+      if(printRunEligible && totals.size > 0 && printRunGrandTotal > 0){
+        const tierTotal = [...totals].reduce((a, b) => a + b, 0);
+        return { tier, count, pct: (tierTotal / printRunGrandTotal) * 100, source: 'print-run' };
+      }
       if(count > 0 && total >= MIN_ODDS_SAMPLE) return { tier, count, pct: (count / total) * 100, source: 'estimated' };
       return { tier, count, pct: null, source: count > 0 ? 'limited' : 'none' };
     });
     const unratedCount = total - tierRows.reduce((sum, r) => sum + r.count, 0);
     const hasDeclared = tierRows.some(r => r.source === 'declared');
+    const hasPrintRun = tierRows.some(r => r.source === 'print-run');
     const hasEstimated = tierRows.some(r => r.source === 'estimated');
-    const overallMethod = hasDeclared && !hasEstimated ? 'declared' : hasEstimated ? 'estimated' : 'limited';
+    const overallMethod = hasDeclared && !hasPrintRun && !hasEstimated ? 'declared'
+      : hasPrintRun ? 'print-run'
+      : hasEstimated ? 'estimated'
+      : 'limited';
 
     // Every symbol here came from packSymbols (built off allPackListings),
     // so there's always at least one Pack currently for sale to point the
@@ -473,6 +530,7 @@ function oddsRowHTML(row){
   const barWidth = row.pct != null ? Math.min(100, row.pct) : 0;
   const pctText = row.pct != null ? `${row.pct.toFixed(1)}%` : '—';
   const srcText = row.source === 'declared' ? 'declared'
+    : row.source === 'print-run' ? 'print run'
     : row.source === 'estimated' ? 'est.'
     : row.source === 'limited' ? 'too few listed'
     : 'none listed';
@@ -487,6 +545,7 @@ function oddsRowHTML(row){
 
 function oddsCardHTML(g){
   const methodLabel = g.overallMethod === 'declared' ? 'Declared by drop metadata'
+    : g.overallMethod === 'print-run' ? 'From print-run sizes'
     : g.overallMethod === 'estimated' ? 'Estimated from live listings'
     : 'Limited data';
   const unratedPct = g.total > 0 ? (g.unratedCount / g.total) * 100 : 0;
@@ -572,6 +631,7 @@ async function load(){
 
     allListings = (data.listings || []).filter(i => i.price !== null);
     allPackListings = allListings.filter(i => i.itemType === 'Pack');
+    allSales = data.sales || [];
     const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
     setStatus(`${allPackListings.length} Pack listing(s) tracked · updated ${updated}.`);
   }catch(e){
