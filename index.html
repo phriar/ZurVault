@@ -61,19 +61,6 @@
     margin-top:16px; font-family:'DM Mono',monospace; font-size:.6rem;
     letter-spacing:.25em; text-transform:uppercase; color:rgba(255,255,255,0.6);
   }
-  .hero-marquee .cta-row{
-    margin-top:30px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;
-  }
-  .cta-btn-primary{
-    font-family:'DM Mono',monospace; font-size:.52rem; letter-spacing:.18em; text-transform:uppercase;
-    color:#fff; background:linear-gradient(135deg, var(--deep), var(--gold)); padding:12px 22px;
-    border-radius:3px; text-decoration:none; white-space:nowrap; transition:filter .15s;
-  }
-  .cta-btn-primary:hover{ filter:brightness(1.12); }
-  @media (max-width:480px){
-    .hero-marquee .cta-row{ flex-direction:column; align-items:stretch; }
-  }
-
   header{
     scroll-margin-top:60px;
     padding:56px 32px 20px; border-bottom:1px solid var(--border);
@@ -91,13 +78,6 @@
     font-size:clamp(1.8rem,5vw,2.6rem); color:rgba(255,255,255,0.92); margin-top:10px;
   }
   header h1 span{ color:var(--gold); }
-
-  .back-link{
-    display:inline-block; margin-top:14px; font-family:'DM Mono',monospace; font-size:.94rem;
-    letter-spacing:.12em; text-transform:uppercase; color:rgba(143,111,232,0.92); text-decoration:none;
-    border:1px solid rgba(143,111,232,0.2); padding:6px 14px; border-radius:2px; transition:all .15s;
-  }
-  .back-link:hover{ color:var(--gold); border-color:rgba(143,111,232,0.5); }
 
   .tabs{ display:flex; gap:0; flex-wrap:wrap; margin-top:22px; border-bottom:1px solid var(--border); }
   .tab{
@@ -251,10 +231,6 @@
   <div class="hero-content">
     <h1>Zur<span>Vault</span></h1>
     <p class="tagline">New drops. Back issues. All on-chain.</p>
-    <div class="cta-row">
-      <a href="#latest-drops" class="cta-btn-primary">See Latest Drops</a>
-      <a href="long-box.html" class="back-link" style="margin-top:0">Browse the Back Issue Bin &#8599;</a>
-    </div>
   </div>
 </section>
 
