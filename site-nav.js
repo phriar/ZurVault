@@ -87,7 +87,36 @@
     'body.zv-has-banner{padding-top:52px;}' +
     '#zv-disclaimer{padding:7px 16px;background:rgba(77,232,255,0.05);border-bottom:1px solid rgba(77,232,255,0.16);' +
       'font-family:"DM Mono","JetBrains Mono",monospace;font-size:.66rem;line-height:1.5;letter-spacing:.01em;' +
-      'color:rgba(255,255,255,0.55);text-align:center;}';
+      'color:rgba(255,255,255,0.55);text-align:center;}' +
+    // Hamburger toggle — DOM element exists at every width, this just
+    // controls whether it's visible. display:none above the breakpoint
+    // means it never affects the desktop layout at all.
+    '#zv-banner .zv-hamburger{display:none;flex-direction:column;justify-content:center;' +
+      'align-items:center;gap:5px;width:32px;height:32px;background:none;border:none;' +
+      'cursor:pointer;padding:0;flex-shrink:0;-webkit-tap-highlight-color:transparent;}' +
+    '#zv-banner .zv-bar{display:block;width:20px;height:1.5px;background:rgba(255,255,255,0.78);' +
+      'transition:transform .2s ease,opacity .2s ease;}' +
+    // Bars morph into an X when open — pure CSS, no icon swap needed.
+    '#zv-banner.zv-menu-open .zv-bar:nth-child(1){transform:translateY(6.5px) rotate(45deg);}' +
+    '#zv-banner.zv-menu-open .zv-bar:nth-child(2){opacity:0;}' +
+    '#zv-banner.zv-menu-open .zv-bar:nth-child(3){transform:translateY(-6.5px) rotate(-45deg);}' +
+    // Below this width the horizontal scrolling link row (confirmed the
+    // actual complaint: on a phone it's a strip you have to swipe through)
+    // becomes a dropdown instead — hidden until the hamburger opens it.
+    // Nothing above this breakpoint changes at all.
+    '@media (max-width:700px){' +
+      '#zv-banner .zv-links{display:none;}' +
+      '#zv-banner .zv-hamburger{display:flex;}' +
+      '#zv-banner.zv-menu-open .zv-links{display:flex;flex-direction:column;align-items:stretch;' +
+        'position:absolute;top:52px;left:0;right:0;background:rgba(6,6,6,0.97);' +
+        'backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);' +
+        'border-bottom:1px solid rgba(255,255,255,0.08);padding:6px 0;' +
+        'max-height:calc(100vh - 52px);overflow-y:auto;gap:0;}' +
+      '#zv-banner.zv-menu-open .zv-link{padding:14px 20px;white-space:normal;' +
+        'border-bottom:1px solid rgba(255,255,255,0.06);}' +
+      '#zv-banner.zv-menu-open .zv-link.active{border-color:rgba(255,255,255,0.06);' +
+        'border-left:2px solid #6b2fd6;padding-left:18px;}' +
+    '}';
   document.head.appendChild(style);
 
   var links = PAGES.map(function (p) {
@@ -102,6 +131,9 @@
         '<span class="zv-mark"></span><span class="zv-word">ZurVault</span>' +
       '</a>' +
       '<nav class="zv-links">' + links + '</nav>' +
+      '<button class="zv-hamburger" id="zv-hamburger" type="button" aria-label="Menu" aria-expanded="false">' +
+        '<span class="zv-bar"></span><span class="zv-bar"></span><span class="zv-bar"></span>' +
+      '</button>' +
     '</div>' +
     // Not fixed like #zv-banner — flows normally right below the fixed
     // banner's reserved padding-top space, so it needs no offset math of
@@ -117,10 +149,41 @@
 
   var banner = document.getElementById('zv-banner');
   var disclaimer = document.getElementById('zv-disclaimer');
+  var hamburger = document.getElementById('zv-hamburger');
+
+  function closeMenu() {
+    banner.classList.remove('zv-menu-open');
+    if (hamburger) hamburger.setAttribute('aria-expanded', 'false');
+  }
+
   window.ZurVaultNav = {
-    hide: function () { banner.classList.add('zv-hidden'); if (disclaimer) disclaimer.style.display = 'none'; },
+    hide: function () { banner.classList.add('zv-hidden'); closeMenu(); if (disclaimer) disclaimer.style.display = 'none'; },
     show: function () { banner.classList.remove('zv-hidden'); if (disclaimer) disclaimer.style.display = ''; }
   };
+
+  // Mobile dropdown toggle. The hamburger only ever renders (via the
+  // max-width:700px media query above) below the breakpoint, but the
+  // listeners are harmless to attach unconditionally at every width —
+  // clicking a hidden button can't happen.
+  if (hamburger) {
+    hamburger.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var open = banner.classList.toggle('zv-menu-open');
+      hamburger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    // Picking a page (or re-tapping the already-active one, which is
+    // pointer-events:none and won't reach here) should close the menu
+    // rather than leave it open under the page that just navigated.
+    banner.querySelectorAll('.zv-link').forEach(function (a) {
+      a.addEventListener('click', closeMenu);
+    });
+    document.addEventListener('click', function (e) {
+      if (banner.classList.contains('zv-menu-open') && !banner.contains(e.target)) closeMenu();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeMenu();
+    });
+  }
 
   // ----------------------------------------------------------------
   // Outbound Magic Eden click tracking. Magic Eden only — Candy.io
