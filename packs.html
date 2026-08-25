@@ -242,6 +242,16 @@
   .odds-row .pct-col{ text-align:right; font-size:.72rem; color:rgba(255,255,255,0.75); white-space:nowrap; }
   .odds-row .pct-col .src{ color:rgba(255,255,255,0.4); font-size:.62rem; margin-left:4px; }
 
+  .odds-buy{
+    display:inline-flex; align-items:center; gap:6px; margin-top:14px;
+    font-family:'DM Mono',monospace; font-size:.72rem; letter-spacing:.08em; text-transform:uppercase;
+    color:rgba(143,111,232,0.92); text-decoration:none;
+    border:1px solid rgba(143,111,232,0.35); padding:8px 14px; border-radius:2px; transition:all .15s;
+  }
+  .odds-buy:hover{ color:var(--gold); border-color:rgba(143,111,232,0.7); background:rgba(143,111,232,0.06); }
+  .odds-buy .buy-price{ color:#fff; }
+  .odds-buy-meta{ margin-top:6px; font-family:'DM Mono',monospace; font-size:.62rem; letter-spacing:.05em; color:rgba(255,255,255,0.4); }
+
   footer{ padding:28px 32px 44px; text-align:center; font-size:.64rem; letter-spacing:.12em; color:rgba(255,255,255,0.5); text-transform:uppercase; }
   footer a{ color:rgba(143,111,232,0.92); text-decoration:none; }
   footer a:hover{ color:var(--gold); }
@@ -449,7 +459,14 @@ function computeOdds(){
     const hasDeclared = tierRows.some(r => r.source === 'declared');
     const hasEstimated = tierRows.some(r => r.source === 'estimated');
     const overallMethod = hasDeclared && !hasEstimated ? 'declared' : hasEstimated ? 'estimated' : 'limited';
-    results.push({ symbol, sub: group.sub, total, tierRows, unratedCount, overallMethod });
+
+    // Every symbol here came from packSymbols (built off allPackListings),
+    // so there's always at least one Pack currently for sale to point the
+    // buy CTA at — cheapest first, same ordering the Browse Packs tab uses.
+    const packsForSymbol = allPackListings.filter(p => p.symbol === symbol).sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
+    const cheapestPack = packsForSymbol[0];
+
+    results.push({ symbol, sub: group.sub, total, tierRows, unratedCount, overallMethod, cheapestPack, packCount: packsForSymbol.length });
   }
   return results.sort((a, b) => (a.sub || '').localeCompare(b.sub || ''));
 }
@@ -482,6 +499,11 @@ function oddsCardHTML(g){
       <div class="bar-track"><div class="bar-fill" style="width:${unratedPct}%;background:rgba(255,255,255,0.25);"></div></div>
       <div class="pct-col">${unratedPct.toFixed(1)}% <span class="src">${g.unratedCount} seen</span></div>
     </div>` : '';
+  const buyCTA = g.cheapestPack ? `
+    <a class="odds-buy" href="${esc(g.cheapestPack.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(g.symbol)}" data-track-mint="${esc(g.cheapestPack.mintAddress)}">
+      Buy a Pack &middot; <span class="buy-price">${g.cheapestPack.price !== null ? g.cheapestPack.price + ' SOL' : '—'}</span> &#8599;
+    </a>
+    <div class="odds-buy-meta">${g.packCount} Pack${g.packCount === 1 ? '' : 's'} currently listed for this series &middot; opens the cheapest one on Magic Eden</div>` : '';
   return `
     <div class="odds-card">
       <div class="odds-head">
@@ -491,6 +513,7 @@ function oddsCardHTML(g){
       <div class="method-badge method-${g.overallMethod}">${methodLabel}</div>
       ${g.tierRows.map(oddsRowHTML).join('')}
       ${unratedRow}
+      ${buyCTA}
     </div>
   `;
 }
