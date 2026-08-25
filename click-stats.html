@@ -133,7 +133,6 @@
   .conv-bar:hover{ opacity:1; }
   .conv-bar-click{ background:var(--gold); opacity:.55; border-radius:2px 2px 0 0; }
   .conv-bar-conv{ background:var(--cyan); }
-  .conv-stat{ margin-bottom:18px; }
 
   .sale-badge{
     display:inline-block; margin-left:8px; padding:2px 7px; font-size:.68rem;
@@ -273,17 +272,7 @@
   </div>
 
   <div class="section-label">Clicks vs. Possible Sales (Weekly)</div>
-  <p class="sub" style="font-size:.9rem; margin-bottom:16px;" id="convBlurb">A listing click is flagged as a "possible sale" if that same listing sold on Magic Eden within a few minutes afterward — a per-listing signal, not proof any one click caused the sale (a listing clicked by several people right before it sells flags all of them). Only reflects sales tracked going forward from when this chart shipped, so early weeks will under-count until history builds up.</p>
-  <div class="total-row conv-stat" id="convStatRow" style="display:none;">
-    <div class="stat">
-      <div class="stat-label">Possible Sale Rate (12wk)</div>
-      <div class="stat-value" id="convRateValue">0%</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">Possible Sales (12wk)</div>
-      <div class="stat-value" id="convCountValue">0</div>
-    </div>
-  </div>
+  <p class="sub" style="font-size:.9rem; margin-bottom:16px;" id="convBlurb">A listing click is flagged as a "possible sale" if that same listing sold on Magic Eden within a few minutes afterward — a per-listing signal, not proof any one click caused the sale (a listing clicked by several people right before it sells flags all of them). Only reflects sales tracked going forward from when this chart shipped, so early weeks will under-count until history builds up. Trend only — see Possible-Sale Volume above for the headline rate/count.</p>
   <div class="conv-legend" id="convLegend" style="display:none;">
     <span><i class="conv-swatch-click"></i>Clicked, no matching sale</span>
     <span><i class="conv-swatch-conv"></i>Possible sale</span>
@@ -349,9 +338,6 @@ const weekdayChartEl = document.getElementById('weekdayChart');
 const weekdayChartLabelsEl = document.getElementById('weekdayChartLabels');
 const weekdayChartEmptyEl = document.getElementById('weekdayChartEmpty');
 const convBlurbEl = document.getElementById('convBlurb');
-const convStatRowEl = document.getElementById('convStatRow');
-const convRateValueEl = document.getElementById('convRateValue');
-const convCountValueEl = document.getElementById('convCountValue');
 const convLegendEl = document.getElementById('convLegend');
 const convChartEl = document.getElementById('convChart');
 const convChartLabelsEl = document.getElementById('convChartLabels');
@@ -476,14 +462,14 @@ function renderWeekdayChart(byWeekday){
 // weeklyConversion is already zero-filled and sorted oldest-to-newest by
 // the Worker (see /v2/click-stats in me-proxy-worker.js) — this just draws
 // it as stacked bars, same "always a continuous timeline" treatment as
-// renderDailyChart above.
+// renderDailyChart above. Trend visual only — no top-line rate/count
+// tiles here any more (removed: they duplicated the Possible-Sale Volume
+// section above with a different, not-guaranteed-to-match methodology —
+// per-click count over a rolling 12 weeks including collection-level
+// clicks, vs. that section's per-sale-deduped count over all-time
+// listing-only clicks. One headline number, this stays a trend chart.
 function renderWeeklyConversionChart(weeks){
   const totalClicks = weeks.reduce((a, w) => a + w.clicks, 0);
-  const totalPossibleSales = weeks.reduce((a, w) => a + w.possibleSales, 0);
-
-  convStatRowEl.style.display = 'flex';
-  convRateValueEl.textContent = totalClicks > 0 ? Math.round((totalPossibleSales / totalClicks) * 100) + '%' : '—';
-  convCountValueEl.textContent = totalPossibleSales;
 
   if(totalClicks === 0){
     convChartEl.style.display = 'none';
