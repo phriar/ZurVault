@@ -79,6 +79,17 @@
   footer{ padding:28px 32px 44px; text-align:center; font-size:.64rem; letter-spacing:.12em; color:rgba(255,255,255,0.5); text-transform:uppercase; }
   footer a{ color:rgba(143,111,232,0.92); text-decoration:none; }
   footer a:hover{ color:var(--gold); }
+
+  /* Deliberately its own line, not folded into the uppercase/tracked
+     line above — a full sentence in that tracked-out uppercase style
+     reads as shouting, the opposite of the subtle tone this is going
+     for. Same color/size as the line above though (rgba(255,255,255,0.5)
+     computes to ~5.3:1 against #0a0a0a, clears the small-text WCAG AA
+     bar — see index.html's accessibility comment for the same
+     computation method), just normal case and a little looser leading. */
+  footer .support-note{ margin-top:12px; font-size:.64rem; letter-spacing:normal; text-transform:none; line-height:1.7; max-width:480px; margin-left:auto; margin-right:auto; }
+  footer .wallet-addr{ font-family:'DM Mono',monospace; color:rgba(143,111,232,0.92); cursor:pointer; background:none; border:none; padding:0; font-size:inherit; letter-spacing:normal; }
+  footer .wallet-addr:hover{ color:var(--gold); }
 </style>
 </head>
 <body>
@@ -129,6 +140,21 @@
 
 <footer>
   A ZurVault companion to <a href="https://candy.io" target="_blank" rel="noopener">candy.io</a> · <a href="index.html">zurvault.com</a>
+  <p class="support-note">Built by a collector, for collectors. Zur is free to use. If it's helped you find something for your collection, support is welcome, never expected.<span class="wallet-line"><span class="wallet-symbol">&#9678;</span> <button type="button" class="wallet-addr" id="walletAddr" data-full="CCiBnYND2nj9JApdGMMk2trGH65NA565XTfETaj6dnHs" title="Click to copy">CCiBnY...j6dnHs</button> &middot; Click to copy</span></p>
 </footer>
+<script>
+(function(){
+  var btn = document.getElementById('walletAddr');
+  if(!btn) return;
+  var full = btn.dataset.full;
+  var short = btn.textContent;
+  btn.addEventListener('click', function(){
+    navigator.clipboard.writeText(full).then(function(){
+      btn.textContent = 'Copied!';
+      setTimeout(function(){ btn.textContent = short; }, 1500);
+    }).catch(function(){});
+  });
+})();
+</script>
 </body>
 </html>

@@ -239,6 +239,11 @@
   footer{ padding:28px 32px 44px; text-align:center; font-size:.64rem; letter-spacing:.12em; color:rgba(255,255,255,0.5); text-transform:uppercase; }
   footer a{ color:rgba(143,111,232,0.92); text-decoration:none; }
   footer a:hover{ color:var(--gold); }
+  footer .support-note{ margin-top:12px; font-size:.64rem; letter-spacing:normal; text-transform:none; line-height:1.7; }
+  footer .wallet-line{ display:block; margin-top:4px; }
+  footer .wallet-symbol{ color:rgba(143,111,232,0.92); }
+  footer .wallet-addr{ font-family:inherit; color:rgba(143,111,232,0.92); cursor:pointer; background:none; border:none; padding:0; font-size:inherit; letter-spacing:normal; text-transform:none; }
+  footer .wallet-addr:hover{ color:var(--gold); }
 </style>
 </head>
 <body>
@@ -298,7 +303,22 @@
 
 <footer>
   Live listing data via Magic Eden public API · <a href="index.html">zurvault.com</a>
+  <p class="support-note">Built by a collector, for collectors. Zur is free to use. If it's helped you find something for your collection, support is welcome, never expected.<span class="wallet-line"><span class="wallet-symbol">&#9678;</span> <button type="button" class="wallet-addr" id="walletAddr" data-full="CCiBnYND2nj9JApdGMMk2trGH65NA565XTfETaj6dnHs" title="Click to copy">CCiBnY...j6dnHs</button> &middot; Click to copy</span></p>
 </footer>
+<script>
+(function(){
+  var btn = document.getElementById('walletAddr');
+  if(!btn) return;
+  var full = btn.dataset.full;
+  var short = btn.textContent;
+  btn.addEventListener('click', function(){
+    navigator.clipboard.writeText(full).then(function(){
+      btn.textContent = 'Copied!';
+      setTimeout(function(){ btn.textContent = short; }, 1500);
+    }).catch(function(){});
+  });
+})();
+</script>
 
 <script>
 /* ============================================================
