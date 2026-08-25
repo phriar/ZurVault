@@ -64,6 +64,15 @@
   }
   .back-link:hover{ color:var(--gold); border-color:rgba(143,111,232,0.5); }
 
+  .tabs{ display:flex; gap:0; flex-wrap:wrap; margin-top:22px; border-bottom:1px solid var(--border); }
+  .tab{
+    flex:1; min-width:120px; text-align:center; padding:12px 8px; font-size:.94rem; letter-spacing:.15em;
+    text-transform:uppercase; color:rgba(255,255,255,0.55); cursor:pointer;
+    border-bottom:1px solid transparent; transition:color .15s; font-family:'DM Mono',monospace;
+  }
+  .tab.active{ color:rgba(255,255,255,0.85); border-bottom-color:var(--cyan); }
+  .tab:hover{ color:rgba(255,255,255,0.6); }
+
   .controls{
     display:flex; gap:8px; padding:16px 32px; flex-wrap:wrap; align-items:center; border-bottom:1px solid var(--border);
     background:rgba(255,255,255,0.015);
@@ -179,6 +188,60 @@
 
   .empty{ padding:60px 32px; text-align:center; color:rgba(255,255,255,0.55); font-family:'Cormorant Garamond',serif; font-size:1.2rem; font-weight:300; line-height:1.6; }
 
+  /* ---- Pack Odds tab ---- */
+  .methodology{
+    margin:16px 32px 0; padding:14px 16px; border:1px solid rgba(77,232,255,0.2); border-radius:2px;
+    background:rgba(77,232,255,0.04);
+  }
+  .methodology summary{
+    cursor:pointer; font-family:'DM Mono',monospace; font-size:.72rem; letter-spacing:.1em; text-transform:uppercase;
+    color:rgba(77,232,255,0.85); list-style:none;
+  }
+  .methodology summary::-webkit-details-marker{ display:none; }
+  .methodology summary::before{ content:'▸ '; }
+  .methodology[open] summary::before{ content:'▾ '; }
+  .methodology .body{
+    margin-top:12px; font-size:.72rem; line-height:1.75; color:rgba(255,255,255,0.65); letter-spacing:.01em;
+  }
+  .methodology .body p{ margin-bottom:10px; }
+  .methodology .body p:last-child{ margin-bottom:0; }
+  .methodology .body code{
+    font-family:'DM Mono',monospace; background:rgba(255,255,255,0.06); padding:1px 5px; border-radius:2px;
+    color:rgba(255,255,255,0.8);
+  }
+
+  .odds-list{ display:flex; flex-direction:column; gap:1px; background:var(--border); padding:1px 32px 60px; margin-top:1px; }
+  .odds-card{ background:var(--ink); padding:18px 20px; }
+  .odds-head{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:4px; }
+  .odds-title{ font-family:'Cormorant Garamond',serif; font-size:1.3rem; color:rgba(255,255,255,0.9); }
+  .odds-meta{ font-family:'DM Mono',monospace; font-size:.66rem; letter-spacing:.05em; color:rgba(255,255,255,0.45); }
+
+  .method-badge{
+    display:inline-block; font-family:'DM Mono',monospace; font-size:.62rem; letter-spacing:.1em; text-transform:uppercase;
+    padding:2px 9px; border-radius:10px; border:1px solid; margin-bottom:12px;
+  }
+  .method-declared{ color:#4ade80; border-color:rgba(74,222,128,0.4); background:rgba(74,222,128,0.08); }
+  .method-estimated{ color:var(--gold); border-color:rgba(143,111,232,0.5); background:rgba(143,111,232,0.1); }
+  .method-limited{ color:#e07a5f; border-color:rgba(224,122,95,0.45); background:rgba(224,122,95,0.08); }
+
+  .odds-row{ display:grid; grid-template-columns:120px 1fr 150px; align-items:center; gap:10px; margin-top:7px; font-family:'DM Mono',monospace; }
+  .odds-row .tier-label{ font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; }
+  .odds-row .bar-track{ height:8px; border-radius:4px; background:rgba(255,255,255,0.06); overflow:hidden; }
+  .odds-row .bar-fill{ height:100%; border-radius:4px; }
+  .odds-row .bar-fill.tier-common    { background:#c2c6cc; }
+  .odds-row .bar-fill.tier-uncommon  { background:#4ade80; }
+  .odds-row .bar-fill.tier-rare      { background:var(--cyan); }
+  .odds-row .bar-fill.tier-epic      { background:var(--gold); }
+  .odds-row .bar-fill.tier-legendary { background:#fbbf24; }
+  .odds-row .tier-label.tier-common    { color:#c2c6cc; }
+  .odds-row .tier-label.tier-uncommon  { color:#4ade80; }
+  .odds-row .tier-label.tier-rare      { color:var(--cyan); }
+  .odds-row .tier-label.tier-epic      { color:var(--gold); }
+  .odds-row .tier-label.tier-legendary { color:#fbbf24; }
+  .odds-row .tier-label.tier-unrated   { color:rgba(255,255,255,0.4); }
+  .odds-row .pct-col{ text-align:right; font-size:.72rem; color:rgba(255,255,255,0.75); white-space:nowrap; }
+  .odds-row .pct-col .src{ color:rgba(255,255,255,0.4); font-size:.62rem; margin-left:4px; }
+
   footer{ padding:28px 32px 44px; text-align:center; font-size:.64rem; letter-spacing:.12em; color:rgba(255,255,255,0.5); text-transform:uppercase; }
   footer a{ color:rgba(143,111,232,0.92); text-decoration:none; }
   footer a:hover{ color:var(--gold); }
@@ -194,13 +257,19 @@
   <h1>Sealed <span>Packs</span></h1>
   <p class="sub">Every currently-listed Pack across every tracked DC collection, sorted cheapest first. Packs aren't their own collection — "Pack" is an item type that shows up alongside individual comics within a collection's own listing pool, so this page filters live across all of them rather than tracking a separate catalog.</p>
   <p class="note">For Sale only. Magic Eden's sales/activity data doesn't carry item-type attributes the way live listings do, so a "Recently Sold Packs" view isn't possible from what this site currently tracks.</p>
+  <p class="note">The <strong>Pack Odds</strong> tab estimates what rarity tier you'd pull from each series' Packs. It's calculated, not official — see the "How these odds are calculated" note on that tab before trusting a number.</p>
   <div class="quick-links">
     <a class="back-link" href="long-box.html">Browse the Back Issue Bin &#8599;</a>
     <a class="back-link" href="index.html">Latest DC Listings &#8599;</a>
   </div>
 </header>
 
-<div class="controls">
+<div class="tabs" id="modeTabs">
+  <div class="tab active" data-mode="browse">Browse Packs</div>
+  <div class="tab" data-mode="odds">Pack Odds</div>
+</div>
+
+<div class="controls" id="browseControls">
   <input type="text" id="searchInput" class="search-input" placeholder="Search by name or collection&hellip;">
   <div class="view-toggle" id="viewToggle">
     <button class="pill active" data-view="grid">Grid</button>
@@ -208,8 +277,25 @@
   </div>
 </div>
 
+<div class="controls" id="oddsControls" style="display:none;">
+  <input type="text" id="oddsSearchInput" class="search-input" placeholder="Search by collection&hellip;">
+</div>
+
+<details class="methodology" id="methodology" style="display:none;">
+  <summary>How these odds are calculated</summary>
+  <div class="body">
+    <p><strong>These are estimates, not official drop odds.</strong> ZurVault has no access to candy.io's actual pack-fill configuration — this page infers rarity odds from the same live Magic Eden listing data every other page here uses.</p>
+    <p><strong>Sample:</strong> for each series that currently has at least one Pack for sale, we take every <em>other</em> currently-for-sale item in that same series (<code>itemType !== "Pack"</code>) and tally its <code>Rarity</code> trait. Sales/activity data is <strong>not</strong> included — Magic Eden's sales feed doesn't carry item-type, so a sold Pack couldn't be reliably excluded from that sample.</p>
+    <p><strong>"Declared" tiers</strong> (green badge) use the rarity-weight percentage some candy.io drops publish directly on the trait itself (e.g. <code>"Legendary (4.8)"</code>) — that's the drop's actual configured print-run split, not something we computed.</p>
+    <p><strong>"Estimated" tiers</strong> (purple badge) have no published percentage, so the bar is just <code>(items of this tier currently listed) &divide; (all non-Pack items currently listed)</code> for that series. This is biased toward whatever hasn't sold yet — it is <strong>not</strong> a census of the full print run, and a tier that sells out fast will under-count here.</p>
+    <p><strong>"Limited data"</strong> (red badge) means fewer than 5 items are currently listed for that series — too small a sample to estimate from, so only declared tiers (if any) are shown.</p>
+    <p>See something that looks wrong? The raw counts are printed next to each bar — check them against Magic Eden's own listings for that series and flag it.</p>
+  </div>
+</details>
+
 <div id="status"><span class="dot"></span>Loading&hellip;</div>
 <div id="grid" class="grid"></div>
+<div id="oddsGrid" class="odds-list" style="display:none;"></div>
 
 <footer>
   Live listing data via Magic Eden public API · <a href="index.html">zurvault.com</a>
@@ -223,10 +309,25 @@ const statusEl = document.getElementById('status');
 const gridEl = document.getElementById('grid');
 const searchInputEl = document.getElementById('searchInput');
 const viewToggleEl = document.getElementById('viewToggle');
+const modeTabsEl = document.getElementById('modeTabs');
+const browseControlsEl = document.getElementById('browseControls');
+const oddsControlsEl = document.getElementById('oddsControls');
+const oddsSearchInputEl = document.getElementById('oddsSearchInput');
+const methodologyEl = document.getElementById('methodology');
+const oddsGridEl = document.getElementById('oddsGrid');
 
 let allPackListings = [];
+let allListings = []; // every For Sale item, unfiltered — the odds tab needs the non-Pack items too
 let searchQuery = '';
+let oddsSearchQuery = '';
 let currentView = 'grid';
+let currentMode = 'browse'; // 'browse' | 'odds'
+
+// Below this many currently-listed non-Pack items in a series, an
+// estimated (non-declared) percentage is too noisy to show as a number —
+// see the methodology panel's own wording, which states this same value.
+const MIN_ODDS_SAMPLE = 5;
+const RARITY_TIERS = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary'];
 
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 
@@ -313,7 +414,112 @@ function renderList(items){
   }).join('');
 }
 
+// For each series that currently has at least one Pack for sale, tallies
+// every *other* currently-for-sale item in that same series by Rarity
+// tier. Sales data is deliberately excluded — see the on-page methodology
+// panel (#methodology) for the full reasoning; this comment sticks to the
+// "what," that panel carries the "why" for a non-technical reader.
+function computeOdds(){
+  const packSymbols = new Set(allPackListings.map(i => i.symbol));
+  const bySymbol = new Map(); // symbol -> { sub, items: [] }
+  for(const i of allListings){
+    if(i.itemType === 'Pack' || !packSymbols.has(i.symbol)) continue;
+    if(!bySymbol.has(i.symbol)) bySymbol.set(i.symbol, { sub: i.sub, items: [] });
+    bySymbol.get(i.symbol).items.push(i);
+  }
+
+  const results = [];
+  for(const [symbol, group] of bySymbol){
+    const items = group.items;
+    const total = items.length;
+    const tierRows = RARITY_TIERS.map(tier => {
+      const tierItems = items.filter(i => i.rarity === tier);
+      const count = tierItems.length;
+      // Confirmed elsewhere in this codebase (me-proxy-worker.js's
+      // normalizeRarity()) that every listing sharing a tier within one
+      // collection carries the same declared rarityPct — so any one
+      // non-null value found for this tier is the drop's real configured
+      // percentage, not something we're estimating.
+      const declared = tierItems.find(i => typeof i.rarityPct === 'number');
+      if(declared) return { tier, count, pct: declared.rarityPct, source: 'declared' };
+      if(count > 0 && total >= MIN_ODDS_SAMPLE) return { tier, count, pct: (count / total) * 100, source: 'estimated' };
+      return { tier, count, pct: null, source: count > 0 ? 'limited' : 'none' };
+    });
+    const unratedCount = total - tierRows.reduce((sum, r) => sum + r.count, 0);
+    const hasDeclared = tierRows.some(r => r.source === 'declared');
+    const hasEstimated = tierRows.some(r => r.source === 'estimated');
+    const overallMethod = hasDeclared && !hasEstimated ? 'declared' : hasEstimated ? 'estimated' : 'limited';
+    results.push({ symbol, sub: group.sub, total, tierRows, unratedCount, overallMethod });
+  }
+  return results.sort((a, b) => (a.sub || '').localeCompare(b.sub || ''));
+}
+
+function oddsRowHTML(row){
+  const cls = `tier-${row.tier.toLowerCase()}`;
+  const barWidth = row.pct != null ? Math.min(100, row.pct) : 0;
+  const pctText = row.pct != null ? `${row.pct.toFixed(1)}%` : '—';
+  const srcText = row.source === 'declared' ? 'declared'
+    : row.source === 'estimated' ? 'est.'
+    : row.source === 'limited' ? 'too few listed'
+    : 'none listed';
+  return `
+    <div class="odds-row">
+      <div class="tier-label ${cls}">${esc(row.tier)}</div>
+      <div class="bar-track"><div class="bar-fill ${cls}" style="width:${barWidth}%"></div></div>
+      <div class="pct-col">${pctText} <span class="src">${row.count} seen &middot; ${esc(srcText)}</span></div>
+    </div>
+  `;
+}
+
+function oddsCardHTML(g){
+  const methodLabel = g.overallMethod === 'declared' ? 'Declared by drop metadata'
+    : g.overallMethod === 'estimated' ? 'Estimated from live listings'
+    : 'Limited data';
+  const unratedPct = g.total > 0 ? (g.unratedCount / g.total) * 100 : 0;
+  const unratedRow = g.unratedCount > 0 ? `
+    <div class="odds-row">
+      <div class="tier-label tier-unrated">No rarity data</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${unratedPct}%;background:rgba(255,255,255,0.25);"></div></div>
+      <div class="pct-col">${unratedPct.toFixed(1)}% <span class="src">${g.unratedCount} seen</span></div>
+    </div>` : '';
+  return `
+    <div class="odds-card">
+      <div class="odds-head">
+        <div class="odds-title">${esc(g.sub)}</div>
+        <div class="odds-meta">${g.total} non-Pack listing(s) sampled</div>
+      </div>
+      <div class="method-badge method-${g.overallMethod}">${methodLabel}</div>
+      ${g.tierRows.map(oddsRowHTML).join('')}
+      ${unratedRow}
+    </div>
+  `;
+}
+
+function renderOdds(){
+  const groups = computeOdds().filter(g => !oddsSearchQuery || (g.sub || '').toLowerCase().includes(oddsSearchQuery));
+  if(groups.length === 0){
+    oddsGridEl.innerHTML = `<div class="empty">${oddsSearchQuery
+      ? 'Try a different search.'
+      : 'No series currently has both a Pack and other listings for sale to compare odds against — check back later.'}</div>`;
+    return;
+  }
+  oddsGridEl.innerHTML = groups.map(oddsCardHTML).join('');
+}
+
+function setMode(mode){
+  currentMode = mode;
+  modeTabsEl.querySelectorAll('.tab[data-mode]').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
+  browseControlsEl.style.display = mode === 'browse' ? '' : 'none';
+  oddsControlsEl.style.display = mode === 'odds' ? '' : 'none';
+  methodologyEl.style.display = mode === 'odds' ? '' : 'none';
+  gridEl.style.display = mode === 'browse' ? '' : 'none';
+  oddsGridEl.style.display = mode === 'odds' ? '' : 'none';
+  render();
+}
+
 function render(){
+  if(currentMode === 'odds'){ renderOdds(); return; }
+
   const items = allPackListings
     .filter(i => !searchQuery || `${i.name || ''} ${i.sub || ''}`.toLowerCase().includes(searchQuery))
     .slice()
@@ -344,7 +550,8 @@ async function load(){
       return;
     }
 
-    allPackListings = (data.listings || []).filter(i => i.price !== null && i.itemType === 'Pack');
+    allListings = (data.listings || []).filter(i => i.price !== null);
+    allPackListings = allListings.filter(i => i.itemType === 'Pack');
     const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
     setStatus(`${allPackListings.length} Pack listing(s) tracked · updated ${updated}.`);
   }catch(e){
@@ -358,6 +565,15 @@ async function load(){
 searchInputEl.addEventListener('input', () => {
   searchQuery = searchInputEl.value.trim().toLowerCase();
   render();
+});
+
+oddsSearchInputEl.addEventListener('input', () => {
+  oddsSearchQuery = oddsSearchInputEl.value.trim().toLowerCase();
+  render();
+});
+
+modeTabsEl.querySelectorAll('.tab[data-mode]').forEach(t => {
+  t.addEventListener('click', () => setMode(t.dataset.mode));
 });
 
 viewToggleEl.querySelectorAll('.pill[data-view]').forEach(p => {
