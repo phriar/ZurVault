@@ -287,6 +287,44 @@ const DC_COLLECTIONS = [
   { sub: "Villains (Super Power Pack)", symbol: "dc3_super_power_packs_series_villains" },
   { sub: "Batman (1940-2011)", symbol: "batman_19402011_655" },
   { sub: "Wonder Woman (1987-2006)", symbol: "wonder_woman_19872006_1" },
+
+  // Added 2026-08-24 after cross-checking dc3.wiki's DC collections directory
+  // (an unofficial third-party on-chain tracker) against this array — these
+  // 26 were confirmed live on Magic Eden (symbol pulled from each
+  // collection's own dc3.wiki page, or for the handful missing that link,
+  // verified separately via the ME collections API returning real
+  // floorPrice/volume7d data) but weren't in DC_COLLECTIONS yet. A few
+  // other dc3.wiki entries were deliberately left out as non-comic
+  // merchandise (Bat Cowls, Overdrive rewards, membership cards, posters,
+  // artist-tribute cards) — same exclusion policy as the sports-card
+  // promos removed from this array previously. Keep in sync with
+  // index.html's copy of this array.
+  { sub: "Adventure Comics (1935-1983) #210", symbol: "adventure_comics_19351983_210" },
+  { sub: "All New Collectors' Edition (1977-1980) #54", symbol: "all_new_collectors_edition_19771980_54" },
+  { sub: "All-Star Superman", symbol: "allstar_superman" },
+  { sub: "All-Star Superman (2005-2008) #1", symbol: "allstar_superman_20052008_1" },
+  { sub: "All-Star Superman: Crafted Edition", symbol: "allstar_superman_crafted_edition" },
+  { sub: "Batman: Bloodstorm (1994)", symbol: "batman_bloodstorm_1994" },
+  { sub: "Batman: Crimson Mist (1998)", symbol: "batman_crimson_mist_1998" },
+  { sub: "Batman & Dracula: Red Rain (1991)", symbol: "batman_dracula_red_rain_1991" },
+  { sub: "Batman & Dracula: Wooden Stake", symbol: "batman_dracula" },
+  { sub: "Black Adam (2022-) #1", symbol: "black_adam_2022_1" },
+  { sub: "Blue Beetle (2006-2009) #1", symbol: "blue_beetle_20062009_1" },
+  { sub: "Death: The High Cost of Living (1993) #1", symbol: "death_the_high_cost_of_living_1993_1" },
+  { sub: "Justice League Unlimited (2024-) #5", symbol: "justice_league_unlimited_2024_5" },
+  { sub: "Kingdom Come (1996) #1", symbol: "kingdom_come_1996_1" },
+  { sub: "Krypto: The Last Dog of Krypton (2025-) #1", symbol: "krypto_the_last_dog_of_krypton_2025_1" },
+  { sub: "Krypto: The Last Dog of Krypton (2025-) #2", symbol: "krypto_the_last_dog_of_krypton_2025_2" },
+  { sub: "Krypto: The Last Dog of Krypton (2025-) #3", symbol: "krypto_the_last_dog_of_krypton_2025_3" },
+  { sub: "Krypto: The Last Dog of Krypton (2025-) #4", symbol: "krypto_the_last_dog_of_krypton_2025_4" },
+  { sub: "New History of the DC Universe (2025-) #1", symbol: "new_history_of_the_dc_universe_2025_1" },
+  { sub: "New History of the DC Universe (2025-) #2", symbol: "new_history_of_the_dc_universe_2025_2" },
+  { sub: "Static (1993-1997) #1", symbol: "static_19931997_1" },
+  { sub: "The Batman Adventures (1992-1995) #12", symbol: "the_batman_adventures_19921995_12" },
+  { sub: "The Witching Hour (1968-1978) #1", symbol: "the_witching_hour_19681978_1" },
+  { sub: "Gotham City Sirens (Super Power Pack)", symbol: "dc3_super_power_packs_series_gotham_city_sirens" },
+  { sub: "Sweater Weather (Super Power Pack)", symbol: "dc3_super_power_packs_series_sweater_weather" },
+  { sub: "Nightwing Legacy (Super Power Pack)", symbol: "dc3_super_power_packs_nightwing_legacy_300" },
 ];
 
 // ---------------------------------------------------------------------
