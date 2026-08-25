@@ -131,6 +131,33 @@
   .pill.active{ color:#fff; background:linear-gradient(135deg, var(--deep), var(--gold)); border-color:transparent; }
   .view-toggle{ display:flex; gap:8px; margin-left:auto; }
 
+  .pills{
+    display:flex; gap:8px; padding:0 32px 16px; flex-wrap:wrap; border-bottom:1px solid var(--border);
+    background:rgba(255,255,255,0.015);
+  }
+
+  /* Same five-tier rarity color scheme used consistently across the site
+     (long-box.html, packs.html, artist.html) — reused verbatim here.
+     Shown on both For Sale and Recent Sales: Magic Eden's activities
+     endpoint (what Recent Sales is derived from) doesn't carry
+     token.attributes on its own, so sold items would normally have no
+     rarity at all — me-proxy-worker.js backfills it server-side from a
+     listing snapshot of the same mint seen before it sold (see
+     updateRarityCache() there), so a sale only shows "no rarity" when it
+     genuinely was never seen as a listing. The pill row is still hidden on
+     Best Sellers/Highest Sales, which rank whole sub-collections rather
+     than individual items. */
+  .rarity-badge{
+    display:inline-block; font-family:'DM Mono',monospace; font-size:.7rem; letter-spacing:.1em;
+    text-transform:uppercase; padding:3px 10px; border-radius:10px; border:1px solid; margin-bottom:8px;
+  }
+  .rarity-common     { color:#c2c6cc; border-color:rgba(194,198,204,0.4); background:rgba(194,198,204,0.08); }
+  .rarity-uncommon   { color:#4ade80; border-color:rgba(74,222,128,0.4); background:rgba(74,222,128,0.08); }
+  .rarity-rare       { color:var(--cyan); border-color:rgba(77,232,255,0.4); background:rgba(77,232,255,0.08); }
+  .rarity-epic       { color:var(--gold); border-color:rgba(143,111,232,0.5); background:rgba(143,111,232,0.1); }
+  .rarity-legendary  { color:#fbbf24; border-color:rgba(251,191,36,0.5); background:rgba(251,191,36,0.1); }
+  .list-row .rarity-badge{ margin-top:4px; margin-bottom:0; }
+
   #status{ padding:16px 32px; font-size:.66rem; letter-spacing:.1em; color:rgba(255,255,255,0.55); text-transform:uppercase; }
   #status.err{ color:#e07a5f; }
   #status .dot{ display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--cyan); margin-right:8px; }
@@ -168,6 +195,7 @@
     display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
   }
   .card .price{ font-family:'DM Mono',monospace; font-size:1rem; letter-spacing:.05em; color:rgba(255,255,255,0.9); }
+  .card .mint{ font-family:'DM Mono',monospace; font-size:.94rem; letter-spacing:.05em; color:rgba(255,255,255,0.55); margin-top:3px; }
   .card .time{ font-family:'DM Mono',monospace; font-size:.94rem; letter-spacing:.1em; color:rgba(255,255,255,0.55); margin-top:3px; text-transform:uppercase; }
 
   /* List view — same data as the card grid, one full-width row per item
@@ -254,6 +282,15 @@
     <button class="pill active" data-view="grid">Grid</button>
     <button class="pill" data-view="list">List</button>
   </div>
+</div>
+
+<div class="pills" id="rarityPills">
+  <button class="pill active" data-tier="">All Rarities</button>
+  <button class="pill" data-tier="Common">Common</button>
+  <button class="pill" data-tier="Uncommon">Uncommon</button>
+  <button class="pill" data-tier="Rare">Rare</button>
+  <button class="pill" data-tier="Epic">Epic</button>
+  <button class="pill" data-tier="Legendary">Legendary</button>
 </div>
 
 <div id="status"><span class="dot"></span>Loading collections…</div>
@@ -483,12 +520,14 @@ let allListings = [];
 let allSales = [];
 let currentView = 'listings';
 let currentDisplay = 'grid';
+let selectedTier = null;
 
 const statusEl = document.getElementById('status');
 const gridEl = document.getElementById('grid');
 const subFilterEl = document.getElementById('subFilter');
 const sortByEl = document.getElementById('sortBy');
 const viewToggleEl = document.getElementById('viewToggle');
+const rarityPillsEl = document.getElementById('rarityPills');
 
 function setStatus(msg, isErr){
   statusEl.innerHTML = (isErr ? '' : '<span class="dot"></span>') + msg;
@@ -515,6 +554,15 @@ function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 function parseEdition(name){
   const m = /\((\d+)\s*\/\s*(\d+)\)\s*$/.exec(name || '');
   return m ? `#${m[1]} / ${m[2]}` : null;
+}
+
+// rarityPct, when present, is that collection's fixed supply-distribution
+// percentage for the tier (e.g. "Legendary, 4.8% of supply"), not a
+// per-token score — see normalizeRarity() in me-proxy-worker.js.
+function rarityBadge(rarity, rarityPct){
+  if(!rarity) return '';
+  const pctText = typeof rarityPct === 'number' ? ` · ${rarityPct.toFixed(1)}%` : '';
+  return `<div class="rarity-badge rarity-${rarity.toLowerCase()}">${esc(rarity)}${pctText}</div>`;
 }
 
 // The ~200-collection scan (listings + activities per collection) now runs
@@ -607,9 +655,15 @@ const controlsEl = document.querySelector('.controls');
 // sub-collection filter/sort controls don't apply to it — hidden rather
 // than left visible-but-inert. Highest Sales is always sorted by price,
 // so just the sort dropdown (not the sub-collection filter) is hidden there.
+// Rarity pills show on both per-item tabs (For Sale and Recent Sales) —
+// sales carry a server-backfilled rarity now (me-proxy-worker.js's
+// rarity-cache), same field shape as listings. Best Sellers/Highest Sales
+// rank whole sub-collections rather than individual items, so a per-item
+// rarity filter doesn't apply to either.
 function updateControlsVisibility(){
   controlsEl.style.display = currentView === 'top-sellers' ? 'none' : '';
   sortByEl.style.display = currentView === 'top-sales' ? 'none' : '';
+  rarityPillsEl.style.display = (currentView === 'listings' || currentView === 'sales') ? '' : 'none';
 }
 
 function render(){
@@ -628,11 +682,14 @@ function activateTab(view){
 
 function renderListings(){
   const sub = subFilterEl.value;
-  const items = sortItems(allListings.filter(i => !sub || i.sub === sub), sortByEl.value, 'listedAt');
+  const items = sortItems(
+    allListings.filter(i => (!sub || i.sub === sub) && (!selectedTier || i.rarity === selectedTier)),
+    sortByEl.value, 'listedAt'
+  );
 
   if(items.length === 0){
     gridEl.className = currentDisplay;
-    gridEl.innerHTML = `<div class="empty">No listings match this view yet.<br>Try a different sub-collection or check back later.</div>`;
+    gridEl.innerHTML = `<div class="empty">No listings match this view yet.<br>Try a different sub-collection, a different rarity tier, or check back later.</div>`;
     return;
   }
 
@@ -644,6 +701,7 @@ function renderListings(){
         <div class="info">
           <div class="sub">${esc(i.sub)}</div>
           <div class="name">${esc(i.name)}</div>
+          ${rarityBadge(i.rarity, i.rarityPct)}
         </div>
         <div class="price-col">
           <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
@@ -663,8 +721,10 @@ function renderListings(){
       <div class="body">
         <div class="sub">${esc(i.sub)}</div>
         <div class="name">${esc(i.name)}</div>
+        ${rarityBadge(i.rarity, i.rarityPct)}
         <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
         <div class="me-tag">Magic Eden &#8599;</div>
+        ${parseEdition(i.name) ? `<div class="mint">${parseEdition(i.name)}</div>` : ''}
         ${i.listedAt ? `<div class="time">${timeAgo(i.listedAt)}</div>` : ''}
       </div>
     </a>
@@ -673,11 +733,23 @@ function renderListings(){
 
 function renderSales(){
   const sub = subFilterEl.value;
-  const items = sortItems(allSales.filter(i => !sub || i.sub === sub), sortByEl.value, 'soldAt').slice(0, 200);
+  // rarity/rarityPct/name are backfilled server-side from a listing
+  // snapshot of the same mint seen before it sold (me-proxy-worker.js's
+  // rarity-cache KV, ~14-day carry-forward) — name is what parseEdition()
+  // below pulls a mint # out of, since Magic Eden's activities data never
+  // carries a token name. A sale from before that shipped, or one that
+  // happened between cron cycles too fast to be captured, has all three
+  // fields null rather than a fabricated guess. selectedTier filters those
+  // out just like renderListings(), so "no rarity yet" sales simply don't
+  // match any specific tier filter (still show up under "All Rarities").
+  const items = sortItems(
+    allSales.filter(i => (!sub || i.sub === sub) && (!selectedTier || i.rarity === selectedTier)),
+    sortByEl.value, 'soldAt'
+  ).slice(0, 200);
 
   if(items.length === 0){
     gridEl.className = currentDisplay;
-    gridEl.innerHTML = `<div class="empty">No sales in the last 7 days for this view.<br>Try a different sub-collection or check back later.</div>`;
+    gridEl.innerHTML = `<div class="empty">No sales in the last 7 days for this view.<br>Try a different sub-collection, a different rarity tier, or check back later.</div>`;
     return;
   }
 
@@ -689,10 +761,12 @@ function renderSales(){
         <div class="info">
           <div class="sub">${esc(i.sub)}</div>
           <div class="name">${soldLabel(i)}</div>
+          ${rarityBadge(i.rarity, i.rarityPct)}
         </div>
         <div class="price-col">
           <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
           <div class="me-tag">Magic Eden &#8599;</div>
+          ${i.name && parseEdition(i.name) ? `<div class="mint">${parseEdition(i.name)}</div>` : ''}
           ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
         </div>
       </a>
@@ -707,8 +781,10 @@ function renderSales(){
       <div class="body">
         <div class="sub">${esc(i.sub)}</div>
         <div class="name">${soldLabel(i)}</div>
+        ${rarityBadge(i.rarity, i.rarityPct)}
         <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
         <div class="me-tag">Magic Eden &#8599;</div>
+        ${i.name && parseEdition(i.name) ? `<div class="mint">${parseEdition(i.name)}</div>` : ''}
         ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
       </div>
     </a>
@@ -829,6 +905,15 @@ viewToggleEl.querySelectorAll('.pill').forEach(p => {
     viewToggleEl.querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
     p.classList.add('active');
     currentDisplay = p.dataset.view;
+    render();
+  });
+});
+
+rarityPillsEl.querySelectorAll('.pill[data-tier]').forEach(p => {
+  p.addEventListener('click', () => {
+    rarityPillsEl.querySelectorAll('.pill[data-tier]').forEach(x => x.classList.remove('active'));
+    p.classList.add('active');
+    selectedTier = p.dataset.tier || null;
     render();
   });
 });

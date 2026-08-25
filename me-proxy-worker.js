@@ -320,6 +320,24 @@ const HISTORY_MAX_POINTS = 90; // ~3 months of daily checkups
 // outlast the interval it needs to survive" reasoning as KV_TTL_SECONDS's
 // 2x-cron-cadence margin above.
 const HISTORY_TTL_SECONDS = 60 * 60 * 24 * 120; // 120 days
+
+// Carries a listing's rarity AND name (the mint/edition number is parsed
+// out of the name client-side via parseEdition()) forward past the point
+// it sells, so sold items can show a rarity tier and a mint # without an
+// extra per-mint Magic Eden call — Magic Eden's activities/sales data
+// never includes token.attributes OR the token name at all (see
+// deriveSales() below), so without this, sold items have neither
+// captured, full stop. One blob per collection (same "own key, own TTL"
+// shape as historyKey()/HISTORY_TTL_SECONDS just above), NOT folded into
+// the collection:{symbol} entry itself — that entry's KV_TTL_SECONDS is
+// only 40 minutes, so a cache living inside it would get wiped out by any
+// collection that fails to refresh for under an hour, defeating a cache
+// meant to survive well past a single bad cycle.
+const rarityCacheKey = (symbol) => `rarity-cache:${symbol}`;
+// Comfortably longer than SALES_WINDOW_SECS (7 days) so a listing seen
+// once still covers any sale that shows up anywhere in that window, with
+// margin for a mint going quiet a cycle or two before it actually sells.
+const RARITY_CACHE_TTL_SECONDS = 60 * 60 * 24 * 14; // 14 days
 const BATCH_SIZE = 5; // collections processed concurrently per batch — kept conservative given the 429s we saw; the real rate gate is throttleMagicEden() below, this just bounds how many writes are in flight at once
 const SALES_WINDOW_SECS = 7 * 24 * 60 * 60; // Recent Sales looks back one week
 const ACTIVITIES_MAX_PAGES = 5; // safety cap — a very active collection could otherwise page forever
@@ -510,24 +528,71 @@ function extractItemType(attributes) {
   return raw || null;
 }
 
-function deriveSales(activities, col) {
+function deriveSales(activities, col, mintRarity) {
   const cutoff = Date.now() / 1000 - SALES_WINDOW_SECS;
   const sales = [];
   for (const a of activities) {
     if ((a?.type === "buyNow" || a?.type === "acceptBid") && a?.tokenMint && (a.blockTime || 0) >= cutoff) {
+      // Backfilled from a listing snapshot of this exact mint seen within
+      // RARITY_CACHE_TTL_SECONDS before it sold (see updateRarityCache()).
+      // null on every backfilled field means this mint was never seen as a
+      // listing while the cache existed — a sale from before this feature
+      // shipped, or one that happened between cron cycles too fast to be
+      // captured — no fabricated fallback.
+      const cached = mintRarity?.[a.tokenMint];
       sales.push({
         sub: col.sub,
         symbol: col.symbol,
+        name: cached?.name ?? null,
         image: a.image || "",
         price: a.price ?? null,
         mint: a.tokenMint,
         buyer: a.buyer || null,
         soldAt: a.blockTime || null,
         pdpUrl: `https://magiceden.io/item-details/${a.tokenMint}`,
+        rarity: cached?.tier ?? null,
+        rarityPct: cached?.pct ?? null,
       });
     }
   }
   return sales;
+}
+
+// Reads this collection's existing rarity/name cache, prunes anything
+// older than RARITY_CACHE_TTL_SECONDS, merges in every mint seen with a
+// known rarity or name in *this* cycle's fresh listings, and writes it
+// straight back — refreshing the TTL on every successful cycle, same
+// live-write-resets-TTL pattern as updateCollectionHistory() below.
+// Returns the merged map so deriveSales() (called right after this, in
+// refreshOneCollection()) can use it immediately without a second KV read
+// the same cycle.
+async function updateRarityCache(col, listings, env) {
+  const raw = await env.DC_CACHE.get(rarityCacheKey(col.symbol));
+  let cache = {};
+  if (raw) {
+    try {
+      const prev = JSON.parse(raw);
+      const cutoff = Date.now() - RARITY_CACHE_TTL_SECONDS * 1000;
+      for (const [mint, info] of Object.entries(prev || {})) {
+        if ((info?.seenAt || 0) >= cutoff) cache[mint] = info;
+      }
+    } catch {
+      cache = {}; // corrupt/legacy entry — start fresh rather than fail the whole refresh
+    }
+  }
+  const now = Date.now();
+  for (const l of listings) {
+    // Cache a listing once it has a rarity OR a name worth carrying
+    // forward — most listings have both, but keeping the condition an OR
+    // (not AND) means a listing with a name but no rarity trait still
+    // backfills its mint # onto a later sale instead of being skipped
+    // entirely.
+    if (l.mintAddress && (l.rarity || l.name)) {
+      cache[l.mintAddress] = { tier: l.rarity, pct: l.rarityPct, name: l.name || null, seenAt: now };
+    }
+  }
+  await env.DC_CACHE.put(rarityCacheKey(col.symbol), JSON.stringify(cache), { expirationTtl: RARITY_CACHE_TTL_SECONDS });
+  return cache;
 }
 
 // Fetches one collection's listings + activities and writes its own KV
@@ -559,18 +624,17 @@ async function refreshOneCollection(col, env) {
         pdpUrl: `https://magiceden.io/item-details/${mint}`,
         // Only listings carry attributes from Magic Eden's response —
         // activities (what sales are derived from, below) don't include
-        // token.attributes at all, so sold items have no rarity/cover-artist/
-        // item-type captured here. Getting any of these onto sales would
-        // mean a separate per-mint metadata fetch for every sale, which
-        // isn't worth the added load on top of the rate limiting this file
-        // already fights — deferred, same as rarity.
+        // token.attributes at all, so cover-artist/item-type are never
+        // available for a sold item. Rarity gets backfilled onto sales via
+        // updateRarityCache() below instead of being deferred the same way.
         rarity: rarityInfo.tier,
         rarityPct: rarityInfo.pct,
         coverArtists: extractCoverArtists(item?.token?.attributes),
         itemType: extractItemType(item?.token?.attributes),
       };
     });
-    const sales = deriveSales(Array.isArray(activities) ? activities : [], col);
+    const mintRarity = await updateRarityCache(col, listings, env);
+    const sales = deriveSales(Array.isArray(activities) ? activities : [], col, mintRarity);
     const entry = { symbol: col.symbol, sub: col.sub, listings, sales, updatedAt: Date.now() };
     await env.DC_CACHE.put(collectionKey(col.symbol), JSON.stringify(entry), { expirationTtl: KV_TTL_SECONDS });
 
