@@ -190,16 +190,13 @@
 
   /* ---- Pack Odds tab ---- */
   .methodology{
-    margin:16px 32px 0; padding:14px 16px; border:1px solid rgba(77,232,255,0.2); border-radius:2px;
-    background:rgba(77,232,255,0.04);
+    margin:16px 32px 0; padding:14px 16px; border:1px solid rgba(224,122,95,0.35); border-radius:2px;
+    background:rgba(224,122,95,0.06);
   }
-  .methodology summary{
-    cursor:pointer; font-family:'DM Mono',monospace; font-size:.72rem; letter-spacing:.1em; text-transform:uppercase;
-    color:rgba(77,232,255,0.85); list-style:none;
+  .methodology .title{
+    font-family:'DM Mono',monospace; font-size:.72rem; letter-spacing:.1em; text-transform:uppercase;
+    color:#e07a5f; font-weight:400;
   }
-  .methodology summary::-webkit-details-marker{ display:none; }
-  .methodology summary::before{ content:'▸ '; }
-  .methodology[open] summary::before{ content:'▾ '; }
   .methodology .body{
     margin-top:12px; font-size:.72rem; line-height:1.75; color:rgba(255,255,255,0.65); letter-spacing:.01em;
   }
@@ -267,7 +264,7 @@
   <h1>Sealed <span>Packs</span></h1>
   <p class="sub">Every currently-listed Pack across every tracked DC collection, sorted cheapest first. Packs aren't their own collection — "Pack" is an item type that shows up alongside individual comics within a collection's own listing pool, so this page filters live across all of them rather than tracking a separate catalog.</p>
   <p class="note">For Sale only. Magic Eden's sales/activity data doesn't carry item-type attributes the way live listings do, so a "Recently Sold Packs" view isn't possible from what this site currently tracks.</p>
-  <p class="note">The <strong>Pack Odds</strong> tab estimates what rarity tier you'd pull from each series' Packs. It's calculated, not official — see the "How these odds are calculated" note on that tab before trusting a number.</p>
+  <p class="note">The <strong>Pack Odds</strong> tab estimates what rarity tier you'd pull from each series' Packs, from live Magic Eden listing data — it is <strong>not</strong> official candy.io pack-fill data. Full explanation of the source and method is pinned at the top of that tab.</p>
   <div class="quick-links">
     <a class="back-link" href="long-box.html">Browse the Back Issue Bin &#8599;</a>
     <a class="back-link" href="index.html">Latest DC Listings &#8599;</a>
@@ -291,17 +288,17 @@
   <input type="text" id="oddsSearchInput" class="search-input" placeholder="Search by collection&hellip;">
 </div>
 
-<details class="methodology" id="methodology" style="display:none;">
-  <summary>How these odds are calculated</summary>
+<div class="methodology" id="methodology" style="display:none;">
+  <div class="title">⚠ Where these odds come from — read before trusting a number</div>
   <div class="body">
-    <p><strong>These are estimates, not official drop odds.</strong> ZurVault has no access to candy.io's actual pack-fill configuration — this page infers rarity odds from the same live Magic Eden listing data every other page here uses.</p>
+    <p><strong>Nothing here is official.</strong> ZurVault has no access to candy.io's actual pack-fill configuration. Every bar below is inferred from the same live Magic Eden listing data every other page on this site reads — no other source.</p>
     <p><strong>Sample:</strong> for each series that currently has at least one Pack for sale, we take every <em>other</em> currently-for-sale item in that same series (<code>itemType !== "Pack"</code>) and tally its <code>Rarity</code> trait. Sales/activity data is <strong>not</strong> included — Magic Eden's sales feed doesn't carry item-type, so a sold Pack couldn't be reliably excluded from that sample.</p>
-    <p><strong>"Declared" tiers</strong> (green badge) use the rarity-weight percentage some candy.io drops publish directly on the trait itself (e.g. <code>"Legendary (4.8)"</code>) — that's the drop's actual configured print-run split, not something we computed.</p>
-    <p><strong>"Estimated" tiers</strong> (purple badge) have no published percentage, so the bar is just <code>(items of this tier currently listed) &divide; (all non-Pack items currently listed)</code> for that series. This is biased toward whatever hasn't sold yet — it is <strong>not</strong> a census of the full print run, and a tier that sells out fast will under-count here.</p>
+    <p><strong>"Declared" tiers</strong> (green badge) use a rarity-weight percentage some candy.io drops publish directly on the trait itself (e.g. <code>"Legendary (4.8)"</code>) — that's the drop's actual configured print-run split, not something we computed. As of this writing, none of the tracked series currently publish this — every number you're looking at right now is "Estimated," not "Declared."</p>
+    <p><strong>"Estimated" tiers</strong> (purple badge) have no published percentage, so the bar is just <code>(items of this tier currently listed) &divide; (all non-Pack items currently listed)</code> for that series. This measures what hasn't sold yet, not the true pack-fill rate — if scarce items get bought fast, this under-counts them; if they sit unsold, it over-counts them. There's no way to tell which is happening from this data alone.</p>
     <p><strong>"Limited data"</strong> (red badge) means fewer than 5 items are currently listed for that series — too small a sample to estimate from, so only declared tiers (if any) are shown.</p>
     <p>See something that looks wrong? The raw counts are printed next to each bar — check them against Magic Eden's own listings for that series and flag it.</p>
   </div>
-</details>
+</div>
 
 <div id="status"><span class="dot"></span>Loading&hellip;</div>
 <div id="grid" class="grid"></div>
