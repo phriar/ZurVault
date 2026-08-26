@@ -202,15 +202,6 @@
      the same WCAG AA bar the rest of this page's small text holds to. */
   .me-tag{ font-family:'DM Mono',monospace; font-size:.62rem; letter-spacing:.05em; text-transform:uppercase; color:rgba(77,232,255,0.7); margin-top:2px; white-space:nowrap; }
 
-  /* Rank badge — Best Sellers (leaderboard rows) and Highest Sales
-     (individual sales, still using the same list-row layout) both need
-     a position number ahead of the thumbnail. */
-  .list-row .rank{
-    flex-shrink:0; width:24px; text-align:center; font-family:'DM Mono',monospace;
-    font-size:.94rem; color:rgba(143,111,232,0.92);
-  }
-  .leaderboard-row{ cursor:pointer; }
-
   .empty{ padding:60px 32px; text-align:center; color:rgba(255,255,255,0.55); font-family:'Cormorant Garamond',serif; font-size:1.2rem; font-weight:300; line-height:1.6; }
 
   footer{ padding:28px 32px 44px; text-align:center; font-size:.64rem; letter-spacing:.12em; color:rgba(255,255,255,0.5); text-transform:uppercase; }
@@ -230,7 +221,7 @@
 <section class="hero-marquee">
   <div class="hero-content">
     <h1>Zur<span>Vault</span></h1>
-    <p class="tagline">New drops. Back issues. All on-chain.</p>
+    <p class="tagline">Helping you find the books.</p>
   </div>
 </section>
 
@@ -239,8 +230,6 @@
   <div class="tabs">
     <div class="tab active" data-view="listings">For Sale</div>
     <div class="tab" data-view="sales">Recent Sales (7d)</div>
-    <div class="tab" data-view="top-sellers">Best Sellers</div>
-    <div class="tab" data-view="top-sales">Highest Sales</div>
   </div>
 </header>
 
@@ -674,28 +663,8 @@ function sortItems(items, sort, timeField){
   });
 }
 
-const controlsEl = document.querySelector('.controls');
-
-// Best Sellers ranks whole sub-collections, not individual items, so the
-// sub-collection filter/sort controls don't apply to it — hidden rather
-// than left visible-but-inert. Highest Sales is always sorted by price,
-// so just the sort dropdown (not the sub-collection filter) is hidden there.
-// Rarity pills show on both per-item tabs (For Sale and Recent Sales) —
-// sales carry a server-backfilled rarity now (me-proxy-worker.js's
-// rarity-cache), same field shape as listings. Best Sellers/Highest Sales
-// rank whole sub-collections rather than individual items, so a per-item
-// rarity filter doesn't apply to either.
-function updateControlsVisibility(){
-  controlsEl.style.display = currentView === 'top-sellers' ? 'none' : '';
-  sortByEl.style.display = currentView === 'top-sales' ? 'none' : '';
-  rarityPillsEl.style.display = (currentView === 'listings' || currentView === 'sales') ? '' : 'none';
-}
-
 function render(){
-  updateControlsVisibility();
   if(currentView === 'sales') renderSales();
-  else if(currentView === 'top-sellers') renderTopSellers();
-  else if(currentView === 'top-sales') renderHighestSales();
   else renderListings();
 }
 
@@ -810,104 +779,6 @@ function renderSales(){
         <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
         <div class="me-tag">Magic Eden &#8599;</div>
         ${i.name && parseEdition(i.name) ? `<div class="mint">${parseEdition(i.name)}</div>` : ''}
-        ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
-      </div>
-    </a>
-  `).join('');
-}
-
-// Ranks sub-collections by number of sales in the 7-day window (allSales
-// is already scoped to that window server-side — see SALES_WINDOW_SECS in
-// me-proxy-worker.js). Sale count rather than volume, per the "what's
-// actively moving" framing — a $5 item selling 20 times outranks a single
-// big-ticket sale here, same as the site's other "hot" surfaces (the
-// Back Issue Bin, etc.) lean toward activity over price.
-function renderTopSellers(){
-  const bySub = new Map();
-  for(const s of allSales){
-    if(!s.sub) continue;
-    const cur = bySub.get(s.sub) || { sub: s.sub, count: 0, volume: 0, image: s.image };
-    cur.count++;
-    cur.volume += (s.price || 0);
-    bySub.set(s.sub, cur);
-  }
-  const ranked = [...bySub.values()].sort((a, b) => b.count - a.count).slice(0, 15);
-
-  gridEl.className = 'list';
-  if(ranked.length === 0){
-    gridEl.innerHTML = `<div class="empty">No sales in the last 7 days yet.<br>Check back later.</div>`;
-    return;
-  }
-
-  gridEl.innerHTML = ranked.map((r, idx) => `
-    <div class="list-row leaderboard-row" data-sub="${esc(r.sub)}">
-      <div class="rank">#${idx + 1}</div>
-      <img ${r.image ? `src="${esc(r.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
-      <div class="info">
-        <div class="sub">${esc(r.sub)}</div>
-        <div class="name">${r.count} sold this week</div>
-      </div>
-      <div class="price-col">
-        <div class="price">${r.volume.toFixed(2)} SOL</div>
-        <div class="mint">total volume</div>
-      </div>
-    </div>
-  `).join('');
-
-  // Clicking a row jumps to Recent Sales pre-filtered to that
-  // sub-collection, rather than linking anywhere — this stays a
-  // same-page ranking, not a new page to maintain.
-  gridEl.querySelectorAll('.leaderboard-row').forEach(row => {
-    row.addEventListener('click', () => {
-      subFilterEl.value = row.dataset.sub;
-      activateTab('sales');
-    });
-  });
-}
-
-function renderHighestSales(){
-  const sub = subFilterEl.value;
-  const items = allSales
-    .filter(i => !sub || i.sub === sub)
-    .slice()
-    .sort((a, b) => (b.price ?? -Infinity) - (a.price ?? -Infinity))
-    .slice(0, 20);
-
-  if(items.length === 0){
-    gridEl.className = currentDisplay;
-    gridEl.innerHTML = `<div class="empty">No sales in the last 7 days for this view.<br>Try a different sub-collection or check back later.</div>`;
-    return;
-  }
-
-  if(currentDisplay === 'list'){
-    gridEl.className = 'list';
-    gridEl.innerHTML = items.map((i, idx) => `
-      <a class="list-row" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}" data-track-mint="${esc(i.mint)}">
-        <div class="rank">#${idx + 1}</div>
-        <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
-        <div class="info">
-          <div class="sub">${esc(i.sub)}</div>
-          <div class="name">${soldLabel(i)}</div>
-        </div>
-        <div class="price-col">
-          <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
-          <div class="me-tag">Magic Eden &#8599;</div>
-          ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
-        </div>
-      </a>
-    `).join('');
-    return;
-  }
-
-  gridEl.className = 'grid';
-  gridEl.innerHTML = items.map((i, idx) => `
-    <a class="card" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}" data-track-mint="${esc(i.mint)}">
-      <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
-      <div class="body">
-        <div class="sub">${esc(i.sub)}</div>
-        <div class="name">#${idx + 1} · ${soldLabel(i)}</div>
-        <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
-        <div class="me-tag">Magic Eden &#8599;</div>
         ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
       </div>
     </a>

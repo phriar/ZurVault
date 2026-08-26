@@ -73,8 +73,13 @@
     '#zv-banner.zv-hidden{transform:translateY(-100%);opacity:0;pointer-events:none;}' +
     '#zv-banner *{box-sizing:border-box;}' +
     '#zv-banner .zv-brand{display:flex;align-items:center;gap:8px;text-decoration:none;flex-shrink:0;}' +
+    // 130%/25% frames the cowl's ears and eyes evenly inside the circle —
+    // the old 180%/30% clipped the ear tips and left a dead gap of empty
+    // background below the chin, which is what actually read as
+    // "misaligned" (the flexbox centering next to the wordmark was
+    // always correct; it was the image crop itself that looked off).
     '#zv-banner .zv-mark{width:26px;height:26px;border-radius:50%;flex-shrink:0;' +
-      'background-image:url(\'' + COWL_URL + '\');background-size:180%;background-position:center 30%;' +
+      'background-image:url(\'' + COWL_URL + '\');background-size:130%;background-position:center 25%;' +
       'border:1px solid rgba(143,111,232,0.45);}' +
     '#zv-banner .zv-word{font-size:.85rem;letter-spacing:.26em;text-transform:uppercase;color:rgba(255,255,255,0.78);}' +
     '#zv-banner .zv-links{display:flex;align-items:center;gap:2px;overflow-x:auto;scrollbar-width:none;}' +

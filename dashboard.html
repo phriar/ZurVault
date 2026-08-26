@@ -129,6 +129,33 @@
 
   .empty{ padding:60px 0; text-align:center; color:rgba(255,255,255,0.55); font-family:'Cormorant Garamond',serif; font-size:1.2rem; font-weight:300; line-height:1.6; }
 
+  /* Best Sellers / Highest Sales — reused verbatim from the .list-row
+     pattern shared across index.html/long-box.html/dollar-bin.html
+     (same class names, same colors/sizes, so nothing new to vet for
+     contrast), just dropped into this page's existing #rows container
+     instead of a dedicated .list wrapper. */
+  .list-row{
+    background:var(--ink); display:flex; align-items:center; gap:14px; padding:10px 14px;
+    text-decoration:none; color:#fff; transition:background .15s;
+  }
+  .list-row:hover{ background:rgba(255,255,255,0.03); }
+  .list-row img{ width:44px; height:66px; object-fit:cover; border-radius:2px; flex-shrink:0; background:rgba(255,255,255,0.03); }
+  .list-row .info{ flex:1; min-width:0; }
+  .list-row .sub{
+    font-family:'DM Mono',monospace; font-size:.94rem; letter-spacing:.14em; text-transform:uppercase;
+    color:rgba(143,111,232,0.92); margin-bottom:3px;
+  }
+  .list-row .name{ font-family:'Cormorant Garamond',serif; font-size:1.25rem; line-height:1.25; color:rgba(255,255,255,0.85); }
+  .list-row .price-col{ flex-shrink:0; text-align:right; }
+  .list-row .price{ font-family:'DM Mono',monospace; font-size:1.05rem; color:rgba(255,255,255,0.9); white-space:nowrap; }
+  .list-row .mint{ font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.5); margin-top:2px; white-space:nowrap; }
+  .list-row .time{ font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.55); margin-top:2px; text-transform:uppercase; white-space:nowrap; }
+  .list-row .rank{
+    flex-shrink:0; width:24px; text-align:center; font-family:'DM Mono',monospace;
+    font-size:.94rem; color:rgba(143,111,232,0.92);
+  }
+  .leaderboard-row{ cursor:pointer; }
+
   footer{ padding:32px 0 44px; text-align:left; font-size:.7rem; letter-spacing:.1em; color:rgba(255,255,255,0.5); text-transform:uppercase; }
   footer a{ color:rgba(143,111,232,0.92); text-decoration:none; }
   footer a:hover{ color:var(--gold); }
@@ -154,6 +181,8 @@
     <button class="pill active" data-sort="all">All</button>
     <button class="pill" data-sort="gainers">Biggest Gainers</button>
     <button class="pill" data-sort="losers">Biggest Losers</button>
+    <button class="pill" data-sort="top-sellers">Best Sellers</button>
+    <button class="pill" data-sort="top-sales">Highest Sales</button>
   </div>
 
   <div class="rows" id="rows"></div>
@@ -188,9 +217,22 @@ const rowsEl = document.getElementById('rows');
 const sortRowEl = document.getElementById('sortRow');
 
 let allCollections = [];
+let allSales = []; // from /v2/dc-summary — only Best Sellers/Highest Sales read this; the rest of this page runs entirely on /v2/dc-history
 let currentSort = 'all';
 
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+
+// shortMint/soldLabel/timeAgo — same helpers index.html's Recent Sales
+// used, ported here since Best Sellers/Highest Sales moved to this page.
+function shortMint(mint){ return mint && mint.length > 8 ? mint.slice(0, 4) + '…' + mint.slice(-4) : (mint || ''); }
+function soldLabel(i){ return i.buyer ? `Sold to ${shortMint(i.buyer)}` : `Sold · ${shortMint(i.mint)}`; }
+function timeAgo(ts){
+  const secs = typeof ts === 'number' ? (ts > 1e12 ? (Date.now()-ts)/1000 : Date.now()/1000 - ts) : (Date.now() - new Date(ts).getTime())/1000;
+  if(secs < 60) return 'just now';
+  if(secs < 3600) return Math.floor(secs/60) + 'm ago';
+  if(secs < 86400) return Math.floor(secs/3600) + 'h ago';
+  return Math.floor(secs/86400) + 'd ago';
+}
 
 function setStatus(msg, isErr){
   statusEl.innerHTML = (isErr ? '' : '<span class="dot"></span>') + msg;
@@ -307,6 +349,12 @@ function sortLosers(list){
 }
 
 function render(){
+  if(currentSort === 'top-sellers') return renderTopSellers();
+  if(currentSort === 'top-sales') return renderHighestSales();
+  renderMovers();
+}
+
+function renderMovers(){
   if(allCollections.length === 0){
     rowsEl.innerHTML = `<div class="empty">No price history yet.<br>Check back after the Worker has run a few cron cycles.</div>`;
     bannerEl.style.display = 'none';
@@ -358,6 +406,81 @@ function render(){
   }).join('');
 }
 
+// Ranks sub-collections by number of sales in the 7-day window (allSales
+// is already scoped to that window server-side — see SALES_WINDOW_SECS in
+// me-proxy-worker.js). Sale count rather than volume, per the "what's
+// actively moving" framing — a $5 item selling 20 times outranks a single
+// big-ticket sale here. Ported from index.html's Best Sellers tab; the
+// only real change is the destination for each row — that page could
+// jump straight to a pre-filtered Recent Sales tab, this page has no
+// such view, so a row links out to the collection on Magic Eden instead.
+function renderTopSellers(){
+  bannerEl.style.display = 'none';
+  const bySub = new Map();
+  for(const s of allSales){
+    if(!s.sub) continue;
+    const cur = bySub.get(s.sub) || { sub: s.sub, symbol: s.symbol, count: 0, volume: 0, image: s.image };
+    cur.count++;
+    cur.volume += (s.price || 0);
+    bySub.set(s.sub, cur);
+  }
+  const ranked = [...bySub.values()].sort((a, b) => b.count - a.count).slice(0, 15);
+
+  if(ranked.length === 0){
+    rowsEl.innerHTML = `<div class="empty">No sales in the last 7 days yet.<br>Check back later.</div>`;
+    return;
+  }
+
+  rowsEl.innerHTML = ranked.map((r, idx) => {
+    const meUrl = `https://magiceden.io/marketplace/${encodeURIComponent(r.symbol)}`;
+    return `
+    <a class="list-row leaderboard-row" href="${esc(meUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(r.symbol)}">
+      <div class="rank">#${idx + 1}</div>
+      <img ${r.image ? `src="${esc(r.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
+      <div class="info">
+        <div class="sub">${esc(r.sub)}</div>
+        <div class="name">${r.count} sold this week</div>
+      </div>
+      <div class="price-col">
+        <div class="price">${r.volume.toFixed(2)} SOL</div>
+        <div class="mint">total volume</div>
+      </div>
+    </a>
+  `;
+  }).join('');
+}
+
+// Top 20 highest-priced individual sales in the 7-day window, across
+// every tracked collection at once — no sub-collection filter, unlike
+// index.html's version, since this page has no such control. Ported
+// from index.html's Highest Sales tab (list-row layout only; that page's
+// grid/list toggle doesn't exist here).
+function renderHighestSales(){
+  bannerEl.style.display = 'none';
+  const items = allSales.slice().sort((a, b) => (b.price ?? -Infinity) - (a.price ?? -Infinity)).slice(0, 20);
+
+  if(items.length === 0){
+    rowsEl.innerHTML = `<div class="empty">No sales in the last 7 days yet.<br>Check back later.</div>`;
+    return;
+  }
+
+  rowsEl.innerHTML = items.map((i, idx) => `
+    <a class="list-row" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}" data-track-mint="${esc(i.mint)}">
+      <div class="rank">#${idx + 1}</div>
+      <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
+      <div class="info">
+        <div class="sub">${esc(i.sub)}</div>
+        <div class="name">${soldLabel(i)}</div>
+      </div>
+      <div class="price-col">
+        <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
+        <div class="me-tag">Magic Eden &#8599;</div>
+        ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
+      </div>
+    </a>
+  `).join('');
+}
+
 async function load(){
   setStatus('Loading…');
   try{
@@ -390,6 +513,21 @@ async function load(){
     setStatus('Could not reach the history service. Try reloading in a moment.', true);
     return;
   }
+
+  // Best-effort, separate from the dc-history load above: only Best
+  // Sellers/Highest Sales read this, so a failure here just means those
+  // two views show their own empty state rather than breaking the page
+  // (which runs entirely on dc-history otherwise).
+  try{
+    const salesRes = await fetch(`${ME_BASE}/dc-summary`);
+    if(salesRes.ok){
+      const salesData = await salesRes.json();
+      allSales = salesData.sales || [];
+    }
+  }catch(e){
+    console.error('dc-summary fetch failed (Best Sellers/Highest Sales only):', e);
+  }
+
   render();
 }
 
