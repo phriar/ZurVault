@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /discover.html
+Disallow: /candy-watcher.html
+Disallow: /click-stats.html
+Disallow: /scout/
+
+Sitemap: https://zurvault.com/sitemap.xml

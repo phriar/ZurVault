@@ -10,6 +10,18 @@
 <link rel="manifest" href="site.webmanifest">
 <meta name="theme-color" content="#0a0a0a">
 <title>Spotlight — ZurVault</title>
+<meta name="description" content="A closer look at a standout DC Comics NFT issue.">
+<link rel="canonical" href="https://zurvault.com/spotlight.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="ZurVault">
+<meta property="og:title" content="Spotlight — ZurVault">
+<meta property="og:description" content="A closer look at a standout DC Comics NFT issue.">
+<meta property="og:url" content="https://zurvault.com/spotlight.html">
+<meta property="og:image" content="https://zurvault.com/icon-512.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Spotlight — ZurVault">
+<meta name="twitter:description" content="A closer look at a standout DC Comics NFT issue.">
+<meta name="twitter:image" content="https://zurvault.com/icon-512.png">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -122,6 +134,18 @@ if(!entry){
   loadingEl.innerHTML = `No spotlight matches "${esc(id)}".<br><a href="collections.html?tab=characters">&#8592; Back to Characters</a>`;
 }else{
   document.title = `${entry.title} — ZurVault`;
+  const spotDesc = `A ZurVault spotlight on ${entry.title}.`;
+  const spotImg = entry.heroImage || 'https://zurvault.com/icon-512.png';
+  document.querySelector('meta[name="description"]').setAttribute('content', spotDesc);
+  document.querySelector('meta[property="og:title"]').setAttribute('content', `${entry.title} — ZurVault`);
+  document.querySelector('meta[property="og:description"]').setAttribute('content', spotDesc);
+  document.querySelector('meta[property="og:image"]').setAttribute('content', spotImg);
+  document.querySelector('meta[property="og:url"]').setAttribute('content', `https://zurvault.com/spotlight.html?id=${encodeURIComponent(entry.id)}`);
+  document.querySelector('meta[name="twitter:title"]').setAttribute('content', `${entry.title} — ZurVault`);
+  document.querySelector('meta[name="twitter:description"]').setAttribute('content', spotDesc);
+  document.querySelector('meta[name="twitter:image"]').setAttribute('content', spotImg);
+  const canonEl = document.querySelector('link[rel="canonical"]');
+  if(canonEl) canonEl.setAttribute('href', `https://zurvault.com/spotlight.html?id=${encodeURIComponent(entry.id)}`);
   const character = entry.characterId ? CHARACTER_MAP[entry.characterId] : null;
 
   let ctaHtml = '';

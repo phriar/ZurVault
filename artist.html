@@ -10,6 +10,18 @@
 <link rel="manifest" href="site.webmanifest">
 <meta name="theme-color" content="#0a0a0a">
 <title>Artist — ZurVault</title>
+<meta name="description" content="Live Magic Eden listings and sales for DC Comics NFT covers by a specific cover artist.">
+<link rel="canonical" href="https://zurvault.com/artist.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="ZurVault">
+<meta property="og:title" content="Artist — ZurVault">
+<meta property="og:description" content="Live Magic Eden listings and sales for DC Comics NFT covers by a specific cover artist.">
+<meta property="og:url" content="https://zurvault.com/artist.html">
+<meta property="og:image" content="https://zurvault.com/icon-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Artist — ZurVault">
+<meta name="twitter:description" content="Live Magic Eden listings and sales for DC Comics NFT covers by a specific cover artist.">
+<meta name="twitter:image" content="https://zurvault.com/icon-512.png">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -265,6 +277,12 @@ async function loadArtist(){
   }
 
   document.title = `${artistName} — ZurVault`;
+  const artistDesc = `Live Magic Eden listings and sales for DC Comics NFT covers by ${artistName}.`;
+  document.querySelector('meta[name="description"]').setAttribute('content', artistDesc);
+  document.querySelector('meta[property="og:title"]').setAttribute('content', `${artistName} — ZurVault`);
+  document.querySelector('meta[property="og:description"]').setAttribute('content', artistDesc);
+  document.querySelector('meta[name="twitter:title"]').setAttribute('content', `${artistName} — ZurVault`);
+  document.querySelector('meta[name="twitter:description"]').setAttribute('content', artistDesc);
   artistTitleEl.innerHTML = `${esc(artistName)}`;
   artistNameCrumbEl.textContent = artistName;
 
