@@ -102,6 +102,7 @@
   .rarity-rare       { color:var(--cyan); border-color:rgba(77,232,255,0.4); background:rgba(77,232,255,0.08); }
   .rarity-epic       { color:var(--gold); border-color:rgba(143,111,232,0.5); background:rgba(143,111,232,0.1); }
   .rarity-legendary  { color:#fbbf24; border-color:rgba(251,191,36,0.5); background:rgba(251,191,36,0.1); }
+  .rarity-badge.rarity-unrated{ color:rgba(255,255,255,0.4); border-color:rgba(255,255,255,0.18); background:rgba(255,255,255,0.04); border-style:dashed; }
   .list-row .rarity-badge{ margin-top:4px; margin-bottom:0; }
 
   #status{ padding:16px 32px; font-size:.66rem; letter-spacing:.1em; color:rgba(255,255,255,0.55); text-transform:uppercase; }
@@ -323,7 +324,7 @@ function parseEdition(name){
 // percentage for the tier (e.g. "only 4.8% of this print run is
 // Legendary") — not every drop's metadata includes it.
 function rarityBadge(rarity, rarityPct){
-  if(!rarity) return '';
+  if(!rarity) return '<div class="rarity-badge rarity-unrated">No rarity data</div>';
   const pctText = typeof rarityPct === 'number' ? ` · ${rarityPct.toFixed(1)}%` : '';
   return `<div class="rarity-badge rarity-${rarity.toLowerCase()}">${esc(rarity)}${pctText}</div>`;
 }
