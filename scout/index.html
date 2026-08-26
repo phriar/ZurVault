@@ -131,6 +131,7 @@
   }
   .card .price{ font-family:'DM Mono',monospace; font-size:1rem; letter-spacing:.05em; color:rgba(255,255,255,0.9); margin-bottom:2px; }
   .card .mint{ font-family:'DM Mono',monospace; font-size:.8rem; letter-spacing:.06em; color:rgba(255,255,255,0.5); margin-bottom:10px; }
+  .card .credits{ font-size:.7rem; line-height:1.5; color:rgba(255,255,255,0.5); margin-bottom:8px; }
 
   .card .reason{ font-size:.85rem; line-height:1.6; color:rgba(255,255,255,0.75); margin-bottom:8px; }
   .card .strengths{ list-style:none; margin-bottom:8px; }
@@ -414,9 +415,42 @@ function buildCandidates(query){
       edition: edition ? edition.label : null,
       coverArtists: i.coverArtists && i.coverArtists.length ? i.coverArtists : undefined,
       itemType: i.itemType || null,
+      // Real per-issue creative credits, straight from Magic Eden's own
+      // listing metadata (me-proxy-worker.js's extractCreativeCredits())
+      // — grounds Claude's commentary in what's actually printed on
+      // this specific issue instead of leaving it to recall/guess,
+      // which is weak for recent books it has little training knowledge
+      // of (see SCOUT-PLAN.md's "feed it more" revision).
+      writer: i.writer || undefined,
+      penciler: i.penciler || undefined,
+      inker: i.inker || undefined,
+      colorist: i.colorist || undefined,
+      characters: i.characters && i.characters.length ? i.characters : undefined,
       curatedNote: SYMBOL_TO_CURATED_NOTE[i.symbol] || undefined,
     };
   });
+}
+
+// One entry per unique series actually present in this candidate set
+// (not per-candidate — a 40-candidate list might span only 3-5 series,
+// so repeating the same blurb 40 times would waste most of the token
+// budget on duplication). Pulled from collections-map.js's blurb/
+// history fields, the same series-level curated context
+// collections.html/collection.html already show — real, ZurVault-
+// written context Claude can lean on for a series it may have thin
+// training knowledge of (especially anything from 2024-2025), rather
+// than generalizing.
+function buildSeriesContext(candidates){
+  if(typeof COLLECTIONS_MAP === 'undefined') return {};
+  const context = {};
+  for(const c of candidates){
+    const collId = SYMBOL_TO_COLLECTION_ID[c.symbol];
+    if(!collId || context[c.sub]) continue;
+    const entry = COLLECTIONS_MAP[collId];
+    const text = [entry?.blurb, entry?.history].filter(Boolean).join(' ');
+    if(text) context[c.sub] = text.slice(0, 800);
+  }
+  return context;
 }
 
 // Magic Eden is the primary link, not ZurVault — there's no per-comic
@@ -427,6 +461,22 @@ function buildCandidates(query){
 // page — same reasoning every other page on the site already follows
 // (their whole card links out to Magic Eden as the primary action, with
 // a small ZurVault-side "how to read"/browse link as the secondary one).
+// Penciler/inker are frequently the same person on these drops — shown
+// once as "Art" rather than the same name twice under two labels.
+function creditsLine(candidate){
+  if(!candidate) return '';
+  const parts = [];
+  if(candidate.writer) parts.push(`Writer: ${candidate.writer}`);
+  if(candidate.penciler && candidate.penciler === candidate.inker){
+    parts.push(`Art: ${candidate.penciler}`);
+  }else{
+    if(candidate.penciler) parts.push(`Pencils: ${candidate.penciler}`);
+    if(candidate.inker) parts.push(`Inks: ${candidate.inker}`);
+  }
+  if(candidate.colorist) parts.push(`Colors: ${candidate.colorist}`);
+  return parts.length ? `<div class="credits">${parts.map(esc).join(' &middot; ')}</div>` : '';
+}
+
 function cardHTML(rec, candidate){
   const edition = parseEdition(candidate?.name);
   const zurLink = zurvaultLinkFor(candidate?.symbol);
@@ -440,6 +490,7 @@ function cardHTML(rec, candidate){
         ${candidate ? `<div class="price">${candidate.price !== null ? candidate.price + ' SOL' : '—'}</div>` : ''}
         ${edition ? `<div class="mint">${esc(edition.label)}</div>` : ''}
         ${rarityBadge(candidate?.rarity, candidate?.rarityPct)}
+        ${creditsLine(candidate)}
         <div class="reason">${esc(rec.reason || '')}</div>
         ${Array.isArray(rec.strengths) && rec.strengths.length ? `<ul class="strengths">${rec.strengths.map(s => `<li>${esc(s)}</li>`).join('')}</ul>` : ''}
         ${rec.caution ? `<div class="caution">${esc(rec.caution)}</div>` : ''}
@@ -496,6 +547,7 @@ async function runScout(query){
   const candidates = buildCandidates(query);
   const candidatesByMint = {};
   for(const c of candidates) candidatesByMint[c.mintAddress] = c;
+  const seriesContext = buildSeriesContext(candidates);
 
   // Built once, shown in the debug panel regardless of what happens next
   // — parsing/candidate info is exactly what you need to debug a failed
@@ -507,6 +559,7 @@ async function runScout(query){
     parsedFlags: extractFlags(query),
     candidateCount: candidates.length,
     candidateMints: candidates.map(c => c.mintAddress),
+    seriesContextKeys: Object.keys(seriesContext),
   };
 
   if(candidates.length === 0){
@@ -525,7 +578,7 @@ async function runScout(query){
     const res = await fetch(`${ME_BASE}/scout`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, candidates }),
+      body: JSON.stringify({ query, candidates, seriesContext }),
     });
     const tookMs = Date.now() - startedAt;
     const data = await res.json().catch(() => null);
