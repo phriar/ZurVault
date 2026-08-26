@@ -148,7 +148,7 @@
     background:var(--ink); transition:color .15s;
   }
   .card-links a:hover{ color:rgba(255,255,255,0.9); }
-  .card-links a.secondary{ color:rgba(77,232,255,0.7); }
+  .card-links a.me-link{ color:rgba(77,232,255,0.7); }
 
   .empty{ padding:60px 32px; text-align:center; color:rgba(255,255,255,0.55); font-family:'Cormorant Garamond',serif; font-size:1.2rem; font-weight:300; line-height:1.6; }
 
@@ -319,6 +319,26 @@ function extractCharacterFilter(query){
   return best;
 }
 
+// Same longest-match idea as extractCharacterFilter, but against series
+// names (COLLECTIONS_MAP) instead of characters — needed because a
+// series name like "Absolute Batman" contains the character name
+// "Batman" as a substring, so relying on the character filter alone
+// pulls in every Batman-adjacent series (Detective Comics, classic
+// Batman (1940-2011), etc.) even when the request names one specific
+// series. buildCandidates() below prefers this match over the broader
+// character one whenever both fire.
+function extractSeriesFilter(query){
+  if(typeof COLLECTIONS_MAP === 'undefined') return null;
+  const q = query.toLowerCase();
+  let best = null;
+  for(const [id, c] of Object.entries(COLLECTIONS_MAP)){
+    if(c.name && q.includes(c.name.toLowerCase())){
+      if(!best || c.name.length > best.name.length) best = { id, name: c.name };
+    }
+  }
+  return best;
+}
+
 function extractFlags(query){
   const q = query.toLowerCase();
   return {
@@ -334,13 +354,22 @@ function extractFlags(query){
 // each candidate's title/series/issue number.
 function buildCandidates(query){
   const priceCeiling = extractPriceCeiling(query);
+  const seriesFilter = extractSeriesFilter(query);
   const charFilter = extractCharacterFilter(query);
   const flags = extractFlags(query);
 
   let pool = allListings.slice();
   if(priceCeiling !== null) pool = pool.filter(i => i.price !== null && i.price <= priceCeiling);
 
-  if(charFilter){
+  // Series match (e.g. "Absolute Batman") wins over the broader
+  // character match ("Batman") whenever both fire — see
+  // extractSeriesFilter()'s comment for why relying on character alone
+  // pulls in unrelated Batman-adjacent series.
+  if(seriesFilter){
+    const symbols = new Set(COLLECTIONS_MAP[seriesFilter.id].symbols || []);
+    const narrowed = pool.filter(i => symbols.has(i.symbol));
+    if(narrowed.length > 0) pool = narrowed;
+  }else if(charFilter){
     const symbols = new Set(CHARACTER_MAP[charFilter.id].symbols || []);
     const narrowed = pool.filter(i => symbols.has(i.symbol));
     if(narrowed.length > 0) pool = narrowed; // only narrow if it actually leaves candidates
@@ -390,6 +419,14 @@ function buildCandidates(query){
   });
 }
 
+// Magic Eden is the primary link, not ZurVault — there's no per-comic
+// detail page anywhere in this codebase (every ZurVault page browses at
+// the series/character level), so the ZurVault link can only ever land
+// on the whole series' grid, never this specific mint. Magic Eden's
+// pdpUrl is the only place "this exact comic" actually resolves to a
+// page — same reasoning every other page on the site already follows
+// (their whole card links out to Magic Eden as the primary action, with
+// a small ZurVault-side "how to read"/browse link as the secondary one).
 function cardHTML(rec, candidate){
   const edition = parseEdition(candidate?.name);
   const zurLink = zurvaultLinkFor(candidate?.symbol);
@@ -408,22 +445,31 @@ function cardHTML(rec, candidate){
         ${rec.caution ? `<div class="caution">${esc(rec.caution)}</div>` : ''}
       </div>
       <div class="card-links">
-        <a href="${esc(zurLink)}">View on ZurVault</a>
-        <a class="secondary" href="${esc(meLink)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(candidate?.symbol || '')}" data-track-mint="${esc(rec.mintAddress)}">Magic Eden &#8599;</a>
+        <a class="me-link" href="${esc(meLink)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(candidate?.symbol || '')}" data-track-mint="${esc(rec.mintAddress)}">View This Comic &#8599;</a>
+        <a href="${esc(zurLink)}">Browse ${candidate?.sub ? esc(candidate.sub) + ' ' : ''}on ZurVault</a>
       </div>
     </div>
   `;
 }
 
 function renderResults(data, candidatesByMint){
-  summaryEl.style.display = data.summary ? 'block' : 'none';
+  const hasSummary = !!(data.summary && data.summary.trim());
+  summaryEl.style.display = hasSummary ? 'block' : 'none';
   summaryEl.textContent = data.summary || '';
 
   const recs = Array.isArray(data.recommendations) ? data.recommendations : [];
   if(recs.length === 0){
     resultsGridEl.style.display = 'block';
     resultsGridEl.className = '';
-    resultsGridEl.innerHTML = `<div class="empty">Nothing in what's currently for sale really fit that.<br>Try a wider price range or a different character.</div>`;
+    // Claude's own summary already explains why, in its own words, when
+    // present — a generic "try a wider price range" line stacked
+    // underneath a genuine explanation (e.g. "nothing here really has
+    // award pedigree, closest is Justice League #1...") reads as
+    // tone-deaf rather than helpful. Only fall back to the canned
+    // message when there's no summary to lean on at all.
+    resultsGridEl.innerHTML = hasSummary
+      ? ''
+      : `<div class="empty">Nothing in what's currently for sale really fit that.<br>Try a wider price range or a different character.</div>`;
     return;
   }
 
@@ -445,7 +491,7 @@ async function runScout(query){
   summaryEl.style.display = 'none';
   resultsGridEl.style.display = 'none';
   debugContentEl.textContent = '';
-  setStatus('Scout is searching the long boxes…');
+  setStatus('Scout is searching the back issue bin…');
 
   const candidates = buildCandidates(query);
   const candidatesByMint = {};
@@ -456,6 +502,7 @@ async function runScout(query){
   // or empty-feeling request, not just a successful one.
   const parseDebug = {
     parsedPriceCeiling: extractPriceCeiling(query),
+    parsedSeries: extractSeriesFilter(query)?.name || null,
     parsedCharacter: extractCharacterFilter(query)?.name || null,
     parsedFlags: extractFlags(query),
     candidateCount: candidates.length,
@@ -484,7 +531,10 @@ async function runScout(query){
     const data = await res.json().catch(() => null);
 
     if(!res.ok || !data || data.error){
-      setStatus('Scout couldn’t come back with an answer just now. Try again in a moment.', true);
+      const msg = res.status === 429
+        ? 'Scout’s had a lot of requests from you in the last hour — give it a bit and try again.'
+        : 'Scout couldn’t come back with an answer just now. Try again in a moment.';
+      setStatus(msg, true);
       if(DEBUG){
         debugContentEl.textContent = JSON.stringify({ ...parseDebug, httpStatus: res.status, error: data?.error, tookMs }, null, 2);
       }

@@ -196,6 +196,14 @@ Add near the other route checks in the `fetch()` handler (after `/v2/click-log`,
   return a generic `{ error: "..." }` with a non-200 status.
 - Reuses the existing `corsHeaders`/`ALLOWED_ORIGINS`/OPTIONS-preflight block already at
   the top of `fetch()` — no new CORS logic.
+- **Rate limiting (added 2026-08-25):** 10 requests per IP per hour, checked first — before
+  the request body is even parsed. One `scoutrl:{ip}:{timestamp}-{rand}` KV key per
+  request attempt (`DC_CACHE`, same TTL-bounded pattern `/v2/click-log` already uses,
+  not a shared read-increment-write counter — see that route's own comment for why),
+  counted via `list()` by the per-IP prefix. Over the limit → `429` with `Retry-After`.
+  This is a backstop against sustained/scripted abuse specifically, not the real spend
+  ceiling — that's the account-level monthly spend limit set in the Anthropic console,
+  which bounds the true worst case regardless of what the rate limiter catches.
 
 ### 3. `README.md` (modified)
 

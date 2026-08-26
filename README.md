@@ -87,6 +87,10 @@ Nothing here is automated — GitHub Pages deploys the static files automaticall
 ### Anthropic API key
 `ANTHROPIC_API_KEY` must be set as an encrypted Worker Secret (Cloudflare dashboard → the Worker → Settings → Variables → "Encrypt") for `scout/index.html`'s `POST /v2/scout` to work — get a key from console.anthropic.com. Unlike the Helius key, this one never touches the browser at all; the Worker is the only thing that ever sees it. Like every other Worker change in this repo, **it won't go live until `me-proxy-worker.js` is hand-pasted into the dashboard again** — see "Worker changes need manual redeploy" below. Without the secret set, `/v2/scout` just returns a 503 for every request; nothing else on the site is affected.
 
+Also **set a monthly spend limit** in the Anthropic console (Settings → your organization's spend limit) — this is the real ceiling on cost, separate from and more important than the Worker's own rate limiting (below). $20/month is a reasonable starting point for a low-traffic unlinked page (~1,300-2,000 requests at Haiku 4.5 pricing). Note it's an **organization-wide** limit, not scoped to this one key — if you ever add another Anthropic-API-backed project under the same account, they'd share this pool.
+
+`/v2/scout` also rate-limits at 10 requests per IP per hour (Worker-side, via `DC_CACHE` — see `SCOUT-PLAN.md`'s Worker section) as a backstop against one IP running up requests, independent of the spend limit above.
+
 ### DC_COLLECTIONS
 The list of tracked sub-collections is a `{sub, symbol}` array that's **duplicated** in two places:
 - `index.html` — needed instantly for the sub-collection filter dropdown, no network round-trip.
