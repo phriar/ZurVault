@@ -1,7 +1,7 @@
 /* ============================================================
    ZurVault shared top banner. Include right after <body> opens:
      <script src="site-nav.js" data-active="index"></script>
-   data-active values: index | discover | collections | artists | long-box | dollar-bin | spotlight | guide | comics | candy | grails | packs | dashboard
+   data-active values: index | discover | collections | artists | long-box | dollar-bin | spotlight | guide | comics | candy | grails | packs | dashboard | scout
 
    Self-injects its own <style> + markup, so every page shares one
    consistent site identity strip instead of duplicating markup.
@@ -51,15 +51,27 @@
   // slideshow.html was pulled the same way on 2026-08-09 — removed from
   // the repo, not just unlisted, alongside slideshow-legacy.html — while
   // the Safe Browsing review is active.
+  // scout/index.html (added 2026-08-25) joined the unlisted group too —
+  // an AI comic-search POC, same "direct URL only" treatment as
+  // discover.html. It's also the reason PAGES' hrefs (and zv-brand's,
+  // below) became root-relative: Scout lives one directory deep, where a
+  // document-relative "index.html" would resolve to scout/index.html
+  // itself instead of the real homepage.
+  // Root-relative (leading "/"), not document-relative — this banner now
+  // also loads from scout/index.html (one directory deep), where a plain
+  // "index.html" would've resolved to scout/index.html itself instead of
+  // the real homepage. Root-relative resolves correctly from any depth,
+  // and is identical to the old document-relative behavior for every
+  // page at the root, so this is a no-op change for everything but Scout.
   var PAGES = [
-    { id: 'index',       label: 'Listings',      href: 'index.html' },
-    { id: 'collections', label: 'Characters',    href: 'collections.html?tab=characters' },
-    { id: 'artists',     label: 'Artists',       href: 'artists.html' },
-    { id: 'long-box',    label: 'Back Issue Bin', href: 'long-box.html' },
-    { id: 'dollar-bin',  label: 'Dollar Bin',    href: 'dollar-bin.html' },
-    { id: 'packs',       label: 'Packs',         href: 'packs.html' },
-    { id: 'dashboard',   label: 'Dashboard',     href: 'dashboard.html' },
-    { id: 'guide',       label: 'How To',        href: 'guide.html' },
+    { id: 'index',       label: 'Listings',      href: '/index.html' },
+    { id: 'collections', label: 'Characters',    href: '/collections.html?tab=characters' },
+    { id: 'artists',     label: 'Artists',       href: '/artists.html' },
+    { id: 'long-box',    label: 'Back Issue Bin', href: '/long-box.html' },
+    { id: 'dollar-bin',  label: 'Dollar Bin',    href: '/dollar-bin.html' },
+    { id: 'packs',       label: 'Packs',         href: '/packs.html' },
+    { id: 'dashboard',   label: 'Dashboard',     href: '/dashboard.html' },
+    { id: 'guide',       label: 'How To',        href: '/guide.html' },
   ];
 
   var style = document.createElement('style');
@@ -130,7 +142,7 @@
 
   var html =
     '<div id="zv-banner">' +
-      '<a class="zv-brand" href="index.html" aria-label="ZurVault home">' +
+      '<a class="zv-brand" href="/index.html" aria-label="ZurVault home">' +
         '<span class="zv-mark"></span><span class="zv-word">ZurVault</span>' +
       '</a>' +
       '<nav class="zv-links">' + links + '</nav>' +

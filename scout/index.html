@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#0a0a0a">
+<title>Scout — ZurVault</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  :root{
+    --ink:    #0a0a0a;
+    --gold:   #8f6fe8;
+    --deep:   #6b2fd6;
+    --cyan:   #4de8ff;
+    --faint:  rgba(255,255,255,0.05);
+    --border: rgba(255,255,255,0.07);
+  }
+
+  body{
+    background:var(--ink); color:#fff; min-height:100vh;
+    font-family:'DM Mono',monospace; -webkit-font-smoothing:antialiased;
+  }
+
+  header{
+    padding:120px 32px 40px; border-bottom:1px solid var(--border);
+    position:relative; z-index:10; overflow:hidden; text-align:center;
+    background-image:url('https://arweave.net/uyG3Nvb1UKTtm3q-tdHs4GNYOiEyaSTc7O0zhsc9gIQ');
+    background-size:cover; background-position:center 20%;
+  }
+  header::before{
+    content:''; position:absolute; inset:0;
+    background:linear-gradient(to bottom, rgba(10,10,10,0.6) 0%, rgba(10,10,10,0.8) 50%, rgba(10,10,10,0.97) 92%);
+  }
+  header > *{ position:relative; z-index:1; }
+  header h1{
+    font-family:'Cormorant Garamond',serif; font-weight:300; letter-spacing:.02em;
+    font-size:clamp(2rem,6vw,3rem); color:rgba(255,255,255,0.94);
+  }
+  header h1 span{ color:var(--gold); }
+  header p.sub{
+    margin:12px auto 0; max-width:520px; font-size:.68rem; line-height:1.7;
+    color:rgba(255,255,255,0.6); letter-spacing:.03em;
+  }
+
+  .ask-box{ max-width:640px; margin:28px auto 0; }
+  #queryInput{
+    width:100%; min-height:96px; resize:vertical; background:rgba(0,0,0,0.55);
+    border:1px solid var(--border); color:#fff; font-family:'Cormorant Garamond',serif;
+    font-size:1.15rem; line-height:1.5; padding:16px; border-radius:3px;
+  }
+  #queryInput:focus{ outline:1px solid rgba(143,111,232,0.5); }
+  #queryInput::placeholder{ color:rgba(255,255,255,0.35); }
+
+  .ask-row{ display:flex; align-items:center; gap:12px; margin-top:12px; justify-content:center; flex-wrap:wrap; }
+  #charCount{ font-size:.62rem; letter-spacing:.05em; color:rgba(255,255,255,0.45); text-transform:uppercase; }
+  #scoutBtn{
+    font-family:'DM Mono',monospace; font-size:.7rem; letter-spacing:.18em; text-transform:uppercase;
+    color:#fff; background:linear-gradient(135deg, var(--deep), var(--gold)); padding:12px 26px;
+    border:none; border-radius:3px; cursor:pointer; transition:filter .15s;
+  }
+  #scoutBtn:hover{ filter:brightness(1.12); }
+  #scoutBtn:disabled{ opacity:.5; cursor:default; filter:none; }
+
+  .chips{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:20px; max-width:720px; margin-left:auto; margin-right:auto; }
+  .chip{
+    font-family:'DM Mono',monospace; font-size:.64rem; letter-spacing:.03em; text-transform:none;
+    color:rgba(255,255,255,0.55); padding:7px 12px; border:1px solid var(--border); border-radius:20px;
+    cursor:pointer; transition:all .15s; background:transparent;
+  }
+  .chip:hover{ color:rgba(255,255,255,0.8); border-color:rgba(143,111,232,0.4); }
+
+  #status{ padding:16px 32px; font-size:.66rem; letter-spacing:.1em; color:rgba(255,255,255,0.55); text-transform:uppercase; text-align:center; }
+  #status.err{ color:#e07a5f; }
+  #status .dot{ display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--cyan); margin-right:8px; }
+
+  #summary{
+    display:none; max-width:640px; margin:0 auto 8px; padding:16px 20px; text-align:center;
+    font-family:'Cormorant Garamond',serif; font-size:1.1rem; line-height:1.55; color:rgba(255,255,255,0.85);
+  }
+
+  .grid{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+    gap:1px; background:var(--border); padding:1px 32px 60px; margin-top:16px;
+    max-width:1100px; margin-left:auto; margin-right:auto;
+  }
+  .card{ background:var(--ink); overflow:hidden; display:flex; flex-direction:column; }
+  .card-link{ color:#fff; text-decoration:none; display:flex; flex-direction:column; transition:background .15s; }
+  .card-link:hover{ background:rgba(255,255,255,0.03); }
+  .card img{ width:100%; aspect-ratio:2/3; object-fit:cover; background:rgba(255,255,255,0.03); display:block; }
+  .card .body{ padding:14px 16px 16px; }
+
+  /* Rarity badges — same five-tier palette used everywhere else on this
+     site, reused verbatim (already WCAG-AA-checked elsewhere). The AI
+     label pill below reuses the exact same five colors 1:1 (common/
+     uncommon/rare/epic/legendary → Value Pick/Scarce Listing/Low Serial/
+     Key Issue/Best Match) rather than picking new ones to vet. */
+  .rarity-badge{
+    display:inline-block; font-family:'DM Mono',monospace; font-size:.7rem; letter-spacing:.1em;
+    text-transform:uppercase; padding:3px 10px; border-radius:10px; border:1px solid; margin-bottom:8px;
+  }
+  .rarity-common     { color:#c2c6cc; border-color:rgba(194,198,204,0.4); background:rgba(194,198,204,0.08); }
+  .rarity-uncommon   { color:#4ade80; border-color:rgba(74,222,128,0.4); background:rgba(74,222,128,0.08); }
+  .rarity-rare       { color:var(--cyan); border-color:rgba(77,232,255,0.4); background:rgba(77,232,255,0.08); }
+  .rarity-epic       { color:var(--gold); border-color:rgba(143,111,232,0.5); background:rgba(143,111,232,0.1); }
+  .rarity-legendary  { color:#fbbf24; border-color:rgba(251,191,36,0.5); background:rgba(251,191,36,0.1); }
+
+  .ai-label{
+    display:inline-block; font-family:'DM Mono',monospace; font-size:.66rem; letter-spacing:.1em;
+    text-transform:uppercase; padding:3px 10px; border-radius:10px; border:1px solid; margin-bottom:8px;
+  }
+  .ai-value-pick    { color:#c2c6cc; border-color:rgba(194,198,204,0.4); background:rgba(194,198,204,0.08); }
+  .ai-scarce-listing{ color:#4ade80; border-color:rgba(74,222,128,0.4); background:rgba(74,222,128,0.08); }
+  .ai-low-serial    { color:var(--cyan); border-color:rgba(77,232,255,0.4); background:rgba(77,232,255,0.08); }
+  .ai-key-issue     { color:var(--gold); border-color:rgba(143,111,232,0.5); background:rgba(143,111,232,0.1); }
+  .ai-best-match    { color:#fbbf24; border-color:rgba(251,191,36,0.5); background:rgba(251,191,36,0.1); }
+
+  .card .sub{
+    font-family:'DM Mono',monospace; font-size:.94rem; letter-spacing:.14em; text-transform:uppercase;
+    color:rgba(143,111,232,0.92); margin-bottom:5px;
+  }
+  .card .name{
+    font-family:'Cormorant Garamond',serif; font-weight:400; font-size:1.2rem; line-height:1.25;
+    color:rgba(255,255,255,0.85); margin-bottom:8px;
+  }
+  .card .price{ font-family:'DM Mono',monospace; font-size:1rem; letter-spacing:.05em; color:rgba(255,255,255,0.9); margin-bottom:2px; }
+  .card .mint{ font-family:'DM Mono',monospace; font-size:.8rem; letter-spacing:.06em; color:rgba(255,255,255,0.5); margin-bottom:10px; }
+
+  .card .reason{ font-size:.85rem; line-height:1.6; color:rgba(255,255,255,0.75); margin-bottom:8px; }
+  .card .strengths{ list-style:none; margin-bottom:8px; }
+  .card .strengths li{ font-size:.72rem; color:rgba(255,255,255,0.6); line-height:1.6; padding-left:14px; position:relative; }
+  .card .strengths li::before{ content:'+'; position:absolute; left:0; color:#4ade80; }
+  .card .caution{
+    font-size:.72rem; line-height:1.6; color:#e0a05f; border-left:2px solid rgba(224,160,95,0.4);
+    padding-left:8px; margin-bottom:10px;
+  }
+
+  .card-links{ display:flex; gap:1px; background:var(--border); margin-top:auto; }
+  .card-links a{
+    flex:1; text-align:center; padding:9px 8px; font-family:'DM Mono',monospace; font-size:.64rem;
+    letter-spacing:.08em; text-transform:uppercase; color:rgba(255,255,255,0.65); text-decoration:none;
+    background:var(--ink); transition:color .15s;
+  }
+  .card-links a:hover{ color:rgba(255,255,255,0.9); }
+  .card-links a.secondary{ color:rgba(77,232,255,0.7); }
+
+  .empty{ padding:60px 32px; text-align:center; color:rgba(255,255,255,0.55); font-family:'Cormorant Garamond',serif; font-size:1.2rem; font-weight:300; line-height:1.6; }
+
+  #debugPanel{ max-width:640px; margin:20px auto 0; padding:0 32px; }
+  #debugPanel summary{ font-size:.66rem; letter-spacing:.1em; text-transform:uppercase; color:rgba(255,255,255,0.5); cursor:pointer; }
+  #debugPanel pre{
+    margin-top:10px; padding:12px; background:rgba(0,0,0,0.5); border:1px solid var(--border);
+    border-radius:3px; font-size:.7rem; line-height:1.6; color:rgba(255,255,255,0.7); overflow-x:auto; white-space:pre-wrap;
+  }
+
+  footer{ padding:28px 32px 44px; text-align:center; font-size:.64rem; letter-spacing:.12em; color:rgba(255,255,255,0.5); text-transform:uppercase; }
+  footer a{ color:rgba(143,111,232,0.92); text-decoration:none; }
+  footer a:hover{ color:var(--gold); }
+</style>
+</head>
+<body>
+<script src="/site-nav.js" data-active="scout"></script>
+<script src="/character-map.js"></script>
+<script src="/collections-map.js"></script>
+<div id="grain" style="position:fixed;inset:0;z-index:200;pointer-events:none;opacity:0.025;background-image:url(&quot;data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E&quot;);"></div>
+
+<header>
+  <h1>ZurVault <span>Scout</span></h1>
+  <p class="sub">Tell Scout what you're hunting. It searches everything currently for sale on ZurVault and explains what it finds, in plain language — not investment advice, just a knowledgeable second opinion. Proof-of-concept: unlinked, direct-URL only.</p>
+
+  <div class="ask-box">
+    <textarea id="queryInput" maxlength="300" placeholder="e.g. Find me an undervalued Batman comic under 0.5 SOL"></textarea>
+    <div class="ask-row">
+      <span id="charCount">0 / 300</span>
+      <button id="scoutBtn" type="button">Scout It</button>
+    </div>
+  </div>
+
+  <div class="chips" id="chips">
+    <button class="chip" type="button">Find me an undervalued Batman comic under 0.5 SOL</button>
+    <button class="chip" type="button">What are the best Batman comics available under 1 SOL?</button>
+    <button class="chip" type="button">Find me a historically important DC comic under 2 SOL</button>
+    <button class="chip" type="button">Show me cheap comics with unusually low serial numbers</button>
+    <button class="chip" type="button">Find me a good Green Lantern buy right now</button>
+    <button class="chip" type="button">What looks undervalued based on current listings?</button>
+    <button class="chip" type="button">Find me a key issue that is cheaper than normal</button>
+  </div>
+</header>
+
+<div id="status" style="display:none;"></div>
+<div id="summary"></div>
+<div id="resultsGrid" class="grid" style="display:none;"></div>
+
+<div id="debugPanel" style="display:none;">
+  <details>
+    <summary>Debug</summary>
+    <pre id="debugContent"></pre>
+  </details>
+</div>
+
+<footer>
+  Live listing data via Magic Eden public API, recommendations via Claude · <a href="/index.html">zurvault.com</a>
+</footer>
+
+<script>
+const ME_PROXY_BASE = "https://zurvault-proxy.stholt.workers.dev";
+const ME_BASE = ME_PROXY_BASE + "/v2";
+const MAX_QUERY_LENGTH = 300;
+const MAX_CANDIDATES = 40;
+
+const queryInputEl = document.getElementById('queryInput');
+const charCountEl = document.getElementById('charCount');
+const scoutBtnEl = document.getElementById('scoutBtn');
+const chipsEl = document.getElementById('chips');
+const statusEl = document.getElementById('status');
+const summaryEl = document.getElementById('summary');
+const resultsGridEl = document.getElementById('resultsGrid');
+const debugPanelEl = document.getElementById('debugPanel');
+const debugContentEl = document.getElementById('debugContent');
+
+const DEBUG = new URLSearchParams(location.search).get('debug') === '1';
+if(DEBUG) debugPanelEl.style.display = 'block';
+
+let allListings = [];
+let listingsLoaded = false;
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+
+function setStatus(msg, isErr){
+  statusEl.style.display = 'block';
+  statusEl.innerHTML = (isErr ? '' : '<span class="dot"></span>') + esc(msg);
+  statusEl.classList.toggle('err', !!isErr);
+}
+
+// Magic Eden listing names for these collections commonly end in
+// "(edition/total)" — same parse long-box.html already does.
+function parseEdition(name){
+  const m = /\((\d+)\s*\/\s*(\d+)\)\s*$/.exec(name || '');
+  return m ? { current: parseInt(m[1], 10), total: parseInt(m[2], 10), label: `#${m[1]} / ${m[2]}` } : null;
+}
+
+function rarityBadge(rarity, rarityPct){
+  if(!rarity) return '';
+  const pctText = typeof rarityPct === 'number' ? ` &middot; ${rarityPct.toFixed(1)}%` : '';
+  return `<div class="rarity-badge rarity-${rarity.toLowerCase()}">${esc(rarity)}${pctText}</div>`;
+}
+
+const AI_LABEL_CLASS = {
+  'Value Pick': 'ai-value-pick',
+  'Scarce Listing': 'ai-scarce-listing',
+  'Low Serial': 'ai-low-serial',
+  'Key Issue': 'ai-key-issue',
+  'Best Match': 'ai-best-match',
+};
+function aiLabelBadge(label){
+  const cls = AI_LABEL_CLASS[label] || 'ai-best-match';
+  return `<div class="ai-label ${cls}">${esc(label)}</div>`;
+}
+
+// Reverse indexes — symbol -> collection/character id, for "View on
+// ZurVault" links, and symbol -> a ZurVault-curated fact (merged from
+// both maps' {symbol, note} entries) to pass to Claude as a note it can
+// state directly rather than recall from its own training. Same
+// reverse-index construction long-box.html already does for
+// SYMBOL_TO_CHARACTERS.
+const SYMBOL_TO_COLLECTION_ID = {};
+const SYMBOL_TO_CHARACTER_ID = {};
+const SYMBOL_TO_CURATED_NOTE = {};
+if(typeof COLLECTIONS_MAP !== 'undefined'){
+  for(const [id, c] of Object.entries(COLLECTIONS_MAP)){
+    for(const sym of c.symbols || []) SYMBOL_TO_COLLECTION_ID[sym] = id;
+    for(const k of c.keyIssues || []){
+      if(k.symbol && k.note) SYMBOL_TO_CURATED_NOTE[k.symbol] = k.note;
+    }
+  }
+}
+if(typeof CHARACTER_MAP !== 'undefined'){
+  for(const [id, c] of Object.entries(CHARACTER_MAP)){
+    for(const sym of c.symbols || []) SYMBOL_TO_CHARACTER_ID[sym] = id;
+    for(const h of c.highlights || []){
+      if(h.symbol && h.note && !SYMBOL_TO_CURATED_NOTE[h.symbol]) SYMBOL_TO_CURATED_NOTE[h.symbol] = h.note;
+    }
+  }
+}
+
+function zurvaultLinkFor(symbol){
+  if(SYMBOL_TO_COLLECTION_ID[symbol]) return `/collection.html?s=${encodeURIComponent(SYMBOL_TO_COLLECTION_ID[symbol])}`;
+  if(SYMBOL_TO_CHARACTER_ID[symbol]) return `/collection.html?c=${encodeURIComponent(SYMBOL_TO_CHARACTER_ID[symbol])}`;
+  // No query-param pre-fill exists anywhere in this codebase — confirmed
+  // — so an unresolved symbol just falls back to a plain link to the
+  // Back Issue Bin rather than a filtered deep link that doesn't exist.
+  return '/long-box.html';
+}
+
+// ---- Query parsing (deterministic, client-side — no AI involved yet) ----
+
+function extractPriceCeiling(query){
+  const m = /under\s+([\d.]+)\s*sol/i.exec(query);
+  return m ? parseFloat(m[1]) : null;
+}
+
+// Longest matching CHARACTER_MAP name wins, so "Green Lantern" beats any
+// shorter accidental substring collision.
+function extractCharacterFilter(query){
+  if(typeof CHARACTER_MAP === 'undefined') return null;
+  const q = query.toLowerCase();
+  let best = null;
+  for(const [id, c] of Object.entries(CHARACTER_MAP)){
+    if(c.name && q.includes(c.name.toLowerCase())){
+      if(!best || c.name.length > best.name.length) best = { id, name: c.name };
+    }
+  }
+  return best;
+}
+
+function extractFlags(query){
+  const q = query.toLowerCase();
+  return {
+    lowSerial: /low.?serial|low.?number|early (number|serial)/.test(q),
+    keyIssue: /key issue|first appearance/.test(q),
+  };
+}
+
+// Builds the ~20-40 candidates sent to Claude. Deterministic and
+// key-issue-lookup-free by design (see SCOUT-PLAN.md's 2026-08-25
+// revision) — price/character/serial filtering happens here, but
+// judging historical significance is left to Claude itself, given just
+// each candidate's title/series/issue number.
+function buildCandidates(query){
+  const priceCeiling = extractPriceCeiling(query);
+  const charFilter = extractCharacterFilter(query);
+  const flags = extractFlags(query);
+
+  let pool = allListings.slice();
+  if(priceCeiling !== null) pool = pool.filter(i => i.price !== null && i.price <= priceCeiling);
+
+  if(charFilter){
+    const symbols = new Set(CHARACTER_MAP[charFilter.id].symbols || []);
+    const narrowed = pool.filter(i => symbols.has(i.symbol));
+    if(narrowed.length > 0) pool = narrowed; // only narrow if it actually leaves candidates
+  }
+
+  if(flags.lowSerial){
+    pool = pool.slice().sort((a, b) => {
+      const ea = parseEdition(a.name), eb = parseEdition(b.name);
+      return (ea ? ea.current : Infinity) - (eb ? eb.current : Infinity);
+    });
+  }else{
+    pool = pool.slice().sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
+  }
+
+  let selected;
+  if(pool.length <= MAX_CANDIDATES){
+    selected = pool;
+  }else{
+    // Broad/undirected queries get a diverse cross-section: cheapest
+    // 60% plus a random sample of the rest, not just the first N.
+    const cheapestCount = Math.ceil(MAX_CANDIDATES * 0.6);
+    const cheapest = pool.slice(0, cheapestCount);
+    const rest = pool.slice(cheapestCount);
+    const sample = [];
+    const sampleSize = MAX_CANDIDATES - cheapest.length;
+    for(let i = 0; i < sampleSize && rest.length > 0; i++){
+      sample.push(rest.splice(Math.floor(Math.random() * rest.length), 1)[0]);
+    }
+    selected = [...cheapest, ...sample];
+  }
+
+  return selected.map(i => {
+    const edition = parseEdition(i.name);
+    return {
+      mintAddress: i.mintAddress,
+      name: i.name || null,
+      sub: i.sub || null,
+      symbol: i.symbol || null,
+      price: i.price,
+      rarity: i.rarity || null,
+      rarityPct: typeof i.rarityPct === 'number' ? i.rarityPct : null,
+      edition: edition ? edition.label : null,
+      coverArtists: i.coverArtists && i.coverArtists.length ? i.coverArtists : undefined,
+      itemType: i.itemType || null,
+      curatedNote: SYMBOL_TO_CURATED_NOTE[i.symbol] || undefined,
+    };
+  });
+}
+
+function cardHTML(rec, candidate){
+  const edition = parseEdition(candidate?.name);
+  const zurLink = zurvaultLinkFor(candidate?.symbol);
+  const meLink = candidate?.pdpUrl || `https://magiceden.io/item-details/${encodeURIComponent(rec.mintAddress)}`;
+  return `
+    <div class="card">
+      <div class="body">
+        ${aiLabelBadge(rec.label)}
+        ${candidate ? `<div class="sub">${esc(candidate.sub || '')}</div>` : ''}
+        <div class="name">${esc(candidate?.name || rec.mintAddress)}</div>
+        ${candidate ? `<div class="price">${candidate.price !== null ? candidate.price + ' SOL' : '—'}</div>` : ''}
+        ${edition ? `<div class="mint">${esc(edition.label)}</div>` : ''}
+        ${rarityBadge(candidate?.rarity, candidate?.rarityPct)}
+        <div class="reason">${esc(rec.reason || '')}</div>
+        ${Array.isArray(rec.strengths) && rec.strengths.length ? `<ul class="strengths">${rec.strengths.map(s => `<li>${esc(s)}</li>`).join('')}</ul>` : ''}
+        ${rec.caution ? `<div class="caution">${esc(rec.caution)}</div>` : ''}
+      </div>
+      <div class="card-links">
+        <a href="${esc(zurLink)}">View on ZurVault</a>
+        <a class="secondary" href="${esc(meLink)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(candidate?.symbol || '')}" data-track-mint="${esc(rec.mintAddress)}">Magic Eden &#8599;</a>
+      </div>
+    </div>
+  `;
+}
+
+function renderResults(data, candidatesByMint){
+  summaryEl.style.display = data.summary ? 'block' : 'none';
+  summaryEl.textContent = data.summary || '';
+
+  const recs = Array.isArray(data.recommendations) ? data.recommendations : [];
+  if(recs.length === 0){
+    resultsGridEl.style.display = 'block';
+    resultsGridEl.className = '';
+    resultsGridEl.innerHTML = `<div class="empty">Nothing in what's currently for sale really fit that.<br>Try a wider price range or a different character.</div>`;
+    return;
+  }
+
+  resultsGridEl.style.display = 'grid';
+  resultsGridEl.className = 'grid';
+  resultsGridEl.innerHTML = recs.map(rec => cardHTML(rec, candidatesByMint[rec.mintAddress])).join('');
+}
+
+async function runScout(query){
+  query = query.trim().slice(0, MAX_QUERY_LENGTH);
+  if(!query) return;
+
+  if(!listingsLoaded){
+    setStatus('Still loading live listings — try again in a moment.', true);
+    return;
+  }
+
+  scoutBtnEl.disabled = true;
+  summaryEl.style.display = 'none';
+  resultsGridEl.style.display = 'none';
+  debugContentEl.textContent = '';
+  setStatus('Scout is searching the long boxes…');
+
+  const candidates = buildCandidates(query);
+  const candidatesByMint = {};
+  for(const c of candidates) candidatesByMint[c.mintAddress] = c;
+
+  // Built once, shown in the debug panel regardless of what happens next
+  // — parsing/candidate info is exactly what you need to debug a failed
+  // or empty-feeling request, not just a successful one.
+  const parseDebug = {
+    parsedPriceCeiling: extractPriceCeiling(query),
+    parsedCharacter: extractCharacterFilter(query)?.name || null,
+    parsedFlags: extractFlags(query),
+    candidateCount: candidates.length,
+    candidateMints: candidates.map(c => c.mintAddress),
+  };
+
+  if(candidates.length === 0){
+    setStatus('');
+    statusEl.style.display = 'none';
+    resultsGridEl.style.display = 'block';
+    resultsGridEl.className = '';
+    resultsGridEl.innerHTML = `<div class="empty">Nothing currently for sale matches that price range or character.<br>Try widening it.</div>`;
+    if(DEBUG) debugContentEl.textContent = JSON.stringify(parseDebug, null, 2);
+    scoutBtnEl.disabled = false;
+    return;
+  }
+
+  const startedAt = Date.now();
+  try{
+    const res = await fetch(`${ME_BASE}/scout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, candidates }),
+    });
+    const tookMs = Date.now() - startedAt;
+    const data = await res.json().catch(() => null);
+
+    if(!res.ok || !data || data.error){
+      setStatus('Scout couldn’t come back with an answer just now. Try again in a moment.', true);
+      if(DEBUG){
+        debugContentEl.textContent = JSON.stringify({ ...parseDebug, httpStatus: res.status, error: data?.error, tookMs }, null, 2);
+      }
+      scoutBtnEl.disabled = false;
+      return;
+    }
+
+    statusEl.style.display = 'none';
+    renderResults(data, candidatesByMint);
+
+    if(DEBUG){
+      debugContentEl.textContent = JSON.stringify({
+        ...parseDebug,
+        tookMs,
+        model: data.model || null,
+        recommendationMints: (data.recommendations || []).map(r => r.mintAddress),
+      }, null, 2);
+    }
+  }catch(e){
+    console.error('scout request failed:', e);
+    setStatus('Could not reach Scout. Try again in a moment.', true);
+  }
+  scoutBtnEl.disabled = false;
+}
+
+queryInputEl.addEventListener('input', () => {
+  charCountEl.textContent = `${queryInputEl.value.length} / ${MAX_QUERY_LENGTH}`;
+});
+
+scoutBtnEl.addEventListener('click', () => runScout(queryInputEl.value));
+queryInputEl.addEventListener('keydown', (e) => {
+  if(e.key === 'Enter' && (e.metaKey || e.ctrlKey)) runScout(queryInputEl.value);
+});
+
+chipsEl.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    queryInputEl.value = chip.textContent;
+    charCountEl.textContent = `${queryInputEl.value.length} / ${MAX_QUERY_LENGTH}`;
+    runScout(queryInputEl.value);
+  });
+});
+
+async function loadListings(){
+  try{
+    const res = await fetch(`${ME_BASE}/dc-summary`);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if(data.notReady){
+      setStatus('The listings service is still setting up — check back in a few minutes.', true);
+      return;
+    }
+    allListings = (data.listings || []).filter(i => i.price !== null);
+    listingsLoaded = true;
+    statusEl.style.display = 'none';
+  }catch(e){
+    console.error(e);
+    setStatus('Could not reach the listings service. Try reloading in a moment.', true);
+  }
+}
+
+loadListings();
+</script>
+</body>
+</html>
