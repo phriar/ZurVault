@@ -950,6 +950,12 @@ const SCOUT_MODEL = "claude-haiku-4-5-20251001";
 const SCOUT_MAX_QUERY_LENGTH = 300;
 const SCOUT_MAX_CANDIDATES = 40;
 const SCOUT_MAX_RECOMMENDATIONS = 8;
+// Mirrors scout/index.html's own MIN_SANE_PRICE_SOL — a near-zero price is
+// almost always a broken/glitched listing, not a real deal, and since the
+// client sorts candidates cheapest-first, an unfiltered one always wins
+// the #1 slot and gets recommended. Re-enforced here too so a modified or
+// malicious client can't smuggle one past the client-side filter.
+const SCOUT_MIN_SANE_PRICE_SOL = 0.001;
 
 // Per-IP rate limit — bounds actual Anthropic spend exposure regardless
 // of the account-level monthly spend cap set in the Anthropic console
@@ -1019,6 +1025,10 @@ function buildScoutSystemPrompt() {
     '- A separate "Series context" object (keyed by each candidate\'s "sub" field) may accompany the candidate list — real, ZurVault-curated background for that series (why it launched, critical reception, creative team). Treat it the same as a "curatedNote": state it directly and confidently, it\'s verified, not something you\'re recalling.',
     '- If a candidate has a "curatedNote" field, that specific text is a verified, ZurVault-curated fact about that exact issue (not from your own memory) — you can state it directly and confidently.',
     '- Each candidate\'s "price" (a plain number, always SOL) and "edition" (a string like "#45 / 500", the mint/print number out of that issue\'s total run) are unrelated numbers that happen to both be small integers — never state one as if it were the other. "Priced at #45" or "edition 0.45" are both wrong. When you cite a price, always say "<price> SOL" pulled only from the "price" field; when you cite a mint/serial number, always say "#<current> of <total>" pulled only from the "edition" field, and never imply a low edition number means a low price or vice versa.',
+    '- "Mint number" and "serial number" are the exact same thing — both names refer only to the "edition" field (the "#45 / 500" copy-number out of that issue\'s total NFT print run). Never treat them as two different numbers, and never invent a third distinct "serial number" that isn\'t just the edition field.',
+    '- The "edition"/mint/serial number is completely different from the comic\'s own issue number (e.g. "Batman 159" or "Aquaman 59" as it appears in that candidate\'s "sub" or "name" field) — the issue number is a fixed editorial fact about which single issue of the series this is, identical across every copy of that issue, while the edition number is unique per copy and only tells you which numbered print of that same issue this specific NFT is. "Edition #45/500 of Batman 159" is correct; calling the edition number "issue #45" or the issue number a "mint number" is wrong.',
+    '- Every price you are given is already denominated in SOL, this collection\'s only currency — never call it or convert it to "satoshi" (a unit of Bitcoin, an entirely different chain) or "lamports" (SOL\'s own smallest subunit, but not what the "price" field is expressed in). Always say "<price> SOL", exactly as supplied.',
+    '- Never call a listing a "deal", "good value", or similar just because it is the cheapest number in the candidate list. A price far below what a comic like it normally sells for is more likely a stale, broken, or mispriced listing than a real bargain — if a price looks implausibly low for what it is, say so as a "caution" instead of recommending it enthusiastically.',
     '- Recommend at most 8 comics, ranked best first — but match the count to how the request is actually phrased. A request for "a" or "the" specific comic (singular — e.g. "find a low mint Absolute Batman") usually deserves just your single best pick, or 2-3 only if several are genuinely close calls worth comparing. Save longer lists (5-8) for requests that are actually broad or exploratory (e.g. "what looks undervalued right now"). Padding a narrow request out to a long list just to fill it isn\'t helpful.',
     '- Each recommendation needs a short "reason", a "label" (Best Match / Value Pick / Low Serial / Scarce Listing / Key Issue), an optional "strengths" list, and an optional "caution" only if something about the listing is genuinely worth flagging (e.g. no rarity data available, priced high relative to similar candidates).',
     "- If nothing in the supplied candidates reasonably matches the request, return an empty recommendations array and say so plainly in the summary — never force a bad match just to fill the list.",
@@ -1204,6 +1214,7 @@ export default {
       const rawCandidates = Array.isArray(payload?.candidates) ? payload.candidates : [];
       const candidates = rawCandidates
         .filter((c) => c && typeof c.mintAddress === "string" && c.mintAddress)
+        .filter((c) => typeof c.price !== "number" || c.price >= SCOUT_MIN_SANE_PRICE_SOL)
         .slice(0, SCOUT_MAX_CANDIDATES)
         .map((c) => ({
           mintAddress: c.mintAddress,

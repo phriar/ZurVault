@@ -214,6 +214,14 @@ const ME_PROXY_BASE = "https://zurvault-proxy.stholt.workers.dev";
 const ME_BASE = ME_PROXY_BASE + "/v2";
 const MAX_QUERY_LENGTH = 300;
 const MAX_CANDIDATES = 40;
+// Below this, a listing is treated as broken/glitched data rather than a
+// real price — Magic Eden occasionally carries stale or malformed listings
+// priced at a small fraction of a lamport, and since buildCandidates()
+// sorts cheapest-first, an unfiltered near-zero price always wins the #1
+// candidate slot and gets vouched for by Scout as a "great deal" even
+// though it isn't a real, purchasable price. No genuine comic on this site
+// has ever listed anywhere close to this low.
+const MIN_SANE_PRICE_SOL = 0.001;
 
 const queryInputEl = document.getElementById('queryInput');
 const charCountEl = document.getElementById('charCount');
@@ -639,7 +647,7 @@ async function loadListings(){
       setStatus('The listings service is still setting up — check back in a few minutes.', true);
       return;
     }
-    allListings = (data.listings || []).filter(i => i.price !== null);
+    allListings = (data.listings || []).filter(i => i.price !== null && i.price >= MIN_SANE_PRICE_SOL);
     listingsLoaded = true;
     statusEl.style.display = 'none';
   }catch(e){
