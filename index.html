@@ -108,6 +108,12 @@
     background:rgba(0,0,0,0.5); border:1px solid var(--border); color:rgba(255,255,255,0.7);
     font-family:'DM Mono',monospace; font-size:.68rem; letter-spacing:.1em; text-transform:uppercase;
     padding:9px 12px; border-radius:2px;
+    /* #subFilter's options are populated from every sub-collection name
+       (see subFilterEl.innerHTML below) — a long one can otherwise size
+       this native control past the viewport width and force the whole
+       page to scroll horizontally, pushing the fixed nav's hamburger
+       off-screen with it. */
+    max-width:100%; min-width:0;
   }
   select:focus{ outline:1px solid rgba(143,111,232,0.4); }
 
