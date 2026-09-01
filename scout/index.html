@@ -213,15 +213,6 @@
 const ME_PROXY_BASE = "https://zurvault-proxy.stholt.workers.dev";
 const ME_BASE = ME_PROXY_BASE + "/v2";
 const MAX_QUERY_LENGTH = 300;
-const MAX_CANDIDATES = 40;
-// Below this, a listing is treated as broken/glitched data rather than a
-// real price — Magic Eden occasionally carries stale or malformed listings
-// priced at a small fraction of a lamport, and since buildCandidates()
-// sorts cheapest-first, an unfiltered near-zero price always wins the #1
-// candidate slot and gets vouched for by Scout as a "great deal" even
-// though it isn't a real, purchasable price. No genuine comic on this site
-// has ever listed anywhere close to this low.
-const MIN_SANE_PRICE_SOL = 0.001;
 
 const queryInputEl = document.getElementById('queryInput');
 const charCountEl = document.getElementById('charCount');
@@ -236,22 +227,12 @@ const debugContentEl = document.getElementById('debugContent');
 const DEBUG = new URLSearchParams(location.search).get('debug') === '1';
 if(DEBUG) debugPanelEl.style.display = 'block';
 
-let allListings = [];
-let listingsLoaded = false;
-
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 
 function setStatus(msg, isErr){
   statusEl.style.display = 'block';
   statusEl.innerHTML = (isErr ? '' : '<span class="dot"></span>') + esc(msg);
   statusEl.classList.toggle('err', !!isErr);
-}
-
-// Magic Eden listing names for these collections commonly end in
-// "(edition/total)" — same parse long-box.html already does.
-function parseEdition(name){
-  const m = /\((\d+)\s*\/\s*(\d+)\)\s*$/.exec(name || '');
-  return m ? { current: parseInt(m[1], 10), total: parseInt(m[2], 10), label: `#${m[1]} / ${m[2]}` } : null;
 }
 
 function rarityBadge(rarity, rarityPct){
@@ -307,158 +288,18 @@ function zurvaultLinkFor(symbol){
   return '/long-box.html';
 }
 
-// ---- Query parsing (deterministic, client-side — no AI involved yet) ----
-
-function extractPriceCeiling(query){
-  const m = /under\s+([\d.]+)\s*sol/i.exec(query);
-  return m ? parseFloat(m[1]) : null;
-}
-
-// Longest matching CHARACTER_MAP name wins, so "Green Lantern" beats any
-// shorter accidental substring collision.
-function extractCharacterFilter(query){
-  if(typeof CHARACTER_MAP === 'undefined') return null;
-  const q = query.toLowerCase();
-  let best = null;
-  for(const [id, c] of Object.entries(CHARACTER_MAP)){
-    if(c.name && q.includes(c.name.toLowerCase())){
-      if(!best || c.name.length > best.name.length) best = { id, name: c.name };
-    }
-  }
-  return best;
-}
-
-// Same longest-match idea as extractCharacterFilter, but against series
-// names (COLLECTIONS_MAP) instead of characters — needed because a
-// series name like "Absolute Batman" contains the character name
-// "Batman" as a substring, so relying on the character filter alone
-// pulls in every Batman-adjacent series (Detective Comics, classic
-// Batman (1940-2011), etc.) even when the request names one specific
-// series. buildCandidates() below prefers this match over the broader
-// character one whenever both fire.
-function extractSeriesFilter(query){
-  if(typeof COLLECTIONS_MAP === 'undefined') return null;
-  const q = query.toLowerCase();
-  let best = null;
-  for(const [id, c] of Object.entries(COLLECTIONS_MAP)){
-    if(c.name && q.includes(c.name.toLowerCase())){
-      if(!best || c.name.length > best.name.length) best = { id, name: c.name };
-    }
-  }
-  return best;
-}
-
-function extractFlags(query){
-  const q = query.toLowerCase();
-  return {
-    lowSerial: /low.?serial|low.?number|early (number|serial)/.test(q),
-    keyIssue: /key issue|first appearance/.test(q),
-  };
-}
-
-// Builds the ~20-40 candidates sent to Claude. Deterministic and
-// key-issue-lookup-free by design (see SCOUT-PLAN.md's 2026-08-25
-// revision) — price/character/serial filtering happens here, but
-// judging historical significance is left to Claude itself, given just
-// each candidate's title/series/issue number.
-function buildCandidates(query){
-  const priceCeiling = extractPriceCeiling(query);
-  const seriesFilter = extractSeriesFilter(query);
-  const charFilter = extractCharacterFilter(query);
-  const flags = extractFlags(query);
-
-  let pool = allListings.slice();
-  if(priceCeiling !== null) pool = pool.filter(i => i.price !== null && i.price <= priceCeiling);
-
-  // Series match (e.g. "Absolute Batman") wins over the broader
-  // character match ("Batman") whenever both fire — see
-  // extractSeriesFilter()'s comment for why relying on character alone
-  // pulls in unrelated Batman-adjacent series.
-  if(seriesFilter){
-    const symbols = new Set(COLLECTIONS_MAP[seriesFilter.id].symbols || []);
-    const narrowed = pool.filter(i => symbols.has(i.symbol));
-    if(narrowed.length > 0) pool = narrowed;
-  }else if(charFilter){
-    const symbols = new Set(CHARACTER_MAP[charFilter.id].symbols || []);
-    const narrowed = pool.filter(i => symbols.has(i.symbol));
-    if(narrowed.length > 0) pool = narrowed; // only narrow if it actually leaves candidates
-  }
-
-  if(flags.lowSerial){
-    pool = pool.slice().sort((a, b) => {
-      const ea = parseEdition(a.name), eb = parseEdition(b.name);
-      return (ea ? ea.current : Infinity) - (eb ? eb.current : Infinity);
-    });
-  }else{
-    pool = pool.slice().sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
-  }
-
-  let selected;
-  if(pool.length <= MAX_CANDIDATES){
-    selected = pool;
-  }else{
-    // Broad/undirected queries get a diverse cross-section: cheapest
-    // 60% plus a random sample of the rest, not just the first N.
-    const cheapestCount = Math.ceil(MAX_CANDIDATES * 0.6);
-    const cheapest = pool.slice(0, cheapestCount);
-    const rest = pool.slice(cheapestCount);
-    const sample = [];
-    const sampleSize = MAX_CANDIDATES - cheapest.length;
-    for(let i = 0; i < sampleSize && rest.length > 0; i++){
-      sample.push(rest.splice(Math.floor(Math.random() * rest.length), 1)[0]);
-    }
-    selected = [...cheapest, ...sample];
-  }
-
-  return selected.map(i => {
-    const edition = parseEdition(i.name);
-    return {
-      mintAddress: i.mintAddress,
-      name: i.name || null,
-      sub: i.sub || null,
-      symbol: i.symbol || null,
-      price: i.price,
-      rarity: i.rarity || null,
-      rarityPct: typeof i.rarityPct === 'number' ? i.rarityPct : null,
-      edition: edition ? edition.label : null,
-      coverArtists: i.coverArtists && i.coverArtists.length ? i.coverArtists : undefined,
-      itemType: i.itemType || null,
-      // Real per-issue creative credits, straight from Magic Eden's own
-      // listing metadata (me-proxy-worker.js's extractCreativeCredits())
-      // — grounds Claude's commentary in what's actually printed on
-      // this specific issue instead of leaving it to recall/guess,
-      // which is weak for recent books it has little training knowledge
-      // of (see SCOUT-PLAN.md's "feed it more" revision).
-      writer: i.writer || undefined,
-      penciler: i.penciler || undefined,
-      inker: i.inker || undefined,
-      colorist: i.colorist || undefined,
-      characters: i.characters && i.characters.length ? i.characters : undefined,
-      curatedNote: SYMBOL_TO_CURATED_NOTE[i.symbol] || undefined,
-    };
-  });
-}
-
-// One entry per unique series actually present in this candidate set
-// (not per-candidate — a 40-candidate list might span only 3-5 series,
-// so repeating the same blurb 40 times would waste most of the token
-// budget on duplication). Pulled from collections-map.js's blurb/
-// history fields, the same series-level curated context
-// collections.html/collection.html already show — real, ZurVault-
-// written context Claude can lean on for a series it may have thin
-// training knowledge of (especially anything from 2024-2025), rather
-// than generalizing.
-function buildSeriesContext(candidates){
-  if(typeof COLLECTIONS_MAP === 'undefined') return {};
-  const context = {};
-  for(const c of candidates){
-    const collId = SYMBOL_TO_COLLECTION_ID[c.symbol];
-    if(!collId || context[c.sub]) continue;
-    const entry = COLLECTIONS_MAP[collId];
+// Flattened symbol -> series blurb/history text, covering every symbol in
+// every COLLECTIONS_MAP entry (not just today's candidates — the server
+// picks candidates now, so this is sent whole; see me-proxy-worker.js's
+// /v2/scout handler). Same blurb+history concatenation
+// collections.html/collection.html already show.
+const SYMBOL_TO_SERIES_NOTE = {};
+if(typeof COLLECTIONS_MAP !== 'undefined'){
+  for(const entry of Object.values(COLLECTIONS_MAP)){
     const text = [entry?.blurb, entry?.history].filter(Boolean).join(' ');
-    if(text) context[c.sub] = text.slice(0, 800);
+    if(!text) continue;
+    for(const sym of entry.symbols || []) SYMBOL_TO_SERIES_NOTE[sym] = text.slice(0, 800);
   }
-  return context;
 }
 
 // Magic Eden is the primary link, not ZurVault — there's no per-comic
@@ -471,47 +312,51 @@ function buildSeriesContext(candidates){
 // a small ZurVault-side "how to read"/browse link as the secondary one).
 // Penciler/inker are frequently the same person on these drops — shown
 // once as "Art" rather than the same name twice under two labels.
-function creditsLine(candidate){
-  if(!candidate) return '';
+function creditsLine(listing){
+  if(!listing) return '';
   const parts = [];
-  if(candidate.writer) parts.push(`Writer: ${candidate.writer}`);
-  if(candidate.penciler && candidate.penciler === candidate.inker){
-    parts.push(`Art: ${candidate.penciler}`);
+  if(listing.writer) parts.push(`Writer: ${listing.writer}`);
+  if(listing.penciler && listing.penciler === listing.inker){
+    parts.push(`Art: ${listing.penciler}`);
   }else{
-    if(candidate.penciler) parts.push(`Pencils: ${candidate.penciler}`);
-    if(candidate.inker) parts.push(`Inks: ${candidate.inker}`);
+    if(listing.penciler) parts.push(`Pencils: ${listing.penciler}`);
+    if(listing.inker) parts.push(`Inks: ${listing.inker}`);
   }
-  if(candidate.colorist) parts.push(`Colors: ${candidate.colorist}`);
+  if(listing.colorist) parts.push(`Colors: ${listing.colorist}`);
   return parts.length ? `<div class="credits">${parts.map(esc).join(' &middot; ')}</div>` : '';
 }
 
-function cardHTML(rec, candidate){
-  const edition = parseEdition(candidate?.name);
-  const zurLink = zurvaultLinkFor(candidate?.symbol);
-  const meLink = candidate?.pdpUrl || `https://magiceden.io/item-details/${encodeURIComponent(rec.mintAddress)}`;
+// rec.listing is the full enriched listing object the Worker's
+// search_listings tool actually retrieved for this mint (see
+// me-proxy-worker.js's /v2/scout handler) — the server, not this page,
+// now owns candidate data, so rendering reads straight off the response.
+function cardHTML(rec){
+  const listing = rec.listing;
+  const zurLink = zurvaultLinkFor(listing?.symbol);
+  const meLink = listing?.pdpUrl || `https://magiceden.io/item-details/${encodeURIComponent(rec.mintAddress)}`;
   return `
     <div class="card">
       <div class="body">
         ${aiLabelBadge(rec.label)}
-        ${candidate ? `<div class="sub">${esc(candidate.sub || '')}</div>` : ''}
-        <div class="name">${esc(candidate?.name || rec.mintAddress)}</div>
-        ${candidate ? `<div class="price">${candidate.price !== null ? candidate.price + ' SOL' : '—'}</div>` : ''}
-        ${edition ? `<div class="mint">${esc(edition.label)}</div>` : ''}
-        ${rarityBadge(candidate?.rarity, candidate?.rarityPct)}
-        ${creditsLine(candidate)}
+        ${listing ? `<div class="sub">${esc(listing.sub || '')}</div>` : ''}
+        <div class="name">${esc(listing?.name || rec.mintAddress)}</div>
+        ${listing ? `<div class="price">${listing.price !== null ? listing.price + ' SOL' : '—'}</div>` : ''}
+        ${listing?.edition ? `<div class="mint">${esc(listing.edition)}</div>` : ''}
+        ${rarityBadge(listing?.rarity, listing?.rarityPct)}
+        ${creditsLine(listing)}
         <div class="reason">${esc(rec.reason || '')}</div>
         ${Array.isArray(rec.strengths) && rec.strengths.length ? `<ul class="strengths">${rec.strengths.map(s => `<li>${esc(s)}</li>`).join('')}</ul>` : ''}
         ${rec.caution ? `<div class="caution">${esc(rec.caution)}</div>` : ''}
       </div>
       <div class="card-links">
-        <a class="me-link" href="${esc(meLink)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(candidate?.symbol || '')}" data-track-mint="${esc(rec.mintAddress)}">View This Comic &#8599;</a>
-        <a href="${esc(zurLink)}">Browse ${candidate?.sub ? esc(candidate.sub) + ' ' : ''}on ZurVault</a>
+        <a class="me-link" href="${esc(meLink)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(listing?.symbol || '')}" data-track-mint="${esc(rec.mintAddress)}">View This Comic &#8599;</a>
+        <a href="${esc(zurLink)}">Browse ${listing?.sub ? esc(listing.sub) + ' ' : ''}on ZurVault</a>
       </div>
     </div>
   `;
 }
 
-function renderResults(data, candidatesByMint){
+function renderResults(data){
   const hasSummary = !!(data.summary && data.summary.trim());
   summaryEl.style.display = hasSummary ? 'block' : 'none';
   summaryEl.textContent = data.summary || '';
@@ -534,17 +379,12 @@ function renderResults(data, candidatesByMint){
 
   resultsGridEl.style.display = 'grid';
   resultsGridEl.className = 'grid';
-  resultsGridEl.innerHTML = recs.map(rec => cardHTML(rec, candidatesByMint[rec.mintAddress])).join('');
+  resultsGridEl.innerHTML = recs.map(rec => cardHTML(rec)).join('');
 }
 
 async function runScout(query){
   query = query.trim().slice(0, MAX_QUERY_LENGTH);
   if(!query) return;
-
-  if(!listingsLoaded){
-    setStatus('Still loading live listings — try again in a moment.', true);
-    return;
-  }
 
   scoutBtnEl.disabled = true;
   summaryEl.style.display = 'none';
@@ -552,41 +392,12 @@ async function runScout(query){
   debugContentEl.textContent = '';
   setStatus('Scout is searching the back issue bin…');
 
-  const candidates = buildCandidates(query);
-  const candidatesByMint = {};
-  for(const c of candidates) candidatesByMint[c.mintAddress] = c;
-  const seriesContext = buildSeriesContext(candidates);
-
-  // Built once, shown in the debug panel regardless of what happens next
-  // — parsing/candidate info is exactly what you need to debug a failed
-  // or empty-feeling request, not just a successful one.
-  const parseDebug = {
-    parsedPriceCeiling: extractPriceCeiling(query),
-    parsedSeries: extractSeriesFilter(query)?.name || null,
-    parsedCharacter: extractCharacterFilter(query)?.name || null,
-    parsedFlags: extractFlags(query),
-    candidateCount: candidates.length,
-    candidateMints: candidates.map(c => c.mintAddress),
-    seriesContextKeys: Object.keys(seriesContext),
-  };
-
-  if(candidates.length === 0){
-    setStatus('');
-    statusEl.style.display = 'none';
-    resultsGridEl.style.display = 'block';
-    resultsGridEl.className = '';
-    resultsGridEl.innerHTML = `<div class="empty">Nothing currently for sale matches that price range or character.<br>Try widening it.</div>`;
-    if(DEBUG) debugContentEl.textContent = JSON.stringify(parseDebug, null, 2);
-    scoutBtnEl.disabled = false;
-    return;
-  }
-
   const startedAt = Date.now();
   try{
     const res = await fetch(`${ME_BASE}/scout`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, candidates, seriesContext }),
+      body: JSON.stringify({ query, curatedNotes: SYMBOL_TO_CURATED_NOTE, seriesNotes: SYMBOL_TO_SERIES_NOTE }),
     });
     const tookMs = Date.now() - startedAt;
     const data = await res.json().catch(() => null);
@@ -597,20 +408,25 @@ async function runScout(query){
         : 'Scout couldn’t come back with an answer just now. Try again in a moment.';
       setStatus(msg, true);
       if(DEBUG){
-        debugContentEl.textContent = JSON.stringify({ ...parseDebug, httpStatus: res.status, error: data?.error, tookMs }, null, 2);
+        debugContentEl.textContent = JSON.stringify({ httpStatus: res.status, error: data?.error, tookMs }, null, 2);
       }
       scoutBtnEl.disabled = false;
       return;
     }
 
     statusEl.style.display = 'none';
-    renderResults(data, candidatesByMint);
+    renderResults(data);
 
+    // toolTrace (from the Worker) shows exactly what Scout searched for
+    // and how many results each call turned up — far more useful for
+    // debugging a weak answer than the old static regex-parse dump, since
+    // the query parsing now happens inside Claude's own reasoning rather
+    // than in this page.
     if(DEBUG){
       debugContentEl.textContent = JSON.stringify({
-        ...parseDebug,
         tookMs,
         model: data.model || null,
+        toolTrace: data.toolTrace || [],
         recommendationMints: (data.recommendations || []).map(r => r.mintAddress),
       }, null, 2);
     }
@@ -637,26 +453,6 @@ chipsEl.querySelectorAll('.chip').forEach(chip => {
     runScout(queryInputEl.value);
   });
 });
-
-async function loadListings(){
-  try{
-    const res = await fetch(`${ME_BASE}/dc-summary`);
-    if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    if(data.notReady){
-      setStatus('The listings service is still setting up — check back in a few minutes.', true);
-      return;
-    }
-    allListings = (data.listings || []).filter(i => i.price !== null && i.price >= MIN_SANE_PRICE_SOL);
-    listingsLoaded = true;
-    statusEl.style.display = 'none';
-  }catch(e){
-    console.error(e);
-    setStatus('Could not reach the listings service. Try reloading in a moment.', true);
-  }
-}
-
-loadListings();
 </script>
 </body>
 </html>

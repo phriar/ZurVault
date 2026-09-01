@@ -153,6 +153,54 @@
   .rarity-legendary  { color:#fbbf24; border-color:rgba(251,191,36,0.5); background:rgba(251,191,36,0.1); }
   .list-row .rarity-badge{ margin-top:4px; margin-bottom:0; }
 
+  /* Magic Eden vs OpenSea liquidity widget — reuses .pill/.rarity-badge's
+     border/radius/DM-Mono visual language rather than a new component.
+     No @media query (this file has none anywhere — responsiveness is
+     flex-wrap/grid auto-fill only); .liquidity-card uses flex-basis +
+     min-width:0/max-width:100% specifically to avoid the unbounded-width
+     regression fixed in commit e66f842 (a wide element pushed the fixed
+     nav's hamburger off-screen). Small text below reuses the exact
+     15px/rgba(255,255,255,0.55) pairing already computed at 6.28:1
+     against #0a0a0a in the accessibility comment above .card .sub,
+     rather than introducing a new unaudited size. */
+  .liquidity-widget{
+    padding:24px 32px; border-bottom:1px solid var(--border); background:rgba(255,255,255,0.015);
+  }
+  .liquidity-widget-title{
+    font-family:'Cormorant Garamond',serif; font-weight:400; font-size:clamp(1.3rem,3vw,1.8rem);
+    color:rgba(255,255,255,0.92);
+  }
+  .liquidity-widget-title span{ color:var(--cyan); }
+  .liquidity-widget-sub{
+    margin-top:4px; font-family:'DM Mono',monospace; font-size:.94rem; letter-spacing:.05em;
+    color:rgba(255,255,255,0.55);
+  }
+  .liquidity-cards{ display:flex; gap:16px; flex-wrap:wrap; margin-top:16px; }
+  .liquidity-card{
+    flex:1 1 260px; min-width:0; max-width:100%;
+    border:1px solid var(--border); border-radius:8px; padding:16px 18px;
+    background:rgba(255,255,255,0.02);
+  }
+  .liquidity-card-label{
+    font-family:'DM Mono',monospace; font-size:.72rem; letter-spacing:.12em; text-transform:uppercase;
+    color:rgba(143,111,232,0.92);
+  }
+  .liquidity-metrics{ display:flex; gap:18px; flex-wrap:wrap; margin-top:10px; }
+  .liquidity-metric{ display:flex; flex-direction:column; gap:2px; }
+  .liquidity-metric-value{ font-family:'DM Mono',monospace; font-size:1.1rem; color:rgba(255,255,255,0.92); }
+  .liquidity-metric-label{
+    font-family:'DM Mono',monospace; font-size:.94rem; letter-spacing:.1em; text-transform:uppercase;
+    color:rgba(255,255,255,0.55);
+  }
+  .liquidity-metric-sub{
+    margin-top:10px; font-family:'DM Mono',monospace; font-size:.94rem; color:rgba(255,255,255,0.55);
+  }
+  .liquidity-widget-status{
+    margin-top:14px; font-family:'DM Mono',monospace; font-size:.94rem; letter-spacing:.1em;
+    color:rgba(255,255,255,0.55); text-transform:uppercase;
+  }
+  .liquidity-widget-status.err{ color:#e07a5f; }
+
   #status{ padding:16px 32px; font-size:.66rem; letter-spacing:.1em; color:rgba(255,255,255,0.55); text-transform:uppercase; }
   #status.err{ color:#e07a5f; }
   #status .dot{ display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--cyan); margin-right:8px; }
@@ -241,6 +289,32 @@
     <h1>Zur<span>Vault</span></h1>
     <p class="tagline">Helping you find the books.</p>
   </div>
+</section>
+
+<section class="liquidity-widget" id="liquidityWidget" aria-label="Magic Eden vs OpenSea liquidity comparison">
+  <h2 class="liquidity-widget-title">Magic Eden <span>vs</span> OpenSea</h2>
+  <p class="liquidity-widget-sub">DC comics, aggregate across every tracked collection</p>
+  <div class="liquidity-cards" id="liquidityCards">
+    <div class="liquidity-card" data-market="magicEden">
+      <div class="liquidity-card-label">Magic Eden</div>
+      <div class="liquidity-metrics">
+        <div class="liquidity-metric"><span class="liquidity-metric-value" data-field="floor">—</span><span class="liquidity-metric-label">Floor</span></div>
+        <div class="liquidity-metric"><span class="liquidity-metric-value" data-field="vol24h">—</span><span class="liquidity-metric-label">24h Vol</span></div>
+        <div class="liquidity-metric"><span class="liquidity-metric-value" data-field="sales24h">—</span><span class="liquidity-metric-label">24h Sales</span></div>
+      </div>
+      <div class="liquidity-metric-sub" data-field="sub7d">—</div>
+    </div>
+    <div class="liquidity-card" data-market="openSea">
+      <div class="liquidity-card-label">OpenSea</div>
+      <div class="liquidity-metrics">
+        <div class="liquidity-metric"><span class="liquidity-metric-value" data-field="floor">—</span><span class="liquidity-metric-label">Floor</span></div>
+        <div class="liquidity-metric"><span class="liquidity-metric-value" data-field="vol24h">—</span><span class="liquidity-metric-label">24h Vol</span></div>
+        <div class="liquidity-metric"><span class="liquidity-metric-value" data-field="sales24h">—</span><span class="liquidity-metric-label">24h Sales</span></div>
+      </div>
+      <div class="liquidity-metric-sub" data-field="sub7d">—</div>
+    </div>
+  </div>
+  <div class="liquidity-widget-status" id="liquidityStatus">Loading…</div>
 </section>
 
 <header id="latest-drops">
@@ -560,10 +634,56 @@ const subFilterEl = document.getElementById('subFilter');
 const sortByEl = document.getElementById('sortBy');
 const viewToggleEl = document.getElementById('viewToggle');
 const rarityPillsEl = document.getElementById('rarityPills');
+const liquidityCardsEl = document.getElementById('liquidityCards');
+const liquidityStatusEl = document.getElementById('liquidityStatus');
 
 function setStatus(msg, isErr){
   statusEl.innerHTML = (isErr ? '' : '<span class="dot"></span>') + msg;
   statusEl.classList.toggle('err', !!isErr);
+}
+
+// Independent fetch/render cycle for the Magic-Eden-vs-OpenSea widget —
+// deliberately not entangled with loadAll()/#status, which are about the
+// listings feed: a failure here never touches that feed, and vice versa.
+function fmtSol(n){
+  return typeof n === 'number' ? (Math.round(n * 10000) / 10000).toString() : '—';
+}
+
+function setLiquidityField(market, field, value){
+  const card = liquidityCardsEl.querySelector(`.liquidity-card[data-market="${market}"]`);
+  const el = card && card.querySelector(`[data-field="${field}"]`);
+  if (el) el.textContent = value;
+}
+
+async function loadLiquidity(){
+  let data;
+  try{
+    const res = await fetch(`${ME_BASE}/liquidity`);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    data = await res.json();
+  }catch(e){
+    console.error(e);
+    liquidityStatusEl.textContent = 'Liquidity comparison unavailable right now.';
+    liquidityStatusEl.classList.add('err');
+    return;
+  }
+
+  liquidityStatusEl.classList.remove('err');
+
+  if(data.notReady){
+    liquidityStatusEl.textContent = 'Still gathering data — check back shortly.';
+    return;
+  }
+
+  for(const market of ['magicEden', 'openSea']){
+    const m = data[market] || {};
+    setLiquidityField(market, 'floor', m.floorPriceSol != null ? `${fmtSol(m.floorPriceSol)} SOL` : '—');
+    setLiquidityField(market, 'vol24h', `${fmtSol(m.volume24hSol)} SOL`);
+    setLiquidityField(market, 'sales24h', typeof m.sales24h === 'number' ? String(m.sales24h) : '—');
+    setLiquidityField(market, 'sub7d', `7d: ${fmtSol(m.volume7dSol)} SOL · ${typeof m.sales7d === 'number' ? m.sales7d : '—'} sales`);
+  }
+
+  liquidityStatusEl.textContent = data.updatedAt ? `Updated ${new Date(data.updatedAt).toLocaleTimeString()}` : '';
 }
 
 function shortMint(mint){
@@ -839,6 +959,10 @@ document.querySelectorAll('.tab').forEach(t => {
 const REFRESH_INTERVAL = 22 * 60 * 1000; // trails the Worker's own 20-min cron refresh, so we're not fetching a KV entry that's mid-update
 loadAll();
 setInterval(() => loadAll(true), REFRESH_INTERVAL);
+
+const LIQUIDITY_REFRESH_INTERVAL = 22 * 60 * 1000; // same cron-trailing reasoning as REFRESH_INTERVAL
+loadLiquidity();
+setInterval(loadLiquidity, LIQUIDITY_REFRESH_INTERVAL);
 </script>
 </body>
 </html>
