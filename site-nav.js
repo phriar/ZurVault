@@ -63,6 +63,12 @@
   // the real homepage. Root-relative resolves correctly from any depth,
   // and is identical to the old document-relative behavior for every
   // page at the root, so this is a no-op change for everything but Scout.
+  // 'zurcovers' (added 2026-09-01) is the one PAGES entry that isn't a page
+  // in this repo — zurcovers.com is a separate sibling product (its own
+  // "Long Box" is a wallet's held-collection shelf view, a different concept
+  // from this site's marketplace browsing — see long-box.html's own rename
+  // comment). `external: true` opens it in a new tab and skips the "active"
+  // treatment below, since no page here ever passes data-active="zurcovers".
   var PAGES = [
     { id: 'index',       label: 'Listings',      href: '/index.html' },
     { id: 'collections', label: 'Characters',    href: '/collections.html?tab=characters' },
@@ -72,6 +78,7 @@
     { id: 'packs',       label: 'Packs',         href: '/packs.html' },
     { id: 'dashboard',   label: 'Dashboard',     href: '/dashboard.html' },
     { id: 'guide',       label: 'How To',        href: '/guide.html' },
+    { id: 'zurcovers',   label: 'ZurCovers ↗',   href: 'https://zurcovers.com', external: true },
   ];
 
   var style = document.createElement('style');
@@ -137,7 +144,8 @@
   var links = PAGES.map(function (p) {
     var cls = 'zv-link' + (p.id === active ? ' active' : '');
     var href = p.id === active ? 'javascript:void(0)' : p.href;
-    return '<a class="' + cls + '" href="' + href + '">' + p.label + '</a>';
+    var attrs = p.external ? ' target="_blank" rel="noopener noreferrer"' : '';
+    return '<a class="' + cls + '" href="' + href + '"' + attrs + '>' + p.label + '</a>';
   }).join('');
 
   var html =
