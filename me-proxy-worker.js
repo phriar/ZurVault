@@ -1750,6 +1750,14 @@ export default {
       } while (cursor);
       listingClicks.sort((a, b) => (b.clickedAt || 0) - (a.clickedAt || 0));
 
+      // Earliest UTC day with a click in the *current* 90-day window, not a
+      // fixed "launch date" — this will start drifting forward once entries
+      // older than CLICK_TTL_SECONDS begin expiring. Computed here (not
+      // just at response-build time below) because weeklyConversion also
+      // needs it, to size its window off when tracking actually started
+      // rather than a fixed lookback that opens with empty pre-launch weeks.
+      const earliestClickDay = Object.keys(byDay).sort()[0] || null;
+
       // Sales persisted per mint (see refreshOneCollection above) — cross-
       // referenced against listingClicks below to flag "possible sale"
       // clicks. Keyed on "symbol:mint" -> Map<soldAtMs, price|null>, since
@@ -1887,18 +1895,29 @@ export default {
         })
         .sort((a, b) => b.totalClicks - a.totalClicks);
 
-      // Rolling 12-week (~84 day) view, same "always a continuous timeline"
-      // approach as the 30-day daily chart — bounded by the 90-day
-      // click/sale retention window. Only individual listing clicks count
-      // (collection-level "_collection" clicks have no mint to cross-
-      // reference against a sale).
-      const WEEKLY_CONVERSION_WEEKS = 12;
+      // Sized to when tracking actually started (earliestClickDay), not a
+      // fixed lookback — a fixed 12-week window opens with several empty
+      // pre-launch weeks for a site that hasn't been tracking that long,
+      // which reads as "the chart starts in the wrong month." Still capped
+      // at MAX_WEEKLY_CONVERSION_WEEKS (~the 90-day click/sale retention
+      // window), so the array can't grow unbounded as history accumulates.
+      // Same "always a continuous timeline" approach as the 30-day daily
+      // chart otherwise. Only individual listing clicks count (collection-
+      // level "_collection" clicks have no mint to cross-reference against
+      // a sale).
+      const MAX_WEEKLY_CONVERSION_WEEKS = 13;
       const todayUTC = (() => {
         const d = new Date();
         return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) + 86400000; // end of today, exclusive
       })();
+      let weeklyConversionWeeks = MAX_WEEKLY_CONVERSION_WEEKS;
+      if (earliestClickDay) {
+        const earliestMs = Date.parse(earliestClickDay + "T00:00:00Z");
+        const spanDays = Math.max(1, Math.ceil((todayUTC - earliestMs) / 86400000));
+        weeklyConversionWeeks = Math.min(MAX_WEEKLY_CONVERSION_WEEKS, Math.max(1, Math.ceil(spanDays / 7)));
+      }
       const weeklyConversion = [];
-      for (let i = WEEKLY_CONVERSION_WEEKS - 1; i >= 0; i--) {
+      for (let i = weeklyConversionWeeks - 1; i >= 0; i--) {
         const weekEndMs = todayUTC - i * 7 * 86400000;
         const weekStartMs = weekEndMs - 7 * 86400000;
         weeklyConversion.push({ weekStart: new Date(weekStartMs).toISOString().slice(0, 10), clicks: 0, possibleSales: 0, solVolume: 0, weekStartMs, weekEndMs });
@@ -1950,14 +1969,15 @@ export default {
           solUsdPrice,
           possibleSaleVolumeUsd,
           // Earliest UTC day with a click in the *current* 90-day window,
-          // not a fixed "launch date" — this will start drifting forward
-          // once entries older than CLICK_TTL_SECONDS begin expiring
-          // (~90 days after tracking began), which is fine for a page
-          // whose whole point right now is "we just launched, look at the
-          // growth curve" but stops being literally true well past that
-          // point. Revisit with a real fixed launch-date constant if this
-          // page is still using this field after that.
-          earliestClickDay: Object.keys(byDay).sort()[0] || null,
+          // not a fixed "launch date" (computed above, also sizes
+          // weeklyConversion) — this will start drifting forward once
+          // entries older than CLICK_TTL_SECONDS begin expiring (~90 days
+          // after tracking began), which is fine for a page whose whole
+          // point right now is "we just launched, look at the growth curve"
+          // but stops being literally true well past that point. Revisit
+          // with a real fixed launch-date constant if this page is still
+          // using this field after that.
+          earliestClickDay,
         }),
         {
           status: 200,

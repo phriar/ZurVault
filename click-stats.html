@@ -273,6 +273,12 @@
     </div>
   </div>
 
+  <div class="section-label">Listing Clicks (Weekly)</div>
+  <p class="section-note">Weekly window starts the week tracking actually began, not a fixed lookback — so it won't show empty weeks from before this site had any traffic.</p>
+  <div class="chart" id="weeklyClicksChart" style="display:none;"></div>
+  <div class="chart-labels" id="weeklyClicksChartLabels" style="display:none;"></div>
+  <div class="empty" id="weeklyClicksChartEmpty" style="display:none;">No listing clicks logged yet.</div>
+
   <div class="section-label">Clicks vs. Possible Sales (Weekly)</div>
   <p class="sub" style="font-size:.9rem; margin-bottom:16px;" id="convBlurb">A listing click is flagged as a "possible sale" if that same listing sold on Magic Eden within a few minutes afterward — a per-listing signal, not proof any one click caused the sale (a listing clicked by several people right before it sells flags all of them). Only reflects sales tracked going forward from when this chart shipped, so early weeks will under-count until history builds up. Trend only — see Possible-Sale Volume above for the headline rate/count.</p>
   <div class="conv-legend" id="convLegend" style="display:none;">
@@ -283,7 +289,8 @@
   <div class="chart-labels" id="convChartLabels" style="display:none;"></div>
   <div class="empty" id="convChartEmpty" style="display:none;">No listing clicks logged yet.</div>
 
-  <p class="section-note" style="margin-top:16px;">Same 12-week window as the chart above, as numbers. The totals row sums just these 12 weeks — for the true all-time figures see Possible-Sale Volume up top, which isn't bounded to 12 weeks.</p>
+  <div class="section-label">Weekly Totals</div>
+  <p class="section-note">Same window as the two charts above, as plain numbers. The Total row sums just the weeks shown here — for the true all-time figures see Possible-Sale Volume up top, which isn't bounded to this window.</p>
   <table id="weeklyTable" style="display:none;">
     <thead><tr><th>Week Of</th><th class="num">Clicks</th><th class="num">Possible Buys</th><th class="num">SOL Spent</th></tr></thead>
     <tbody id="weeklyTableBody"></tbody>
@@ -354,6 +361,9 @@ const topListingsEl = document.getElementById('topListings');
 const topListingsEmptyEl = document.getElementById('topListingsEmpty');
 const weeklyTableEl = document.getElementById('weeklyTable');
 const weeklyTableBodyEl = document.getElementById('weeklyTableBody');
+const weeklyClicksChartEl = document.getElementById('weeklyClicksChart');
+const weeklyClicksChartLabelsEl = document.getElementById('weeklyClicksChartLabels');
+const weeklyClicksChartEmptyEl = document.getElementById('weeklyClicksChartEmpty');
 
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 
@@ -469,6 +479,41 @@ function renderWeekdayChart(byWeekday){
   weekdayChartLabelsEl.style.display = 'flex';
 }
 
+// Plain single-series "clicks per week" bar chart — a dedicated view for
+// just that number, separate from the stacked clicks-vs-possible-sales
+// chart below (where clicks is the bar's total height, but the cyan
+// possible-sale highlight reads as the chart's main subject at a glance).
+// Same zero-fill/labeling approach as renderDailyChart.
+function renderWeeklyClicksChart(weeks){
+  const counts = weeks.map(w => w.clicks);
+  const total = counts.reduce((a, b) => a + b, 0);
+
+  if(total === 0){
+    weeklyClicksChartEl.style.display = 'none';
+    weeklyClicksChartLabelsEl.style.display = 'none';
+    weeklyClicksChartEmptyEl.style.display = 'block';
+    return;
+  }
+  weeklyClicksChartEmptyEl.style.display = 'none';
+
+  const max = Math.max(...counts, 1);
+  const labelEvery = Math.ceil(weeks.length / 6);
+
+  weeklyClicksChartEl.innerHTML = weeks.map((w) => {
+    const pct = Math.max((w.clicks / max) * 100, w.clicks > 0 ? 4 : 3);
+    const weekLabel = new Date(w.weekStart + 'T00:00:00Z').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return `<div class="chart-bar" style="height:${pct}%"><span class="chart-tooltip">Week of ${esc(weekLabel)}: ${w.clicks} click${w.clicks === 1 ? '' : 's'}</span></div>`;
+  }).join('');
+  weeklyClicksChartEl.style.display = 'flex';
+
+  weeklyClicksChartLabelsEl.innerHTML = weeks.map((w, i) => {
+    const show = i % labelEvery === 0 || i === weeks.length - 1;
+    const label = show ? new Date(w.weekStart + 'T00:00:00Z').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
+    return `<span>${esc(label)}</span>`;
+  }).join('');
+  weeklyClicksChartLabelsEl.style.display = 'flex';
+}
+
 // weeklyConversion is already zero-filled and sorted oldest-to-newest by
 // the Worker (see /v2/click-stats in me-proxy-worker.js) — this just draws
 // it as stacked bars, same "always a continuous timeline" treatment as
@@ -519,10 +564,11 @@ function renderWeeklyConversionChart(weeks){
 // numbers table — solVolume is deduped per unique sale and bucketed by
 // soldAt (see the Worker's /v2/click-stats), not per click, same
 // "count sales, not clicks" reasoning as the Possible-Sale Volume total.
-// The totals row sums only the 12 weeks shown here, so it's labeled
-// "12-Week Total" rather than "Overall" to avoid reading as the same
+// The totals row sums only the weeks shown here (a dynamic window sized
+// to when tracking started, see the Worker's /v2/click-stats), so it's
+// labeled "Total" rather than "Overall" to avoid reading as the same
 // number as the all-time Possible-Sale Volume stat above (which isn't
-// bounded to 12 weeks and can therefore differ).
+// bounded to this window and can therefore differ).
 function renderWeeklyTable(weeks){
   const totalClicks = weeks.reduce((a, w) => a + w.clicks, 0);
   if(totalClicks === 0){
@@ -549,7 +595,7 @@ function renderWeeklyTable(weeks){
 
   weeklyTableBodyEl.innerHTML = rows + `
     <tr class="totals-row">
-      <td>12-Week Total</td>
+      <td>Total</td>
       <td class="count">${totals.clicks}</td>
       <td class="count">${totals.possibleSales}</td>
       <td class="count">${totals.solVolume.toLocaleString(undefined, { maximumFractionDigits: 2 })} SOL</td>
@@ -695,6 +741,7 @@ async function load(){
     renderDailyChart(data.byDay || {});
     renderHourlyChart(data.byHour || {});
     renderWeekdayChart(data.byWeekday || {});
+    renderWeeklyClicksChart(data.weeklyConversion || []);
     renderWeeklyConversionChart(data.weeklyConversion || []);
     renderWeeklyTable(data.weeklyConversion || []);
     lastTopListings = data.topListings || [];
