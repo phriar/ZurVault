@@ -182,6 +182,8 @@
   td.context{ color:rgba(143,111,232,0.95); word-break:break-all; }
   td.count{ font-family:'DM Mono',monospace; color:rgba(255,255,255,0.9); white-space:nowrap; }
   tr:hover td{ background:rgba(255,255,255,0.02); }
+  tr.totals-row td{ font-weight:600; color:rgba(255,255,255,0.95); border-top:1px solid var(--border); border-bottom:none; }
+  tr.totals-row:hover td{ background:transparent; }
 
   /* Conversion-rate column — a small inline bar alongside the number gives
      a same-table visual read on which collections convert best without
@@ -281,6 +283,12 @@
   <div class="chart-labels" id="convChartLabels" style="display:none;"></div>
   <div class="empty" id="convChartEmpty" style="display:none;">No listing clicks logged yet.</div>
 
+  <p class="section-note" style="margin-top:16px;">Same 12-week window as the chart above, as numbers. The totals row sums just these 12 weeks — for the true all-time figures see Possible-Sale Volume up top, which isn't bounded to 12 weeks.</p>
+  <table id="weeklyTable" style="display:none;">
+    <thead><tr><th>Week Of</th><th class="num">Clicks</th><th class="num">Possible Buys</th><th class="num">SOL Spent</th></tr></thead>
+    <tbody id="weeklyTableBody"></tbody>
+  </table>
+
   <div class="section-label">Top Clicked Listings</div>
   <p class="section-note">The individual comics getting the most outbound interest, not just the most popular collections.</p>
   <div id="topListings"></div>
@@ -344,6 +352,8 @@ const convChartLabelsEl = document.getElementById('convChartLabels');
 const convChartEmptyEl = document.getElementById('convChartEmpty');
 const topListingsEl = document.getElementById('topListings');
 const topListingsEmptyEl = document.getElementById('topListingsEmpty');
+const weeklyTableEl = document.getElementById('weeklyTable');
+const weeklyTableBodyEl = document.getElementById('weeklyTableBody');
 
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 
@@ -505,6 +515,49 @@ function renderWeeklyConversionChart(weeks){
   convChartLabelsEl.style.display = 'flex';
 }
 
+// Same weeklyConversion array as the chart above, rendered as a plain
+// numbers table — solVolume is deduped per unique sale and bucketed by
+// soldAt (see the Worker's /v2/click-stats), not per click, same
+// "count sales, not clicks" reasoning as the Possible-Sale Volume total.
+// The totals row sums only the 12 weeks shown here, so it's labeled
+// "12-Week Total" rather than "Overall" to avoid reading as the same
+// number as the all-time Possible-Sale Volume stat above (which isn't
+// bounded to 12 weeks and can therefore differ).
+function renderWeeklyTable(weeks){
+  const totalClicks = weeks.reduce((a, w) => a + w.clicks, 0);
+  if(totalClicks === 0){
+    weeklyTableEl.style.display = 'none';
+    return;
+  }
+  const rows = weeks.map(w => {
+    const weekLabel = new Date(w.weekStart + 'T00:00:00Z').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return `
+      <tr>
+        <td class="context">${esc(weekLabel)}</td>
+        <td class="count">${w.clicks}</td>
+        <td class="count">${w.possibleSales}</td>
+        <td class="count">${(w.solVolume || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} SOL</td>
+      </tr>
+    `;
+  }).join('');
+
+  const totals = weeks.reduce((a, w) => ({
+    clicks: a.clicks + w.clicks,
+    possibleSales: a.possibleSales + w.possibleSales,
+    solVolume: a.solVolume + (w.solVolume || 0),
+  }), { clicks: 0, possibleSales: 0, solVolume: 0 });
+
+  weeklyTableBodyEl.innerHTML = rows + `
+    <tr class="totals-row">
+      <td>12-Week Total</td>
+      <td class="count">${totals.clicks}</td>
+      <td class="count">${totals.possibleSales}</td>
+      <td class="count">${totals.solVolume.toLocaleString(undefined, { maximumFractionDigits: 2 })} SOL</td>
+    </tr>
+  `;
+  weeklyTableEl.style.display = 'table';
+}
+
 // mint -> {name, image, sub} — enrichment only, purely cosmetic. Click
 // data itself only ever stores symbol+mint (see /v2/click-log's sanitize
 // step), so this cross-references the live /v2/dc-summary snapshot to
@@ -643,6 +696,7 @@ async function load(){
     renderHourlyChart(data.byHour || {});
     renderWeekdayChart(data.byWeekday || {});
     renderWeeklyConversionChart(data.weeklyConversion || []);
+    renderWeeklyTable(data.weeklyConversion || []);
     lastTopListings = data.topListings || [];
     renderTopListings(lastTopListings);
     renderConversionTable(breakdown);

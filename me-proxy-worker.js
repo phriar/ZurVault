@@ -1800,7 +1800,7 @@ export default {
           for (const [soldAt, price] of sales) {
             if (soldAt >= c.clickedAt && soldAt - c.clickedAt <= SALE_CLICK_WINDOW_SECS * 1000) {
               c.possibleSale = true;
-              matchedSales.set(`${c.symbol}:${c.mint}:${soldAt}`, { symbol: c.symbol, price });
+              matchedSales.set(`${c.symbol}:${c.mint}:${soldAt}`, { symbol: c.symbol, price, soldAt });
             }
           }
         }
@@ -1901,7 +1901,7 @@ export default {
       for (let i = WEEKLY_CONVERSION_WEEKS - 1; i >= 0; i--) {
         const weekEndMs = todayUTC - i * 7 * 86400000;
         const weekStartMs = weekEndMs - 7 * 86400000;
-        weeklyConversion.push({ weekStart: new Date(weekStartMs).toISOString().slice(0, 10), clicks: 0, possibleSales: 0, weekStartMs, weekEndMs });
+        weeklyConversion.push({ weekStart: new Date(weekStartMs).toISOString().slice(0, 10), clicks: 0, possibleSales: 0, solVolume: 0, weekStartMs, weekEndMs });
       }
       for (const c of listingClicks) {
         if (!c.clickedAt) continue;
@@ -1909,6 +1909,21 @@ export default {
         if (!bucket) continue; // older than the tracked window
         bucket.clicks++;
         if (c.possibleSale) bucket.possibleSales++;
+      }
+      // SOL volume is bucketed by when the underlying sale happened
+      // (soldAt), not by click time like the counts above — a click can
+      // flag a sale that lands in a different week bucket than the click
+      // itself when it's near a week boundary, and volume is a sales
+      // metric, not a clicks one. Walks matchedSales (already deduped to
+      // one entry per unique sale, see above) rather than listingClicks, so
+      // a sale flagged possible by several clicks still contributes its
+      // price to exactly one week once, same dedup reasoning as the
+      // all-time possibleSaleVolumeSol total.
+      for (const { price, soldAt } of matchedSales.values()) {
+        if (price == null || isNaN(price)) continue; // legacy price-less sale — excluded, same as the all-time total (see possibleSaleVolumeUnknownCount)
+        const bucket = weeklyConversion.find((w) => soldAt >= w.weekStartMs && soldAt < w.weekEndMs);
+        if (!bucket) continue; // older than the tracked window
+        bucket.solVolume += price;
       }
       weeklyConversion.forEach((w) => {
         delete w.weekStartMs;
