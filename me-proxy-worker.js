@@ -1288,11 +1288,24 @@ function deriveOpenSeaLiquidityStats(osData) {
   // non-SOL floor as though it were SOL.
   const floorPriceSol = total.floor_price_symbol === "SOL" && typeof total.floor_price === "number" ? total.floor_price : null;
 
+  // Confirmed live: this response's interval volumes carry their own
+  // independent volume_symbol, and for candy-dc it's "ETH" — even
+  // though floor_price_symbol on the very same response is "SOL". These
+  // aren't one collection-wide currency; OpenSea reports floor and
+  // volume in different units here. Previously this trusted
+  // oneDay.volume/sevenDay.volume as SOL unconditionally, which silently
+  // mislabeled ETH-denominated volume as SOL (e.g. showing "1.08 SOL"
+  // for what was actually ~1.10 ETH — a huge real-value difference, and
+  // why 24h sales could be higher than Magic Eden's while 24h volume
+  // looked far lower). Same guard as floorPriceSol above, just never
+  // applied to volume until now.
+  const solVolume = (interval) => (interval.volume_symbol === "SOL" && typeof interval.volume === "number" ? interval.volume : null);
+
   return {
     floorPriceSol,
-    volume24hSol: typeof oneDay.volume === "number" ? oneDay.volume : 0,
+    volume24hSol: solVolume(oneDay),
     sales24h: typeof oneDay.sales === "number" ? oneDay.sales : 0,
-    volume7dSol: typeof sevenDay.volume === "number" ? sevenDay.volume : 0,
+    volume7dSol: solVolume(sevenDay),
     sales7d: typeof sevenDay.sales === "number" ? sevenDay.sales : 0,
   };
 }

@@ -753,9 +753,14 @@ async function loadLiquidity(){
   for(const market of ['magicEden', 'openSea']){
     const m = data[market] || {};
     setLiquidityField(market, 'floor', m.floorPriceSol != null ? `${fmtSol(m.floorPriceSol)} SOL` : '—');
-    setLiquidityField(market, 'vol24h', `${fmtSol(m.volume24hSol)} SOL`);
+    // null (not a number) means the Worker's own currency guard rejected
+    // a non-SOL volume figure — e.g. OpenSea reports candy-dc's volume in
+    // ETH even though its floor is SOL — so show '—', never "0 SOL"/a
+    // bare fmtSol fallback, which would misleadingly read as real zero
+    // volume instead of "not expressible in SOL."
+    setLiquidityField(market, 'vol24h', m.volume24hSol != null ? `${fmtSol(m.volume24hSol)} SOL` : '—');
     setLiquidityField(market, 'sales24h', typeof m.sales24h === 'number' ? String(m.sales24h) : '—');
-    setLiquidityField(market, 'sub7d', `7d: ${fmtSol(m.volume7dSol)} SOL · ${typeof m.sales7d === 'number' ? m.sales7d : '—'} sales`);
+    setLiquidityField(market, 'sub7d', `7d: ${m.volume7dSol != null ? fmtSol(m.volume7dSol) + ' SOL' : '—'} · ${typeof m.sales7d === 'number' ? m.sales7d : '—'} sales`);
   }
 
   liquidityStatusEl.textContent = data.updatedAt ? `Updated ${new Date(data.updatedAt).toLocaleTimeString()}` : '';
