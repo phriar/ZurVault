@@ -750,17 +750,26 @@ async function loadLiquidity(){
     return;
   }
 
+  // "~" prefix marks a volume the Worker converted from ETH into a
+  // SOL-equivalent via a live exchange rate (volumeXConverted: true) —
+  // OpenSea reports candy-dc's volume in ETH even though its floor is
+  // SOL, so this isn't OpenSea's own settlement currency, just an
+  // estimate for comparing against Magic Eden's native-SOL figure.
+  // volXSol === null still means no figure could be produced at all
+  // (e.g. the ETH/SOL price feed was unreachable that cycle) — show
+  // '—', never "0 SOL"/a bare fmtSol fallback, which would misleadingly
+  // read as real zero volume.
+  function volText(volSol, converted){
+    if(volSol == null) return '—';
+    return `${converted ? '~' : ''}${fmtSol(volSol)} SOL`;
+  }
+
   for(const market of ['magicEden', 'openSea']){
     const m = data[market] || {};
     setLiquidityField(market, 'floor', m.floorPriceSol != null ? `${fmtSol(m.floorPriceSol)} SOL` : '—');
-    // null (not a number) means the Worker's own currency guard rejected
-    // a non-SOL volume figure — e.g. OpenSea reports candy-dc's volume in
-    // ETH even though its floor is SOL — so show '—', never "0 SOL"/a
-    // bare fmtSol fallback, which would misleadingly read as real zero
-    // volume instead of "not expressible in SOL."
-    setLiquidityField(market, 'vol24h', m.volume24hSol != null ? `${fmtSol(m.volume24hSol)} SOL` : '—');
+    setLiquidityField(market, 'vol24h', volText(m.volume24hSol, m.volume24hConverted));
     setLiquidityField(market, 'sales24h', typeof m.sales24h === 'number' ? String(m.sales24h) : '—');
-    setLiquidityField(market, 'sub7d', `7d: ${m.volume7dSol != null ? fmtSol(m.volume7dSol) + ' SOL' : '—'} · ${typeof m.sales7d === 'number' ? m.sales7d : '—'} sales`);
+    setLiquidityField(market, 'sub7d', `7d: ${volText(m.volume7dSol, m.volume7dConverted)} · ${typeof m.sales7d === 'number' ? m.sales7d : '—'} sales`);
   }
 
   liquidityStatusEl.textContent = data.updatedAt ? `Updated ${new Date(data.updatedAt).toLocaleTimeString()}` : '';

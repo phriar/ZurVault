@@ -1240,6 +1240,30 @@ function buildScoutSystemPrompt() {
 // elsewhere.
 const OPENSEA_COLLECTION_SLUG = "candy-dc";
 const OPENSEA_STATS_URL = `https://api.opensea.io/api/v2/collections/${OPENSEA_COLLECTION_SLUG}/stats`;
+// Free, keyless, public endpoint — used only to convert OpenSea's
+// ETH-denominated volume (see deriveOpenSeaLiquidityStats() below) into
+// a SOL-equivalent for side-by-side comparison with Magic Eden. One call
+// per 20-min cron cycle is nowhere near CoinGecko's free-tier limits.
+const COINGECKO_PRICE_URL = "https://api.coingecko.com/api/v3/simple/price?ids=ethereum,solana&vs_currencies=usd";
+
+// Returns how many SOL one ETH is worth right now (ethUsd/solUsd), or
+// null if the price feed is unreachable/malformed — never throws, so a
+// CoinGecko outage degrades to "no conversion" (deriveOpenSeaLiquidityStats
+// falls back to null/"—" for ETH-denominated volume) rather than failing
+// the whole liquidity refresh.
+async function fetchEthToSolRate() {
+  try {
+    const res = await fetch(COINGECKO_PRICE_URL, { headers: { Accept: "application/json" } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const ethUsd = data?.ethereum?.usd;
+    const solUsd = data?.solana?.usd;
+    if (typeof ethUsd !== "number" || typeof solUsd !== "number" || solUsd <= 0) return null;
+    return ethUsd / solUsd;
+  } catch {
+    return null;
+  }
+}
 // Single global KV key, no per-symbol suffix — the first entry of this
 // shape in this file (every other KV_TTL_SECONDS/HISTORY_TTL_SECONDS
 // key above is one-per-collection). TTL follows the same "2x the cron
@@ -1272,10 +1296,12 @@ function deriveMagicEdenLiquidityStats(merged) {
   };
 }
 
-// Pure — no I/O. Maps OpenSea's /collections/{slug}/stats response
-// shape into the same { floorPriceSol, volume24hSol, sales24h,
-// volume7dSol, sales7d } shape as the Magic Eden side.
-function deriveOpenSeaLiquidityStats(osData) {
+// Pure — no I/O. Maps OpenSea's /collections/{slug}/stats response shape
+// into the same { floorPriceSol, volume24hSol, volume24hConverted,
+// sales24h, volume7dSol, volume7dConverted, sales7d } shape as the Magic
+// Eden side. ethToSolRate (from fetchEthToSolRate(), or null if that
+// feed failed) is how many SOL one ETH is worth right now.
+function deriveOpenSeaLiquidityStats(osData, ethToSolRate) {
   const total = osData?.total || {};
   const intervals = Array.isArray(osData?.intervals) ? osData.intervals : [];
   const byInterval = Object.fromEntries(intervals.map((i) => [i.interval, i]));
@@ -1292,20 +1318,33 @@ function deriveOpenSeaLiquidityStats(osData) {
   // independent volume_symbol, and for candy-dc it's "ETH" — even
   // though floor_price_symbol on the very same response is "SOL". These
   // aren't one collection-wide currency; OpenSea reports floor and
-  // volume in different units here. Previously this trusted
-  // oneDay.volume/sevenDay.volume as SOL unconditionally, which silently
-  // mislabeled ETH-denominated volume as SOL (e.g. showing "1.08 SOL"
-  // for what was actually ~1.10 ETH — a huge real-value difference, and
-  // why 24h sales could be higher than Magic Eden's while 24h volume
-  // looked far lower). Same guard as floorPriceSol above, just never
-  // applied to volume until now.
-  const solVolume = (interval) => (interval.volume_symbol === "SOL" && typeof interval.volume === "number" ? interval.volume : null);
+  // volume in different units here. This used to just null out ETH-
+  // denominated volume (same guard as floorPriceSol above) rather than
+  // mislabel it as SOL — now it converts it to a SOL-equivalent instead,
+  // using fetchEthToSolRate(), so it's directly comparable to Magic
+  // Eden's native-SOL figure. `converted: true` marks a value that's an
+  // exchange-rate estimate, not OpenSea's own settlement currency, so the
+  // frontend can flag it (e.g. a "~" prefix) rather than presenting it as
+  // exactly as authoritative as a native-SOL number.
+  const solVolume = (interval) => {
+    if (interval.volume_symbol === "SOL" && typeof interval.volume === "number") {
+      return { value: interval.volume, converted: false };
+    }
+    if (interval.volume_symbol === "ETH" && typeof interval.volume === "number" && typeof ethToSolRate === "number") {
+      return { value: interval.volume * ethToSolRate, converted: true };
+    }
+    return { value: null, converted: false };
+  };
+  const vol24h = solVolume(oneDay);
+  const vol7d = solVolume(sevenDay);
 
   return {
     floorPriceSol,
-    volume24hSol: solVolume(oneDay),
+    volume24hSol: vol24h.value,
+    volume24hConverted: vol24h.converted,
     sales24h: typeof oneDay.sales === "number" ? oneDay.sales : 0,
-    volume7dSol: solVolume(sevenDay),
+    volume7dSol: vol7d.value,
+    volume7dConverted: vol7d.converted,
     sales7d: typeof sevenDay.sales === "number" ? sevenDay.sales : 0,
   };
 }
@@ -1327,11 +1366,16 @@ async function refreshLiquidityStats(env) {
     }
     const magicEden = deriveMagicEdenLiquidityStats(merged);
 
-    const osRes = await fetch(OPENSEA_STATS_URL, {
-      headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY },
-    });
+    // Fetched alongside the OpenSea stats call, not sequenced after it —
+    // an ETH/SOL price feed failure shouldn't cost a network round trip
+    // it doesn't need to. fetchEthToSolRate() itself never throws (see
+    // its own comment), so this Promise.all can't fail because of it.
+    const [osRes, ethToSolRate] = await Promise.all([
+      fetch(OPENSEA_STATS_URL, { headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY } }),
+      fetchEthToSolRate(),
+    ]);
     if (!osRes.ok) throw new Error(`OpenSea stats: HTTP ${osRes.status}`);
-    const openSea = deriveOpenSeaLiquidityStats(await osRes.json());
+    const openSea = deriveOpenSeaLiquidityStats(await osRes.json(), ethToSolRate);
 
     const entry = { updatedAt: Date.now(), magicEden, openSea, notReady: false };
     await env.DC_CACHE.put(LIQUIDITY_STATS_KEY, JSON.stringify(entry), { expirationTtl: LIQUIDITY_TTL_SECONDS });
