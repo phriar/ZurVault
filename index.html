@@ -1081,15 +1081,14 @@ function activateTab(view){
 
 function renderListings(){
   const sub = subFilterEl.value;
-  // Capped at 200, same as renderSales() below — unfiltered ("All
-  // sub-collections") this feed spans 5,000+ listings across every
-  // tracked collection with no pagination; rendering all of them made
-  // the page ~250,000px tall, effectively burying anything placed below
-  // it (see the OpenSea Activity section's placement history).
+  // Uncapped — Magic Eden and OpenSea are gated behind their own
+  // top-level tab (#marketTabs) now, so an unfiltered "All
+  // sub-collections" view here (5,000+ listings) no longer risks
+  // burying the OpenSea panel the way it did before that split.
   const items = sortItems(
     allListings.filter(i => (!sub || i.sub === sub) && (!selectedTier || i.rarity === selectedTier)),
     sortByEl.value, 'listedAt'
-  ).slice(0, 200);
+  );
 
   if(items.length === 0){
     gridEl.className = currentDisplay;

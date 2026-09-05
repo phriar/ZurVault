@@ -1348,15 +1348,24 @@ async function refreshLiquidityStats(env) {
 // listing means a second per-listing fetch to resolve its metadata, so
 // this is bounded to OPENSEA_LISTING_RESOLVE_LIMIT listings/cycle (same
 // "bounded, not unbounded" reasoning as BATCH_SIZE elsewhere in this
-// file) rather than resolving every returned listing.
-const OPENSEA_LISTINGS_URL = `https://api.opensea.io/api/v2/listings/collection/${OPENSEA_COLLECTION_SLUG}/all?limit=30`;
-const OPENSEA_EVENTS_URL = `https://api.opensea.io/api/v2/events/collection/${OPENSEA_COLLECTION_SLUG}?event_type=sale&limit=30`;
+// file) rather than resolving every returned listing — confirmed live
+// there are 800+ active candy-dc listings, an order of magnitude more
+// than this pulls, so this is a recent-activity sample, not the whole
+// market. 100 (up from an initial 20) is as far as this goes without
+// knowing OPENSEA_API_KEY's real rate-limit tier: at 3 cron cycles/hour
+// that's ~309 OpenSea calls/hour total (100 resolves + listings page +
+// events page, ×3), safely under even the free instant-key tier's
+// 600 reads/hour — a true "all 800+" would blow through that budget in
+// a single cycle. Raise further only once the deployed key's actual
+// limit is confirmed.
+const OPENSEA_LISTINGS_URL = `https://api.opensea.io/api/v2/listings/collection/${OPENSEA_COLLECTION_SLUG}/all?limit=100`;
+const OPENSEA_EVENTS_URL = `https://api.opensea.io/api/v2/events/collection/${OPENSEA_COLLECTION_SLUG}?event_type=sale&limit=100`;
 const openSeaNftUrl = (mint) => `https://api.opensea.io/api/v2/chain/solana/contract/${mint}/nfts/${mint}`;
 const OPENSEA_ACTIVITY_KEY = "opensea-activity";
 // Same "2x the cron cadence, survives 1-2 missed cycles" reasoning as
 // LIQUIDITY_TTL_SECONDS/KV_TTL_SECONDS above.
 const OPENSEA_ACTIVITY_TTL_SECONDS = 2400;
-const OPENSEA_LISTING_RESOLVE_LIMIT = 20;
+const OPENSEA_LISTING_RESOLVE_LIMIT = 100;
 
 function lamportsToSol(rawValue, decimals) {
   const n = Number(rawValue);
@@ -1388,7 +1397,11 @@ function deriveOpenSeaSale(ev) {
     character: extractOpenSeaTrait(nft.traits, "Character"),
     rarity: rarityInfo.tier,
     rarityPct: rarityInfo.pct,
-    openSeaUrl: nft.opensea_url || "",
+    // Built directly, not from the API's own nft.opensea_url — confirmed
+    // live that field returns opensea.io/assets/solana/{mint}/{mint},
+    // which 404s ("Page not found") on the real site; opensea.io/item/
+    // solana/{mint} (single mint, not doubled) is what actually resolves.
+    openSeaUrl: nft.identifier ? `https://opensea.io/item/solana/${nft.identifier}` : "",
   };
 }
 
@@ -1422,7 +1435,10 @@ async function resolveOpenSeaListings(rawListings, env) {
           character: extractOpenSeaTrait(nft.traits, "Character"),
           rarity: rarityInfo.tier,
           rarityPct: rarityInfo.pct,
-          openSeaUrl: nft.opensea_url || `https://opensea.io/assets/solana/${mint}/${mint}`,
+          // See deriveOpenSeaSale() above — nft.opensea_url (and the old
+          // /assets/solana/{mint}/{mint} fallback this replaced) both
+          // 404 live; /item/solana/{mint} is the real working format.
+          openSeaUrl: `https://opensea.io/item/solana/${mint}`,
         };
       } catch {
         return null; // one bad mint lookup shouldn't drop the rest of the feed
