@@ -91,7 +91,11 @@
   }
   header h1 span{ color:var(--gold); }
 
-  .tabs{ display:flex; gap:0; flex-wrap:wrap; margin-top:22px; border-bottom:1px solid var(--border); }
+  /* padding:0 32px matches the page's usual 32px gutter — previously
+     free from always sitting inside a <header> (which supplies that
+     padding itself); now also used bare (meTabs/osTabs, inside a plain
+     panel div, no <header> wrapper) so it needs its own. */
+  .tabs{ display:flex; gap:0; flex-wrap:wrap; margin-top:22px; padding:0 32px; border-bottom:1px solid var(--border); }
   .tab{
     flex:1; min-width:120px; text-align:center; padding:12px 8px; font-size:.94rem; letter-spacing:.15em;
     text-transform:uppercase; color:rgba(255,255,255,0.55); cursor:pointer;
@@ -99,6 +103,29 @@
   }
   .tab.active{ color:rgba(255,255,255,0.85); border-bottom-color:var(--cyan); }
   .tab:hover{ color:rgba(255,255,255,0.6); }
+
+  /* Market-level switcher (Magic Eden / OpenSea) — deliberately a
+     bigger, filled segmented control rather than reusing the thin
+     .tab underline style above, so it reads as a distinct, higher-level
+     choice rather than a third row of sub-tabs. */
+  .market-tabs{ display:flex; gap:12px; flex-wrap:wrap; padding:4px 32px 28px; }
+  .market-tab{
+    font-family:'DM Mono',monospace; font-size:1rem; letter-spacing:.08em; text-transform:uppercase;
+    color:rgba(255,255,255,0.65); padding:16px 32px; border:1px solid var(--border); border-radius:10px;
+    cursor:pointer; transition:all .15s; background:rgba(255,255,255,0.02);
+  }
+  .market-tab:hover{ color:rgba(255,255,255,0.8); border-color:rgba(143,111,232,0.4); }
+  .market-tab.active{ color:#fff; background:linear-gradient(135deg, var(--deep), var(--gold)); border-color:transparent; }
+
+  /* Per-panel sub-heading ("Magic Eden Listings" / "OpenSea Listings") —
+     same serif/colored-span treatment as header h1 above, just without
+     the decorative background image (that stays reserved for the page
+     header, not repeated per marketplace panel). */
+  .panel-title{
+    padding:0 32px; font-family:'Cormorant Garamond',serif; font-weight:300;
+    font-size:clamp(1.3rem,3.5vw,1.8rem); color:rgba(255,255,255,0.92);
+  }
+  .panel-title span{ color:var(--gold); }
 
   .controls{
     display:flex; gap:8px; padding:16px 32px; flex-wrap:wrap; border-bottom:1px solid var(--border);
@@ -266,12 +293,6 @@
      directly on the price/CTA itself, not just in the page-level banner —
      rgba(77,232,255,0.7) on #0a0a0a computes to ~6.8:1 contrast, clears
      the same WCAG AA bar the rest of this page's small text holds to. */
-  /* .tabs/.tab already provide the visual treatment (border-bottom
-     underline, active-state color) — this is only the horizontal gutter
-     the wrapping <header> normally supplies, since #marketTabs sits
-     directly in the page flow rather than inside a <header>. */
-  #marketTabs{ padding:0 32px; }
-
   .me-tag, .market-tag{ font-family:'DM Mono',monospace; font-size:.62rem; letter-spacing:.05em; text-transform:uppercase; color:rgba(77,232,255,0.7); margin-top:2px; white-space:nowrap; }
 
   /* OpenSea Activity section — reuses header/.tabs/.controls/.grid/.list
@@ -333,25 +354,31 @@
   <div class="liquidity-widget-status" id="liquidityStatus">Loading…</div>
 </section>
 
+<header id="latest-drops">
+  <h1>Latest DC <span>Listings</span></h1>
+</header>
+
 <!-- Top-level marketplace switcher — Magic Eden's own feed is capped at
      200 items (renderListings()) but on a narrow mobile viewport that's
      still a long scroll, which would bury the OpenSea panel below it
      entirely. Gating full panels behind a tab (only one ever visible)
      means OpenSea is always one tap away regardless of how long the
-     active Magic Eden view is, rather than relying on scroll position. -->
-<div class="tabs" id="marketTabs">
-  <div class="tab active" data-market="me">Magic Eden</div>
-  <div class="tab" data-market="os">OpenSea</div>
+     active Magic Eden view is, rather than relying on scroll position.
+     Deliberately NOT the thin underline .tab/.tabs style used for the
+     For Sale/Recent Sales sub-nav inside each panel below — this needs
+     to visibly read as the more important, higher-level choice, not a
+     third row that blends into the sub-tabs directly under it. -->
+<div class="market-tabs" id="marketTabs">
+  <div class="market-tab active" data-market="me">Magic Eden</div>
+  <div class="market-tab" data-market="os">OpenSea</div>
 </div>
 
 <div id="marketPanelME">
-<header id="latest-drops">
-  <h1>Latest DC <span>Listings</span></h1>
-  <div class="tabs">
-    <div class="tab active" data-view="listings">For Sale</div>
-    <div class="tab" data-view="sales">Recent Sales (7d)</div>
-  </div>
-</header>
+<div class="panel-title">Magic Eden <span>Listings</span></div>
+<div class="tabs" id="meTabs">
+  <div class="tab active" data-view="listings">For Sale</div>
+  <div class="tab" data-view="sales">Recent Sales (7d)</div>
+</div>
 
 <div class="controls">
   <select id="subFilter"><option value="">All sub-collections</option></select>
@@ -380,13 +407,11 @@
 </div>
 
 <div id="marketPanelOS" hidden>
-<header id="os-activity-header">
-  <h1>OpenSea <span>Activity</span></h1>
-  <div class="tabs" id="osTabs">
-    <div class="tab active" data-view="listings">For Sale</div>
-    <div class="tab" data-view="sales">Recent Sales</div>
-  </div>
-</header>
+<div class="panel-title">OpenSea <span>Listings</span></div>
+<div class="tabs" id="osTabs">
+  <div class="tab active" data-view="listings">For Sale</div>
+  <div class="tab" data-view="sales">Recent Sales</div>
+</div>
 <p class="os-activity-sub">Unfiltered across candy.io's whole DC catalog on OpenSea — it's all one shared collection there, not split per series the way Magic Eden's is.</p>
 
 <div class="controls">
@@ -918,19 +943,19 @@ osViewToggleEl.querySelectorAll('.pill').forEach(p => {
   });
 });
 
-// Top-level Magic Eden / OpenSea switcher — only one panel is ever
-// visible (via the `hidden` attribute), so the inactive marketplace's
-// feed, however long, never has to be scrolled past to reach the other.
-// Scoped to #marketTabs specifically, same reason '#latest-drops .tab'
-// and '#osTabs .tab' are scoped rather than bare document.querySelectorAll
-// ('.tab') — three independent .tab groups now share the page.
+// Top-level Magic Eden / OpenSea switcher — its own .market-tab class
+// (not .tab), so it's visually a bigger, filled segmented control
+// instead of the thin underline style the For Sale/Recent Sales
+// sub-tabs use inside each panel (#meTabs .tab / #osTabs .tab) — also
+// keeps its click handling naturally scoped, since it's a different
+// class entirely, not just a different container of the same '.tab'.
 const marketTabsEl = document.getElementById('marketTabs');
 const marketPanelMEEl = document.getElementById('marketPanelME');
 const marketPanelOSEl = document.getElementById('marketPanelOS');
 
-marketTabsEl.querySelectorAll('.tab').forEach(t => {
+marketTabsEl.querySelectorAll('.market-tab').forEach(t => {
   t.addEventListener('click', () => {
-    marketTabsEl.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+    marketTabsEl.querySelectorAll('.market-tab').forEach(x => x.classList.toggle('active', x === t));
     const market = t.dataset.market;
     marketPanelMEEl.hidden = market !== 'me';
     marketPanelOSEl.hidden = market !== 'os';
@@ -1046,11 +1071,11 @@ function render(){
 
 function activateTab(view){
   currentView = view;
-  // Scoped to #latest-drops, not a bare document-wide '.tab' query — the
-  // OpenSea Activity section below has its own .tab elements (same
+  // Scoped to #meTabs, not a bare document-wide '.tab' query — the
+  // OpenSea Activity panel has its own #osTabs .tab elements (same
   // data-view="listings"/"sales" values) that must stay independent of
   // this feed's tab state.
-  document.querySelectorAll('#latest-drops .tab').forEach(x => x.classList.toggle('active', x.dataset.view === view));
+  document.querySelectorAll('#meTabs .tab').forEach(x => x.classList.toggle('active', x.dataset.view === view));
   render();
 }
 
@@ -1199,7 +1224,7 @@ rarityPillsEl.querySelectorAll('.pill[data-tier]').forEach(p => {
   });
 });
 
-document.querySelectorAll('#latest-drops .tab').forEach(t => {
+document.querySelectorAll('#meTabs .tab').forEach(t => {
   t.addEventListener('click', () => activateTab(t.dataset.view));
 });
 
