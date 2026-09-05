@@ -1328,6 +1328,141 @@ async function refreshLiquidityStats(env) {
 }
 
 // ---------------------------------------------------------------------
+// OPENSEA ACTIVITY — homepage "recent OpenSea listings/sales" feed.
+//
+// Same constraint as the LIQUIDITY section above: candy.io's whole DC
+// catalog sits under one OpenSea slug (candy-dc), so this is deliberately
+// unfiltered/publisher-wide, not per-character or per-series. Single
+// global KV key written once per cron cycle — same footprint as
+// LIQUIDITY_STATS_KEY, not one write per collection like the Magic Eden
+// scan (refreshAllCollections) above.
+//
+// Sales come from OpenSea's events feed, which — for this collection's
+// protocol (os_tensor, the Solana/Tensor orderbook OpenSea normalizes) —
+// embeds full NFT metadata (name/image/traits) inline, so one page of
+// events is enough to render a rich feed with zero extra calls.
+//
+// Listings are different: /listings/collection/{slug}/all returns only a
+// bare { asset: { identifier }, price } for this same protocol — no name,
+// image, or traits at all. Showing anything but a mint address for a
+// listing means a second per-listing fetch to resolve its metadata, so
+// this is bounded to OPENSEA_LISTING_RESOLVE_LIMIT listings/cycle (same
+// "bounded, not unbounded" reasoning as BATCH_SIZE elsewhere in this
+// file) rather than resolving every returned listing.
+const OPENSEA_LISTINGS_URL = `https://api.opensea.io/api/v2/listings/collection/${OPENSEA_COLLECTION_SLUG}/all?limit=30`;
+const OPENSEA_EVENTS_URL = `https://api.opensea.io/api/v2/events/collection/${OPENSEA_COLLECTION_SLUG}?event_type=sale&limit=30`;
+const openSeaNftUrl = (mint) => `https://api.opensea.io/api/v2/chain/solana/contract/${mint}/nfts/${mint}`;
+const OPENSEA_ACTIVITY_KEY = "opensea-activity";
+// Same "2x the cron cadence, survives 1-2 missed cycles" reasoning as
+// LIQUIDITY_TTL_SECONDS/KV_TTL_SECONDS above.
+const OPENSEA_ACTIVITY_TTL_SECONDS = 2400;
+const OPENSEA_LISTING_RESOLVE_LIMIT = 20;
+
+function lamportsToSol(rawValue, decimals) {
+  const n = Number(rawValue);
+  if (!Number.isFinite(n)) return null;
+  return n / Math.pow(10, decimals ?? 9);
+}
+
+// OpenSea traits are a flat [{trait_type, value}] array — same shape
+// normalizeRarity() (above, in the Magic Eden section) already parses, so
+// that's reused directly for rarity rather than re-implementing the
+// "Common (40.000)" / "CORE"-aliasing logic a second time. Only
+// "Character" needs its own plain lookup here.
+function extractOpenSeaTrait(traits, traitType) {
+  const hit = Array.isArray(traits) ? traits.find((t) => t?.trait_type === traitType) : null;
+  return hit?.value ?? null;
+}
+
+// Pure — no I/O. One OpenSea sale event -> one display-ready entry.
+function deriveOpenSeaSale(ev) {
+  const nft = ev?.nft || {};
+  const priceSol = ev?.payment?.symbol === "SOL" ? lamportsToSol(ev.payment.quantity, ev.payment.decimals) : null;
+  const rarityInfo = normalizeRarity(nft.traits);
+  return {
+    name: nft.name || "Untitled",
+    image: nft.image_url || nft.display_image_url || "",
+    mintAddress: nft.identifier || "",
+    price: priceSol,
+    soldAt: ev?.event_timestamp || null,
+    character: extractOpenSeaTrait(nft.traits, "Character"),
+    rarity: rarityInfo.tier,
+    rarityPct: rarityInfo.pct,
+    openSeaUrl: nft.opensea_url || "",
+  };
+}
+
+// Resolves a bounded slice of bare {identifier, price} listings into
+// display-ready entries by fetching each mint's own metadata — see the
+// section header above for why this can't come from the listings
+// endpoint itself. Concurrent (bounded by the slice size, <=
+// OPENSEA_LISTING_RESOLVE_LIMIT), each failure isolated so one bad mint
+// doesn't drop the rest.
+async function resolveOpenSeaListings(rawListings, env) {
+  const sanePrice = (n) => typeof n === "number" && n >= SCOUT_MIN_SANE_PRICE_SOL;
+  const slice = rawListings.slice(0, OPENSEA_LISTING_RESOLVE_LIMIT);
+  const resolved = await Promise.all(
+    slice.map(async (l) => {
+      const mint = l?.asset?.identifier;
+      const priceSol = l?.price?.current?.currency === "SOL" ? lamportsToSol(l.price.current.value, l.price.current.decimals) : null;
+      if (!mint || !sanePrice(priceSol)) return null;
+      try {
+        const res = await fetch(openSeaNftUrl(mint), {
+          headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY },
+        });
+        if (!res.ok) return null;
+        const nft = (await res.json())?.nft || {};
+        const rarityInfo = normalizeRarity(nft.traits);
+        return {
+          name: nft.name || "Untitled",
+          image: nft.image_url || nft.display_image_url || "",
+          mintAddress: mint,
+          price: priceSol,
+          listedAt: l?.order_created_at || null,
+          character: extractOpenSeaTrait(nft.traits, "Character"),
+          rarity: rarityInfo.tier,
+          rarityPct: rarityInfo.pct,
+          openSeaUrl: nft.opensea_url || `https://opensea.io/assets/solana/${mint}/${mint}`,
+        };
+      } catch {
+        return null; // one bad mint lookup shouldn't drop the rest of the feed
+      }
+    })
+  );
+  return resolved.filter(Boolean);
+}
+
+// Cron entry point — same isolation contract as refreshLiquidityStats():
+// any failure is caught/logged, never thrown out of scheduled(), and on
+// failure the last-known-good opensea-activity KV entry is left in place.
+async function refreshOpenSeaActivity(env) {
+  if (!env.OPENSEA_API_KEY) {
+    console.error("refreshOpenSeaActivity: OPENSEA_API_KEY not configured");
+    return;
+  }
+  try {
+    const [listingsRes, eventsRes] = await Promise.all([
+      fetch(OPENSEA_LISTINGS_URL, { headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY } }),
+      fetch(OPENSEA_EVENTS_URL, { headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY } }),
+    ]);
+    if (!listingsRes.ok) throw new Error(`OpenSea listings: HTTP ${listingsRes.status}`);
+    if (!eventsRes.ok) throw new Error(`OpenSea events: HTTP ${eventsRes.status}`);
+    const listingsData = await listingsRes.json();
+    const eventsData = await eventsRes.json();
+
+    const listings = await resolveOpenSeaListings(Array.isArray(listingsData?.listings) ? listingsData.listings : [], env);
+    const sales = (Array.isArray(eventsData?.asset_events) ? eventsData.asset_events : [])
+      .filter((ev) => ev?.event_type === "sale")
+      .map(deriveOpenSeaSale);
+
+    const entry = { updatedAt: Date.now(), listings, sales, notReady: false };
+    await env.DC_CACHE.put(OPENSEA_ACTIVITY_KEY, JSON.stringify(entry), { expirationTtl: OPENSEA_ACTIVITY_TTL_SECONDS });
+  } catch (err) {
+    console.error("refreshOpenSeaActivity failed:", err.message);
+  }
+}
+
+// ---------------------------------------------------------------------
 
 export default {
   async fetch(request, env, ctx) {
@@ -1419,6 +1554,32 @@ export default {
           headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=30" },
         });
         ctx.waitUntil(cache.put(liquidityCacheKey, toCache));
+      }
+      return new Response(body, {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" },
+      });
+    }
+
+    // Recent OpenSea listings/sales for the homepage — a single KV entry
+    // written once per cron cycle by refreshOpenSeaActivity() (see the
+    // OPENSEA ACTIVITY section above), read here behind the same
+    // short edge-cache shape as /v2/liquidity and /v2/dc-summary.
+    if (url.pathname === "/v2/opensea-activity") {
+      const cache = caches.default;
+      const activityCacheKey = new Request(url.origin + "/__opensea-activity-merged", { method: "GET" });
+      const cachedActivity = await cache.match(activityCacheKey);
+      let body;
+      if (cachedActivity) {
+        body = await cachedActivity.text();
+      } else {
+        const raw = await env.DC_CACHE.get(OPENSEA_ACTIVITY_KEY);
+        body = raw || JSON.stringify({ notReady: true });
+        const toCache = new Response(body, {
+          status: 200,
+          headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=30" },
+        });
+        ctx.waitUntil(cache.put(activityCacheKey, toCache));
       }
       return new Response(body, {
         status: 200,
@@ -2095,5 +2256,8 @@ export default {
     // refreshLiquidityStats() just reads whatever collection:* KV state
     // currently exists, so there's no need to sequence after it.
     ctx.waitUntil(refreshLiquidityStats(env));
+    // Independent of both of the above — refreshOpenSeaActivity() only
+    // talks to OpenSea, never reads collection:* KV state.
+    ctx.waitUntil(refreshOpenSeaActivity(env));
   },
 };

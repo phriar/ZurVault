@@ -201,9 +201,9 @@
   }
   .liquidity-widget-status.err{ color:#e07a5f; }
 
-  #status{ padding:16px 32px; font-size:.66rem; letter-spacing:.1em; color:rgba(255,255,255,0.55); text-transform:uppercase; }
-  #status.err{ color:#e07a5f; }
-  #status .dot{ display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--cyan); margin-right:8px; }
+  #status, #osStatus{ padding:16px 32px; font-size:.66rem; letter-spacing:.1em; color:rgba(255,255,255,0.55); text-transform:uppercase; }
+  #status.err, #osStatus.err{ color:#e07a5f; }
+  #status .dot, #osStatus .dot{ display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--cyan); margin-right:8px; }
 
   .grid{
     display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
@@ -266,7 +266,17 @@
      directly on the price/CTA itself, not just in the page-level banner —
      rgba(77,232,255,0.7) on #0a0a0a computes to ~6.8:1 contrast, clears
      the same WCAG AA bar the rest of this page's small text holds to. */
-  .me-tag{ font-family:'DM Mono',monospace; font-size:.62rem; letter-spacing:.05em; text-transform:uppercase; color:rgba(77,232,255,0.7); margin-top:2px; white-space:nowrap; }
+  .me-tag, .market-tag{ font-family:'DM Mono',monospace; font-size:.62rem; letter-spacing:.05em; text-transform:uppercase; color:rgba(77,232,255,0.7); margin-top:2px; white-space:nowrap; }
+
+  /* OpenSea Activity section — reuses header/.tabs/.controls/.grid/.list
+     wholesale (all generic-element or class selectors already styled
+     above for the Magic Eden feed); this is the only OpenSea-specific
+     rule needed. Same 15px/55%-on-#0a0a0a pairing already audited at
+     6.28:1 for .liquidity-widget-sub/.card .time above, not a new value. */
+  .os-activity-sub{
+    padding:0 32px 16px; font-family:'DM Mono',monospace; font-size:.94rem; letter-spacing:.05em;
+    color:rgba(255,255,255,0.55);
+  }
 
   .empty{ padding:60px 32px; text-align:center; color:rgba(255,255,255,0.55); font-family:'Cormorant Garamond',serif; font-size:1.2rem; font-weight:300; line-height:1.6; }
 
@@ -349,6 +359,25 @@
 
 <div id="status"><span class="dot"></span>Loading collections…</div>
 <div id="grid" class="grid"></div>
+
+<header id="os-activity-header">
+  <h1>OpenSea <span>Activity</span></h1>
+  <div class="tabs" id="osTabs">
+    <div class="tab active" data-view="listings">For Sale</div>
+    <div class="tab" data-view="sales">Recent Sales</div>
+  </div>
+</header>
+<p class="os-activity-sub">Unfiltered across candy.io's whole DC catalog on OpenSea — it's all one shared collection there, not split per series the way the Magic Eden feed above is. A supplement, not a per-issue replacement.</p>
+
+<div class="controls">
+  <div class="view-toggle" id="osViewToggle">
+    <button class="pill active" data-view="grid">Grid</button>
+    <button class="pill" data-view="list">List</button>
+  </div>
+</div>
+
+<div id="osStatus"><span class="dot"></span>Loading OpenSea activity…</div>
+<div id="osGrid" class="grid"></div>
 
 <footer>
   Live listing data via Magic Eden public API · <a href="index.html">zurvault.com</a>
@@ -699,6 +728,175 @@ function soldLabel(i){
 
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 
+/* ============================================================
+   OPENSEA ACTIVITY — recent listings/sales across candy.io's whole DC
+   catalog on OpenSea (one shared collection there, candy-dc — see
+   me-proxy-worker.js's OPENSEA ACTIVITY section for why this is
+   unfiltered rather than split per sub-collection like the Magic Eden
+   feed above). Own fetch/render/state, entirely independent of
+   loadAll()/render() above — a failure here never touches the Magic
+   Eden feed, and vice versa.
+   ============================================================ */
+let osListings = [];
+let osSales = [];
+let osCurrentView = 'listings';
+let osCurrentDisplay = 'grid';
+
+const osStatusEl = document.getElementById('osStatus');
+const osGridEl = document.getElementById('osGrid');
+const osViewToggleEl = document.getElementById('osViewToggle');
+const osTabsEl = document.getElementById('osTabs');
+
+function setOsStatus(msg, isErr){
+  osStatusEl.innerHTML = (isErr ? '' : '<span class="dot"></span>') + msg;
+  osStatusEl.classList.toggle('err', !!isErr);
+}
+
+async function loadOpenSeaActivity(){
+  let data;
+  try{
+    const res = await fetch(`${ME_BASE}/opensea-activity`);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    data = await res.json();
+  }catch(e){
+    console.error(e);
+    setOsStatus('OpenSea activity unavailable right now.', true);
+    return;
+  }
+
+  if(data.notReady){
+    setOsStatus('Still gathering data — check back shortly.');
+    return;
+  }
+
+  osListings = Array.isArray(data.listings) ? data.listings : [];
+  osSales = Array.isArray(data.sales) ? data.sales : [];
+  const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+  setOsStatus(`${osListings.length} listings, ${osSales.length} recent sales · updated ${updated}.`);
+  renderOs();
+}
+
+function renderOs(){
+  if(osCurrentView === 'sales') renderOsSales();
+  else renderOsListings();
+}
+
+function activateOsTab(view){
+  osCurrentView = view;
+  osTabsEl.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x.dataset.view === view));
+  renderOs();
+}
+
+// character (an OpenSea trait, e.g. "Harley Quinn") stands in for the
+// per-collection "sub" label the Magic Eden feed's cards show — there's
+// no DC_COLLECTIONS match to fall back on here since OpenSea indexes
+// everything under one shared slug. No data-track instrumentation on
+// these links: click-log/click-stats (site-nav.js) assume a Magic Eden
+// DC_COLLECTIONS symbol as their "context", which doesn't exist for an
+// unfiltered OpenSea item.
+function renderOsListings(){
+  const items = osListings.slice().sort((a, b) => (b.listedAt ?? 0) - (a.listedAt ?? 0));
+
+  if(items.length === 0){
+    osGridEl.className = osCurrentDisplay;
+    osGridEl.innerHTML = `<div class="empty">No OpenSea listings available right now.<br>Check back later.</div>`;
+    return;
+  }
+
+  if(osCurrentDisplay === 'list'){
+    osGridEl.className = 'list';
+    osGridEl.innerHTML = items.map(i => `
+      <a class="list-row" href="${esc(i.openSeaUrl)}" target="_blank" rel="noopener">
+        <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
+        <div class="info">
+          ${i.character ? `<div class="sub">${esc(i.character)}</div>` : ''}
+          <div class="name">${esc(i.name)}</div>
+          ${rarityBadge(i.rarity, i.rarityPct)}
+        </div>
+        <div class="price-col">
+          <div class="price">${i.price !== null ? fmtSol(i.price) + ' SOL' : '—'}</div>
+          <div class="market-tag">OpenSea &#8599;</div>
+          ${i.listedAt ? `<div class="time">${timeAgo(i.listedAt)}</div>` : ''}
+        </div>
+      </a>
+    `).join('');
+    return;
+  }
+
+  osGridEl.className = 'grid';
+  osGridEl.innerHTML = items.map(i => `
+    <a class="card" href="${esc(i.openSeaUrl)}" target="_blank" rel="noopener">
+      <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
+      <div class="body">
+        ${i.character ? `<div class="sub">${esc(i.character)}</div>` : ''}
+        <div class="name">${esc(i.name)}</div>
+        ${rarityBadge(i.rarity, i.rarityPct)}
+        <div class="price">${i.price !== null ? fmtSol(i.price) + ' SOL' : '—'}</div>
+        <div class="market-tag">OpenSea &#8599;</div>
+        ${i.listedAt ? `<div class="time">${timeAgo(i.listedAt)}</div>` : ''}
+      </div>
+    </a>
+  `).join('');
+}
+
+function renderOsSales(){
+  const items = osSales.slice().sort((a, b) => (b.soldAt ?? 0) - (a.soldAt ?? 0));
+
+  if(items.length === 0){
+    osGridEl.className = osCurrentDisplay;
+    osGridEl.innerHTML = `<div class="empty">No recent OpenSea sales available right now.<br>Check back later.</div>`;
+    return;
+  }
+
+  if(osCurrentDisplay === 'list'){
+    osGridEl.className = 'list';
+    osGridEl.innerHTML = items.map(i => `
+      <a class="list-row" href="${esc(i.openSeaUrl)}" target="_blank" rel="noopener">
+        <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
+        <div class="info">
+          ${i.character ? `<div class="sub">${esc(i.character)}</div>` : ''}
+          <div class="name">${esc(i.name)}</div>
+          ${rarityBadge(i.rarity, i.rarityPct)}
+        </div>
+        <div class="price-col">
+          <div class="price">${i.price !== null ? fmtSol(i.price) + ' SOL' : '—'}</div>
+          <div class="market-tag">OpenSea &#8599;</div>
+          ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
+        </div>
+      </a>
+    `).join('');
+    return;
+  }
+
+  osGridEl.className = 'grid';
+  osGridEl.innerHTML = items.map(i => `
+    <a class="card" href="${esc(i.openSeaUrl)}" target="_blank" rel="noopener">
+      <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
+      <div class="body">
+        ${i.character ? `<div class="sub">${esc(i.character)}</div>` : ''}
+        <div class="name">${esc(i.name)}</div>
+        ${rarityBadge(i.rarity, i.rarityPct)}
+        <div class="price">${i.price !== null ? fmtSol(i.price) + ' SOL' : '—'}</div>
+        <div class="market-tag">OpenSea &#8599;</div>
+        ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
+      </div>
+    </a>
+  `).join('');
+}
+
+osTabsEl.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => activateOsTab(t.dataset.view));
+});
+
+osViewToggleEl.querySelectorAll('.pill').forEach(p => {
+  p.addEventListener('click', () => {
+    osViewToggleEl.querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
+    p.classList.add('active');
+    osCurrentDisplay = p.dataset.view;
+    renderOs();
+  });
+});
+
 // Magic Eden listing names for these collections commonly end in
 // "(edition/total)", e.g. "Flashpoint (2011) #1 (501/1314)" — pull that
 // out to show as a mint/edition badge in list view, where there's room for
@@ -808,7 +1006,11 @@ function render(){
 
 function activateTab(view){
   currentView = view;
-  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x.dataset.view === view));
+  // Scoped to #latest-drops, not a bare document-wide '.tab' query — the
+  // OpenSea Activity section below has its own .tab elements (same
+  // data-view="listings"/"sales" values) that must stay independent of
+  // this feed's tab state.
+  document.querySelectorAll('#latest-drops .tab').forEach(x => x.classList.toggle('active', x.dataset.view === view));
   render();
 }
 
@@ -952,7 +1154,7 @@ rarityPillsEl.querySelectorAll('.pill[data-tier]').forEach(p => {
   });
 });
 
-document.querySelectorAll('.tab').forEach(t => {
+document.querySelectorAll('#latest-drops .tab').forEach(t => {
   t.addEventListener('click', () => activateTab(t.dataset.view));
 });
 
@@ -963,6 +1165,10 @@ setInterval(() => loadAll(true), REFRESH_INTERVAL);
 const LIQUIDITY_REFRESH_INTERVAL = 22 * 60 * 1000; // same cron-trailing reasoning as REFRESH_INTERVAL
 loadLiquidity();
 setInterval(loadLiquidity, LIQUIDITY_REFRESH_INTERVAL);
+
+const OS_ACTIVITY_REFRESH_INTERVAL = 22 * 60 * 1000; // same cron-trailing reasoning as REFRESH_INTERVAL
+loadOpenSeaActivity();
+setInterval(loadOpenSeaActivity, OS_ACTIVITY_REFRESH_INTERVAL);
 </script>
 </body>
 </html>
