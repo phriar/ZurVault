@@ -1427,37 +1427,50 @@ function deriveOpenSeaSale(ev) {
 async function resolveOpenSeaListings(rawListings, env) {
   const sanePrice = (n) => typeof n === "number" && n >= SCOUT_MIN_SANE_PRICE_SOL;
   const slice = rawListings.slice(0, OPENSEA_LISTING_RESOLVE_LIMIT);
-  const resolved = await Promise.all(
-    slice.map(async (l) => {
-      const mint = l?.asset?.identifier;
-      const priceSol = l?.price?.current?.currency === "SOL" ? lamportsToSol(l.price.current.value, l.price.current.decimals) : null;
-      if (!mint || !sanePrice(priceSol)) return null;
-      try {
-        const res = await fetch(openSeaNftUrl(mint), {
-          headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY },
-        });
-        if (!res.ok) return null;
-        const nft = (await res.json())?.nft || {};
-        const rarityInfo = normalizeRarity(nft.traits);
-        return {
-          name: nft.name || "Untitled",
-          image: nft.image_url || nft.display_image_url || "",
-          mintAddress: mint,
-          price: priceSol,
-          listedAt: l?.order_created_at || null,
-          character: extractOpenSeaTrait(nft.traits, "Character"),
-          rarity: rarityInfo.tier,
-          rarityPct: rarityInfo.pct,
-          // See deriveOpenSeaSale() above — nft.opensea_url (and the old
-          // /assets/solana/{mint}/{mint} fallback this replaced) both
-          // 404 live; /item/solana/{mint} is the real working format.
-          openSeaUrl: `https://opensea.io/item/solana/${mint}`,
-        };
-      } catch {
-        return null; // one bad mint lookup shouldn't drop the rest of the feed
-      }
-    })
-  );
+
+  async function resolveOne(l) {
+    const mint = l?.asset?.identifier;
+    const priceSol = l?.price?.current?.currency === "SOL" ? lamportsToSol(l.price.current.value, l.price.current.decimals) : null;
+    if (!mint || !sanePrice(priceSol)) return null;
+    try {
+      const res = await fetch(openSeaNftUrl(mint), {
+        headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY },
+      });
+      if (!res.ok) return null;
+      const nft = (await res.json())?.nft || {};
+      const rarityInfo = normalizeRarity(nft.traits);
+      return {
+        name: nft.name || "Untitled",
+        image: nft.image_url || nft.display_image_url || "",
+        mintAddress: mint,
+        price: priceSol,
+        listedAt: l?.order_created_at || null,
+        character: extractOpenSeaTrait(nft.traits, "Character"),
+        rarity: rarityInfo.tier,
+        rarityPct: rarityInfo.pct,
+        // See deriveOpenSeaSale() above — nft.opensea_url (and the old
+        // /assets/solana/{mint}/{mint} fallback this replaced) both
+        // 404 live; /item/solana/{mint} is the real working format.
+        openSeaUrl: `https://opensea.io/item/solana/${mint}`,
+      };
+    } catch {
+      return null; // one bad mint lookup shouldn't drop the rest of the feed
+    }
+  }
+
+  // Confirmed live: every one of a fresh 100-listing page resolves fine
+  // (200) when fetched standalone/sequentially, but a bare
+  // Promise.all(100 fetches) run from inside the Worker was only landing
+  // ~23 — a burst-concurrency limit (OpenSea's side, or Cloudflare's own
+  // outbound concurrency), not bad data. Same fix as BATCH_SIZE/
+  // throttleMagicEden() elsewhere in this file: cap how many of these are
+  // ever in flight at once rather than firing all of them simultaneously.
+  const OPENSEA_RESOLVE_BATCH_SIZE = 10;
+  const resolved = [];
+  for (let i = 0; i < slice.length; i += OPENSEA_RESOLVE_BATCH_SIZE) {
+    const batch = slice.slice(i, i + OPENSEA_RESOLVE_BATCH_SIZE);
+    resolved.push(...(await Promise.all(batch.map(resolveOne))));
+  }
   return resolved.filter(Boolean);
 }
 
