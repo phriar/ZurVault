@@ -1244,22 +1244,30 @@ const OPENSEA_STATS_URL = `https://api.opensea.io/api/v2/collections/${OPENSEA_C
 // ETH-denominated volume (see deriveOpenSeaLiquidityStats() below) into
 // a SOL-equivalent for side-by-side comparison with Magic Eden. One call
 // per 20-min cron cycle is nowhere near CoinGecko's free-tier limits.
-const COINGECKO_PRICE_URL = "https://api.coingecko.com/api/v3/simple/price?ids=ethereum,solana&vs_currencies=usd";
+// Coinbase, not CoinGecko — confirmed live that CoinGecko's public API
+// returns fine from a normal machine but the deployed Worker's actual
+// cron run got nothing usable from it (volume24hConverted stayed false
+// every cycle), consistent with CoinGecko being known to rate-limit/
+// block cloud-provider egress IPs (Cloudflare Workers among them) more
+// aggressively than it does ordinary traffic. Coinbase's public
+// exchange-rates endpoint gives the same ETH/SOL rate directly (no need
+// to cross two separate USD prices) and matched CoinGecko's numbers
+// almost exactly when both were checked side by side.
+const COINBASE_EXCHANGE_RATE_URL = "https://api.coinbase.com/v2/exchange-rates?currency=ETH";
 
-// Returns how many SOL one ETH is worth right now (ethUsd/solUsd), or
-// null if the price feed is unreachable/malformed — never throws, so a
-// CoinGecko outage degrades to "no conversion" (deriveOpenSeaLiquidityStats
-// falls back to null/"—" for ETH-denominated volume) rather than failing
-// the whole liquidity refresh.
+// Returns how many SOL one ETH is worth right now, or null if the price
+// feed is unreachable/malformed — never throws, so an outage degrades to
+// "no conversion" (deriveOpenSeaLiquidityStats falls back to null/"—"
+// for ETH-denominated volume) rather than failing the whole liquidity
+// refresh.
 async function fetchEthToSolRate() {
   try {
-    const res = await fetch(COINGECKO_PRICE_URL, { headers: { Accept: "application/json" } });
+    const res = await fetch(COINBASE_EXCHANGE_RATE_URL, { headers: { Accept: "application/json" } });
     if (!res.ok) return null;
     const data = await res.json();
-    const ethUsd = data?.ethereum?.usd;
-    const solUsd = data?.solana?.usd;
-    if (typeof ethUsd !== "number" || typeof solUsd !== "number" || solUsd <= 0) return null;
-    return ethUsd / solUsd;
+    // Coinbase returns rates as strings (e.g. "23.906..."), not numbers.
+    const rate = parseFloat(data?.data?.rates?.SOL);
+    return Number.isFinite(rate) && rate > 0 ? rate : null;
   } catch {
     return null;
   }
