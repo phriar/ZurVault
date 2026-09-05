@@ -327,6 +327,31 @@
   <div class="liquidity-widget-status" id="liquidityStatus">Loading…</div>
 </section>
 
+<!-- Placed here — right after the Liquidity widget, before the Magic
+     Eden feed below — deliberately: that feed renders one card per
+     listing across every tracked collection with no pagination (5,000+
+     cards, a few hundred thousand px of page height at times), so
+     anything placed after it is effectively unreachable by scrolling.
+     This section must stay above it. -->
+<header id="os-activity-header">
+  <h1>OpenSea <span>Activity</span></h1>
+  <div class="tabs" id="osTabs">
+    <div class="tab active" data-view="listings">For Sale</div>
+    <div class="tab" data-view="sales">Recent Sales</div>
+  </div>
+</header>
+<p class="os-activity-sub">Unfiltered across candy.io's whole DC catalog on OpenSea — it's all one shared collection there, not split per series the way the Magic Eden feed below is. A supplement, not a per-issue replacement.</p>
+
+<div class="controls">
+  <div class="view-toggle" id="osViewToggle">
+    <button class="pill active" data-view="grid">Grid</button>
+    <button class="pill" data-view="list">List</button>
+  </div>
+</div>
+
+<div id="osStatus"><span class="dot"></span>Loading OpenSea activity…</div>
+<div id="osGrid" class="grid"></div>
+
 <header id="latest-drops">
   <h1>Latest DC <span>Listings</span></h1>
   <div class="tabs">
@@ -359,25 +384,6 @@
 
 <div id="status"><span class="dot"></span>Loading collections…</div>
 <div id="grid" class="grid"></div>
-
-<header id="os-activity-header">
-  <h1>OpenSea <span>Activity</span></h1>
-  <div class="tabs" id="osTabs">
-    <div class="tab active" data-view="listings">For Sale</div>
-    <div class="tab" data-view="sales">Recent Sales</div>
-  </div>
-</header>
-<p class="os-activity-sub">Unfiltered across candy.io's whole DC catalog on OpenSea — it's all one shared collection there, not split per series the way the Magic Eden feed above is. A supplement, not a per-issue replacement.</p>
-
-<div class="controls">
-  <div class="view-toggle" id="osViewToggle">
-    <button class="pill active" data-view="grid">Grid</button>
-    <button class="pill" data-view="list">List</button>
-  </div>
-</div>
-
-<div id="osStatus"><span class="dot"></span>Loading OpenSea activity…</div>
-<div id="osGrid" class="grid"></div>
 
 <footer>
   Live listing data via Magic Eden public API · <a href="index.html">zurvault.com</a>
