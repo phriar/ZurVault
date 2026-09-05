@@ -266,6 +266,12 @@
      directly on the price/CTA itself, not just in the page-level banner —
      rgba(77,232,255,0.7) on #0a0a0a computes to ~6.8:1 contrast, clears
      the same WCAG AA bar the rest of this page's small text holds to. */
+  /* .tabs/.tab already provide the visual treatment (border-bottom
+     underline, active-state color) — this is only the horizontal gutter
+     the wrapping <header> normally supplies, since #marketTabs sits
+     directly in the page flow rather than inside a <header>. */
+  #marketTabs{ padding:0 32px; }
+
   .me-tag, .market-tag{ font-family:'DM Mono',monospace; font-size:.62rem; letter-spacing:.05em; text-transform:uppercase; color:rgba(77,232,255,0.7); margin-top:2px; white-space:nowrap; }
 
   /* OpenSea Activity section — reuses header/.tabs/.controls/.grid/.list
@@ -327,31 +333,18 @@
   <div class="liquidity-widget-status" id="liquidityStatus">Loading…</div>
 </section>
 
-<!-- Placed here — right after the Liquidity widget, before the Magic
-     Eden feed below — deliberately: that feed renders one card per
-     listing across every tracked collection with no pagination (5,000+
-     cards, a few hundred thousand px of page height at times), so
-     anything placed after it is effectively unreachable by scrolling.
-     This section must stay above it. -->
-<header id="os-activity-header">
-  <h1>OpenSea <span>Activity</span></h1>
-  <div class="tabs" id="osTabs">
-    <div class="tab active" data-view="listings">For Sale</div>
-    <div class="tab" data-view="sales">Recent Sales</div>
-  </div>
-</header>
-<p class="os-activity-sub">Unfiltered across candy.io's whole DC catalog on OpenSea — it's all one shared collection there, not split per series the way the Magic Eden feed below is. A supplement, not a per-issue replacement.</p>
-
-<div class="controls">
-  <div class="view-toggle" id="osViewToggle">
-    <button class="pill active" data-view="grid">Grid</button>
-    <button class="pill" data-view="list">List</button>
-  </div>
+<!-- Top-level marketplace switcher — Magic Eden's own feed is capped at
+     200 items (renderListings()) but on a narrow mobile viewport that's
+     still a long scroll, which would bury the OpenSea panel below it
+     entirely. Gating full panels behind a tab (only one ever visible)
+     means OpenSea is always one tap away regardless of how long the
+     active Magic Eden view is, rather than relying on scroll position. -->
+<div class="tabs" id="marketTabs">
+  <div class="tab active" data-market="me">Magic Eden</div>
+  <div class="tab" data-market="os">OpenSea</div>
 </div>
 
-<div id="osStatus"><span class="dot"></span>Loading OpenSea activity…</div>
-<div id="osGrid" class="grid"></div>
-
+<div id="marketPanelME">
 <header id="latest-drops">
   <h1>Latest DC <span>Listings</span></h1>
   <div class="tabs">
@@ -384,6 +377,28 @@
 
 <div id="status"><span class="dot"></span>Loading collections…</div>
 <div id="grid" class="grid"></div>
+</div>
+
+<div id="marketPanelOS" hidden>
+<header id="os-activity-header">
+  <h1>OpenSea <span>Activity</span></h1>
+  <div class="tabs" id="osTabs">
+    <div class="tab active" data-view="listings">For Sale</div>
+    <div class="tab" data-view="sales">Recent Sales</div>
+  </div>
+</header>
+<p class="os-activity-sub">Unfiltered across candy.io's whole DC catalog on OpenSea — it's all one shared collection there, not split per series the way Magic Eden's is.</p>
+
+<div class="controls">
+  <div class="view-toggle" id="osViewToggle">
+    <button class="pill active" data-view="grid">Grid</button>
+    <button class="pill" data-view="list">List</button>
+  </div>
+</div>
+
+<div id="osStatus"><span class="dot"></span>Loading OpenSea activity…</div>
+<div id="osGrid" class="grid"></div>
+</div>
 
 <footer>
   Live listing data via Magic Eden public API · <a href="index.html">zurvault.com</a>
@@ -903,6 +918,25 @@ osViewToggleEl.querySelectorAll('.pill').forEach(p => {
   });
 });
 
+// Top-level Magic Eden / OpenSea switcher — only one panel is ever
+// visible (via the `hidden` attribute), so the inactive marketplace's
+// feed, however long, never has to be scrolled past to reach the other.
+// Scoped to #marketTabs specifically, same reason '#latest-drops .tab'
+// and '#osTabs .tab' are scoped rather than bare document.querySelectorAll
+// ('.tab') — three independent .tab groups now share the page.
+const marketTabsEl = document.getElementById('marketTabs');
+const marketPanelMEEl = document.getElementById('marketPanelME');
+const marketPanelOSEl = document.getElementById('marketPanelOS');
+
+marketTabsEl.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    marketTabsEl.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+    const market = t.dataset.market;
+    marketPanelMEEl.hidden = market !== 'me';
+    marketPanelOSEl.hidden = market !== 'os';
+  });
+});
+
 // Magic Eden listing names for these collections commonly end in
 // "(edition/total)", e.g. "Flashpoint (2011) #1 (501/1314)" — pull that
 // out to show as a mint/edition badge in list view, where there's room for
@@ -1022,10 +1056,15 @@ function activateTab(view){
 
 function renderListings(){
   const sub = subFilterEl.value;
+  // Capped at 200, same as renderSales() below — unfiltered ("All
+  // sub-collections") this feed spans 5,000+ listings across every
+  // tracked collection with no pagination; rendering all of them made
+  // the page ~250,000px tall, effectively burying anything placed below
+  // it (see the OpenSea Activity section's placement history).
   const items = sortItems(
     allListings.filter(i => (!sub || i.sub === sub) && (!selectedTier || i.rarity === selectedTier)),
     sortByEl.value, 'listedAt'
-  );
+  ).slice(0, 200);
 
   if(items.length === 0){
     gridEl.className = currentDisplay;
