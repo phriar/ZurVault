@@ -605,11 +605,28 @@ function extractCreativeCredits(attributes) {
   };
 }
 
+// Temporary diagnostic — OpenSea's Solana events endpoint (see
+// refreshOpenSeaActivity()'s raw sale event logging) turns out to
+// aggregate ANY on-chain sale of a collection's mints, not just trades
+// placed through opensea.io itself, and carries no field identifying the
+// executing marketplace/program. A Magic Eden sale can therefore leak
+// into the "OpenSea Recent Sales" panel. The fix has to be cross-
+// referencing against Magic Eden's own activity data we already collect
+// here — IF it carries a transaction signature, that can be matched
+// exactly against OpenSea's `transaction` field. Logging one raw
+// activity object to confirm the actual field name before building that
+// filter. Remove once confirmed.
+let loggedMeActivitySample = false;
+
 function deriveSales(activities, col, mintRarity) {
   const cutoff = Date.now() / 1000 - SALES_WINDOW_SECS;
   const sales = [];
   for (const a of activities) {
     if ((a?.type === "buyNow" || a?.type === "acceptBid") && a?.tokenMint && (a.blockTime || 0) >= cutoff) {
+      if (!loggedMeActivitySample) {
+        loggedMeActivitySample = true;
+        console.log("Magic Eden raw sale activity sample:", JSON.stringify(a));
+      }
       // Backfilled from a listing snapshot of this exact mint seen within
       // RARITY_CACHE_TTL_SECONDS before it sold (see updateRarityCache()).
       // null on every backfilled field means this mint was never seen as a
