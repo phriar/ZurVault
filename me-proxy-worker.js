@@ -1334,11 +1334,21 @@ function deriveOpenSeaLiquidityStats(osData, ethToSolRate) {
   // exchange-rate estimate, not OpenSea's own settlement currency, so the
   // frontend can flag it (e.g. a "~" prefix) rather than presenting it as
   // exactly as authoritative as a native-SOL number.
+  // Volume is a traded amount, so a negative figure is never meaningful
+  // as one — OpenSea's stats endpoint occasionally reports a negative
+  // interval volume (a correction for reverted/refunded sales that
+  // outweighs what the window itself recorded), and that number is not
+  // "this much traded", it's an accounting adjustment. Treat it as no
+  // usable figure (null, rendered "—" on the frontend) rather than either
+  // rendering a nonsensical "-3.2 SOL" or Math.abs()-ing it into a
+  // volume that was never actually traded. Same reasoning as the null
+  // return below: no number beats a wrong number here.
+  const usableVolume = (interval) => typeof interval.volume === "number" && interval.volume >= 0;
   const solVolume = (interval) => {
-    if (interval.volume_symbol === "SOL" && typeof interval.volume === "number") {
+    if (interval.volume_symbol === "SOL" && usableVolume(interval)) {
       return { value: interval.volume, converted: false };
     }
-    if (interval.volume_symbol === "ETH" && typeof interval.volume === "number" && typeof ethToSolRate === "number") {
+    if (interval.volume_symbol === "ETH" && usableVolume(interval) && typeof ethToSolRate === "number") {
       return { value: interval.volume * ethToSolRate, converted: true };
     }
     return { value: null, converted: false };
@@ -1350,10 +1360,12 @@ function deriveOpenSeaLiquidityStats(osData, ethToSolRate) {
     floorPriceSol,
     volume24hSol: vol24h.value,
     volume24hConverted: vol24h.converted,
-    sales24h: typeof oneDay.sales === "number" ? oneDay.sales : 0,
+    // Same "an amount can't be negative" guard as usableVolume() above,
+    // applied to the count that comes off the very same interval object.
+    sales24h: typeof oneDay.sales === "number" && oneDay.sales >= 0 ? oneDay.sales : 0,
     volume7dSol: vol7d.value,
     volume7dConverted: vol7d.converted,
-    sales7d: typeof sevenDay.sales === "number" ? sevenDay.sales : 0,
+    sales7d: typeof sevenDay.sales === "number" && sevenDay.sales >= 0 ? sevenDay.sales : 0,
   };
 }
 
