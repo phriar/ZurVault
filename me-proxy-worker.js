@@ -1466,6 +1466,59 @@ const OPENSEA_ACTIVITY_KEY = "opensea-activity";
 const OPENSEA_ACTIVITY_TTL_SECONDS = 2400;
 const OPENSEA_LISTING_RESOLVE_LIMIT = 100;
 
+// Per-mint metadata (name/image/Character/Rarity) never changes once a
+// comic is minted — only its price/listed-status do, and those live on
+// the listing, not here. Caching it forever (instead of re-fetching the
+// same mint's metadata every cron cycle, which is all the old
+// resolveOpenSeaListings() below used to do) is what makes the full
+// candy-dc listings crawl below affordable inside the ~120-requests/60s
+// budget confirmed live (see logOpenSeaRateLimit): after the first
+// backfill, a cycle only needs to fetch metadata for listings that are
+// genuinely new. Shared between resolveOpenSeaListings() (recent-activity
+// feed, below) and refreshOpenSeaFullCatalog() (browse feed, further
+// down) — a mint resolved by either one benefits the other. TTL is pure
+// hygiene (self-heal a mint resolved once with bad/missing traits), not
+// a real expiry need, so it's long.
+const OPENSEA_METADATA_CACHE_KEY = "opensea-metadata-cache";
+const OPENSEA_METADATA_CACHE_TTL_SECONDS = 60 * 60 * 24 * 60; // 60 days
+
+async function loadOpenSeaMetadataCache(env) {
+  try {
+    const raw = await env.DC_CACHE.get(OPENSEA_METADATA_CACHE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {}; // corrupt/unreadable cache just means everything gets re-resolved, not a hard failure
+  }
+}
+
+// Pure per-mint metadata fetch — no price/listedAt, those are the
+// listing's, not the token's. Returns null on any failure so one bad
+// mint never drops the rest of a batch. `label`, when given, forces a
+// rate-limit log line for this call regardless of status (see
+// logOpenSeaRateLimit's own comment on why this is temporary Phase 0
+// instrumentation) — a 429 always logs either way.
+async function fetchOpenSeaMintMetadata(mint, env, label) {
+  try {
+    const res = await fetch(openSeaNftUrl(mint), {
+      headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY },
+    });
+    if (label || res.status === 429) logOpenSeaRateLimit(label || `mint-resolve:${mint}`, res);
+    if (!res.ok) return null;
+    const nft = (await res.json())?.nft || {};
+    const rarityInfo = normalizeRarity(nft.traits);
+    return {
+      name: nft.name || "Untitled",
+      image: nft.image_url || nft.display_image_url || "",
+      character: extractOpenSeaTrait(nft.traits, "Character"),
+      rarity: rarityInfo.tier,
+      rarityPct: rarityInfo.pct,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function lamportsToSol(rawValue, decimals) {
   const n = Number(rawValue);
   if (!Number.isFinite(n)) return null;
@@ -1504,51 +1557,55 @@ function deriveOpenSeaSale(ev) {
   };
 }
 
-// Resolves a bounded slice of bare {identifier, price} listings into
-// display-ready entries by fetching each mint's own metadata — see the
-// section header above for why this can't come from the listings
-// endpoint itself. Concurrent (bounded by the slice size, <=
-// OPENSEA_LISTING_RESOLVE_LIMIT), each failure isolated so one bad mint
-// doesn't drop the rest.
-async function resolveOpenSeaListings(rawListings, env) {
+// Resolves bare {identifier, price} listings into display-ready entries,
+// checking `cache` (mint -> metadata, from OPENSEA_METADATA_CACHE_KEY)
+// first and only fetching mints that aren't in it yet — see that
+// constant's comment for why this cache exists. `newResolveCap` bounds
+// how many *uncached* mints get a metadata fetch this call; already-
+// cached mints are free (no network call) and don't count against it, so
+// this can safely be handed the full ~800-listing candy-dc catalog, not
+// just a 100-item page, once most mints are already cached. Newly
+// resolved entries are written directly into `cache` (mutated in place)
+// so the caller can persist it — each failure is isolated so one bad
+// mint never drops the rest of the batch.
+async function resolveOpenSeaListings(rawListings, env, cache, newResolveCap) {
   const sanePrice = (n) => typeof n === "number" && n >= SCOUT_MIN_SANE_PRICE_SOL;
-  const slice = rawListings.slice(0, OPENSEA_LISTING_RESOLVE_LIMIT);
 
-  async function resolveOne(l, idx) {
-    const mint = l?.asset?.identifier;
-    const priceSol = l?.price?.current?.currency === "SOL" ? lamportsToSol(l.price.current.value, l.price.current.decimals) : null;
-    if (!mint || !sanePrice(priceSol)) return null;
-    try {
-      const res = await fetch(openSeaNftUrl(mint), {
-        headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY },
-      });
-      // Only the first/last of the slice (plus any 429) get logged — one
-      // line per resolve here would be ~100/cycle of near-identical noise.
-      // First vs. last is enough to see how much budget this loop alone
-      // burns per cycle once real numbers are flowing.
-      if (idx === 0 || idx === slice.length - 1 || res.status === 429) {
-        logOpenSeaRateLimit(`listing-resolve[${idx}/${slice.length - 1}]`, res);
-      }
-      if (!res.ok) return null;
-      const nft = (await res.json())?.nft || {};
-      const rarityInfo = normalizeRarity(nft.traits);
-      return {
-        name: nft.name || "Untitled",
-        image: nft.image_url || nft.display_image_url || "",
-        mintAddress: mint,
-        price: priceSol,
-        listedAt: l?.order_created_at || null,
-        character: extractOpenSeaTrait(nft.traits, "Character"),
-        rarity: rarityInfo.tier,
-        rarityPct: rarityInfo.pct,
-        // See deriveOpenSeaSale() above — nft.opensea_url (and the old
-        // /assets/solana/{mint}/{mint} fallback this replaced) both
-        // 404 live; /item/solana/{mint} is the real working format.
-        openSeaUrl: `https://opensea.io/item/solana/${mint}`,
-      };
-    } catch {
-      return null; // one bad mint lookup shouldn't drop the rest of the feed
-    }
+  const parsed = rawListings
+    .map((l) => {
+      const mint = l?.asset?.identifier;
+      const priceSol = l?.price?.current?.currency === "SOL" ? lamportsToSol(l.price.current.value, l.price.current.decimals) : null;
+      if (!mint || !sanePrice(priceSol)) return null;
+      return { mint, priceSol, listedAt: l?.order_created_at || null };
+    })
+    .filter(Boolean);
+
+  const toDisplay = (p, meta) => ({
+    ...meta,
+    mintAddress: p.mint,
+    price: p.priceSol,
+    listedAt: p.listedAt,
+    // See deriveOpenSeaSale() above — nft.opensea_url (and the old
+    // /assets/solana/{mint}/{mint} fallback this replaced) both 404 live;
+    // /item/solana/{mint} is the real working format.
+    openSeaUrl: `https://opensea.io/item/solana/${p.mint}`,
+  });
+
+  let newlyResolved = 0;
+
+  async function resolveOne(p, idx) {
+    const cached = cache[p.mint];
+    if (cached) return toDisplay(p, cached);
+    if (newlyResolved >= newResolveCap) return null; // over budget this cycle — picked up by cache next time
+    newlyResolved++;
+    // Only the first/last of the batch (plus any 429, forced inside
+    // fetchOpenSeaMintMetadata itself) get logged — one line per resolve
+    // here would be near-identical noise at this volume.
+    const label = idx === 0 || idx === parsed.length - 1 ? `listing-resolve[${idx}/${parsed.length - 1}]` : null;
+    const meta = await fetchOpenSeaMintMetadata(p.mint, env, label);
+    if (!meta) return null;
+    cache[p.mint] = meta;
+    return toDisplay(p, meta);
   }
 
   // Confirmed live: every one of a fresh 100-listing page resolves fine
@@ -1560,9 +1617,9 @@ async function resolveOpenSeaListings(rawListings, env) {
   // ever in flight at once rather than firing all of them simultaneously.
   const OPENSEA_RESOLVE_BATCH_SIZE = 10;
   const resolved = [];
-  for (let i = 0; i < slice.length; i += OPENSEA_RESOLVE_BATCH_SIZE) {
-    const batch = slice.slice(i, i + OPENSEA_RESOLVE_BATCH_SIZE);
-    resolved.push(...(await Promise.all(batch.map((l, j) => resolveOne(l, i + j)))));
+  for (let i = 0; i < parsed.length; i += OPENSEA_RESOLVE_BATCH_SIZE) {
+    const batch = parsed.slice(i, i + OPENSEA_RESOLVE_BATCH_SIZE);
+    resolved.push(...(await Promise.all(batch.map((p, j) => resolveOne(p, i + j)))));
   }
   return resolved.filter(Boolean);
 }
@@ -1587,7 +1644,18 @@ async function refreshOpenSeaActivity(env) {
     const listingsData = await listingsRes.json();
     const eventsData = await eventsRes.json();
 
-    const listings = await resolveOpenSeaListings(Array.isArray(listingsData?.listings) ? listingsData.listings : [], env);
+    const cache = await loadOpenSeaMetadataCache(env);
+    const listings = await resolveOpenSeaListings(
+      Array.isArray(listingsData?.listings) ? listingsData.listings : [],
+      env,
+      cache,
+      OPENSEA_LISTING_RESOLVE_LIMIT
+    );
+    // Persist any newly-resolved metadata so both the next cycle here and
+    // refreshOpenSeaFullCatalog()'s crawl (below) don't re-fetch it — see
+    // OPENSEA_METADATA_CACHE_KEY's comment for why this cache exists.
+    await env.DC_CACHE.put(OPENSEA_METADATA_CACHE_KEY, JSON.stringify(cache), { expirationTtl: OPENSEA_METADATA_CACHE_TTL_SECONDS });
+
     const sales = (Array.isArray(eventsData?.asset_events) ? eventsData.asset_events : [])
       .filter((ev) => ev?.event_type === "sale")
       .map(deriveOpenSeaSale);
@@ -1596,6 +1664,80 @@ async function refreshOpenSeaActivity(env) {
     await env.DC_CACHE.put(OPENSEA_ACTIVITY_KEY, JSON.stringify(entry), { expirationTtl: OPENSEA_ACTIVITY_TTL_SECONDS });
   } catch (err) {
     console.error("refreshOpenSeaActivity failed:", err.message);
+  }
+}
+
+// ---------------------------------------------------------------------
+// OPENSEA FULL CATALOG — every active candy-dc listing, feeding a
+// filterable "browse OpenSea by Character/Rarity" page. See this file's
+// LIQUIDITY/OPENSEA ACTIVITY section headers above and CLAUDE.md's
+// OpenSea note: candy-dc has no sub-collections at all, unlike Magic
+// Eden's ~200 separate DC_COLLECTIONS symbols, so there's nothing on
+// OpenSea's own side to filter or browse by — this crawl builds that
+// structure ourselves, live, off each listing's own traits, same
+// approach long-box.html's rarity filter and artists.html's Cover Artist
+// directory already use for the Magic Eden side.
+//
+// Only *active listings* get crawled (~800 at last count), never the
+// 395k-item minted supply — see OPENSEA_FULL_CRAWL_MAX_PAGES below for
+// the safety bound if that count ever grows. OPENSEA_METADATA_CACHE_KEY
+// (declared in the OPENSEA ACTIVITY section above, shared with
+// resolveOpenSeaListings() there) is what makes a full crawl affordable
+// inside the ~120-requests/60s budget confirmed live via
+// logOpenSeaRateLimit: once a mint's metadata is cached, re-walking the
+// listings pages to refresh price/listed-status costs nothing extra for
+// it. A cold cache backfills over however many cron cycles
+// OPENSEA_METADATA_RESOLVE_CAP takes to catch up on every mint — no
+// separate "first run" mode, it's the same code path every cycle, it
+// just has more uncached mints to skip past on cycle 1 than on cycle 10.
+const OPENSEA_FULL_CRAWL_MAX_PAGES = 20;
+const OPENSEA_METADATA_RESOLVE_CAP = 80;
+const OPENSEA_FULL_LISTINGS_KEY = "opensea-full-listings";
+// Same "2x the cron cadence, survives 1-2 missed cycles" reasoning as
+// OPENSEA_ACTIVITY_TTL_SECONDS above.
+const OPENSEA_FULL_LISTINGS_TTL_SECONDS = 2400;
+
+// Walks every page of active candy-dc listings via OpenSea's `next`
+// cursor, bounded by OPENSEA_FULL_CRAWL_MAX_PAGES so a future spike in
+// active listing count can't turn this into unbounded pagination inside
+// a cron — same reasoning as BATCH_SIZE elsewhere in this file. Stops
+// early (keeping whatever pages already succeeded) on the first failed
+// page rather than discarding a partial crawl.
+async function fetchAllOpenSeaListings(env) {
+  const listings = [];
+  let cursor = null;
+  for (let page = 0; page < OPENSEA_FULL_CRAWL_MAX_PAGES; page++) {
+    const url = cursor ? `${OPENSEA_LISTINGS_URL}&next=${encodeURIComponent(cursor)}` : OPENSEA_LISTINGS_URL;
+    const res = await fetch(url, { headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY } });
+    if (page === 0 || res.status === 429) logOpenSeaRateLimit(`full-crawl-page[${page}]`, res);
+    if (!res.ok) break;
+    const data = await res.json();
+    listings.push(...(Array.isArray(data?.listings) ? data.listings : []));
+    cursor = data?.next || null;
+    if (!cursor) break;
+  }
+  return listings;
+}
+
+// Cron entry point — same isolation contract as the other refresh*
+// functions in this file: any failure is caught/logged, never thrown out
+// of scheduled(), and on failure the last-known-good opensea-full-
+// listings KV entry is simply left in place.
+async function refreshOpenSeaFullCatalog(env) {
+  if (!env.OPENSEA_API_KEY) {
+    console.error("refreshOpenSeaFullCatalog: OPENSEA_API_KEY not configured");
+    return;
+  }
+  try {
+    const rawListings = await fetchAllOpenSeaListings(env);
+    const cache = await loadOpenSeaMetadataCache(env);
+    const listings = await resolveOpenSeaListings(rawListings, env, cache, OPENSEA_METADATA_RESOLVE_CAP);
+    await env.DC_CACHE.put(OPENSEA_METADATA_CACHE_KEY, JSON.stringify(cache), { expirationTtl: OPENSEA_METADATA_CACHE_TTL_SECONDS });
+
+    const entry = { updatedAt: Date.now(), listings, notReady: false };
+    await env.DC_CACHE.put(OPENSEA_FULL_LISTINGS_KEY, JSON.stringify(entry), { expirationTtl: OPENSEA_FULL_LISTINGS_TTL_SECONDS });
+  } catch (err) {
+    console.error("refreshOpenSeaFullCatalog failed:", err.message);
   }
 }
 
@@ -1717,6 +1859,35 @@ export default {
           headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=30" },
         });
         ctx.waitUntil(cache.put(activityCacheKey, toCache));
+      }
+      return new Response(body, {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" },
+      });
+    }
+
+    // Every active candy-dc listing on OpenSea (not just the recent-100
+    // sample above) — a single KV entry written once per cron cycle by
+    // refreshOpenSeaFullCatalog() (see the OPENSEA FULL CATALOG section
+    // above), read here behind the same short edge-cache shape as
+    // /v2/opensea-activity. This is what a filterable "browse OpenSea by
+    // Character/Rarity" page reads from, not the homepage's recent-
+    // activity feed.
+    if (url.pathname === "/v2/opensea-full-listings") {
+      const cache = caches.default;
+      const fullListingsCacheKey = new Request(url.origin + "/__opensea-full-listings-merged", { method: "GET" });
+      const cachedFullListings = await cache.match(fullListingsCacheKey);
+      let body;
+      if (cachedFullListings) {
+        body = await cachedFullListings.text();
+      } else {
+        const raw = await env.DC_CACHE.get(OPENSEA_FULL_LISTINGS_KEY);
+        body = raw || JSON.stringify({ notReady: true });
+        const toCache = new Response(body, {
+          status: 200,
+          headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=30" },
+        });
+        ctx.waitUntil(cache.put(fullListingsCacheKey, toCache));
       }
       return new Response(body, {
         status: 200,
@@ -2396,5 +2567,12 @@ export default {
     // Independent of both of the above — refreshOpenSeaActivity() only
     // talks to OpenSea, never reads collection:* KV state.
     ctx.waitUntil(refreshOpenSeaActivity(env));
+    // Independent of the above too, but shares OPENSEA_METADATA_CACHE_KEY
+    // with it — see that constant's comment. Since both run concurrently
+    // in the same tick, they can race on that cache's read-modify-write
+    // and one's newly-resolved entries can be overwritten by the other's;
+    // low-stakes (that mint just gets re-resolved next cycle instead of
+    // staying cached a cycle early), not worth real locking for.
+    ctx.waitUntil(refreshOpenSeaFullCatalog(env));
   },
 };
