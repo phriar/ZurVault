@@ -1644,6 +1644,19 @@ async function refreshOpenSeaActivity(env) {
     const listingsData = await listingsRes.json();
     const eventsData = await eventsRes.json();
 
+    // Temporary diagnostic — a user-reported sale in this feed had
+    // actually executed on Magic Eden, not opensea.io, suggesting
+    // OpenSea's Solana events endpoint aggregates on-chain marketplace
+    // activity more broadly than "trades placed through opensea.io"
+    // (same aggregation model as os_tensor for orderbook data — see the
+    // OPENSEA ACTIVITY section's header comment). Log one raw sale event
+    // in full so the actual field shape can be inspected for whatever
+    // marks its true originating marketplace/protocol, instead of
+    // guessing at a field name. Remove once that field is identified and
+    // a real filter is in place.
+    const firstSaleEvent = (eventsData?.asset_events || []).find((ev) => ev?.event_type === "sale");
+    if (firstSaleEvent) console.log("OpenSea raw sale event sample:", JSON.stringify(firstSaleEvent));
+
     const cache = await loadOpenSeaMetadataCache(env);
     const listings = await resolveOpenSeaListings(
       Array.isArray(listingsData?.listings) ? listingsData.listings : [],
