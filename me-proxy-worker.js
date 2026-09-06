@@ -1320,7 +1320,7 @@ function deriveOpenSeaLiquidityStats(osData, ethToSolRate) {
   // denominated (floor_price_symbol: "SOL"), but a future cheapest
   // listing could be in a different currency — never display a
   // non-SOL floor as though it were SOL.
-  const floorPriceSol = total.floor_price_symbol === "SOL" && typeof total.floor_price === "number" ? total.floor_price : null;
+  const floorPriceSol = total.floor_price_symbol === "SOL" && typeof total.floor_price === "number" && total.floor_price >= 0 ? total.floor_price : null;
 
   // Confirmed live: this response's interval volumes carry their own
   // independent volume_symbol, and for candy-dc it's "ETH" — even
@@ -1334,11 +1334,16 @@ function deriveOpenSeaLiquidityStats(osData, ethToSolRate) {
   // exchange-rate estimate, not OpenSea's own settlement currency, so the
   // frontend can flag it (e.g. a "~" prefix) rather than presenting it as
   // exactly as authoritative as a native-SOL number.
+  // interval.volume >= 0 guards the same way floorPriceSol does above —
+  // if OpenSea's stats endpoint ever nets refunds/adjustments against
+  // gross sales into a negative interval volume, this degrades to "—"
+  // like any other unusable figure from this feed rather than surfacing
+  // a "-19.45 SOL" on the homepage widget.
   const solVolume = (interval) => {
-    if (interval.volume_symbol === "SOL" && typeof interval.volume === "number") {
+    if (interval.volume_symbol === "SOL" && typeof interval.volume === "number" && interval.volume >= 0) {
       return { value: interval.volume, converted: false };
     }
-    if (interval.volume_symbol === "ETH" && typeof interval.volume === "number" && typeof ethToSolRate === "number") {
+    if (interval.volume_symbol === "ETH" && typeof interval.volume === "number" && interval.volume >= 0 && typeof ethToSolRate === "number") {
       return { value: interval.volume * ethToSolRate, converted: true };
     }
     return { value: null, converted: false };
@@ -1449,9 +1454,17 @@ function extractOpenSeaTrait(traits, traitType) {
 }
 
 // Pure — no I/O. One OpenSea sale event -> one display-ready entry.
+// Unlike resolveOpenSeaListings() below, this never rejected on price — a
+// refund/adjustment-style event with a negative or zero payment.quantity
+// would sail straight through and render as "-0.05 SOL" in the sales
+// feed. Same SCOUT_MIN_SANE_PRICE_SOL floor the listings side already
+// applies via resolveOpenSeaListings()'s sanePrice(), applied here
+// instead of at the call site so every caller of this function gets the
+// guard for free.
 function deriveOpenSeaSale(ev) {
   const nft = ev?.nft || {};
-  const priceSol = ev?.payment?.symbol === "SOL" ? lamportsToSol(ev.payment.quantity, ev.payment.decimals) : null;
+  const rawPriceSol = ev?.payment?.symbol === "SOL" ? lamportsToSol(ev.payment.quantity, ev.payment.decimals) : null;
+  const priceSol = typeof rawPriceSol === "number" && rawPriceSol >= SCOUT_MIN_SANE_PRICE_SOL ? rawPriceSol : null;
   const rarityInfo = normalizeRarity(nft.traits);
   return {
     name: nft.name || "Untitled",
