@@ -605,28 +605,11 @@ function extractCreativeCredits(attributes) {
   };
 }
 
-// Temporary diagnostic — OpenSea's Solana events endpoint (see
-// refreshOpenSeaActivity()'s raw sale event logging) turns out to
-// aggregate ANY on-chain sale of a collection's mints, not just trades
-// placed through opensea.io itself, and carries no field identifying the
-// executing marketplace/program. A Magic Eden sale can therefore leak
-// into the "OpenSea Recent Sales" panel. The fix has to be cross-
-// referencing against Magic Eden's own activity data we already collect
-// here — IF it carries a transaction signature, that can be matched
-// exactly against OpenSea's `transaction` field. Logging one raw
-// activity object to confirm the actual field name before building that
-// filter. Remove once confirmed.
-let loggedMeActivitySample = false;
-
 function deriveSales(activities, col, mintRarity) {
   const cutoff = Date.now() / 1000 - SALES_WINDOW_SECS;
   const sales = [];
   for (const a of activities) {
     if ((a?.type === "buyNow" || a?.type === "acceptBid") && a?.tokenMint && (a.blockTime || 0) >= cutoff) {
-      if (!loggedMeActivitySample) {
-        loggedMeActivitySample = true;
-        console.log("Magic Eden raw sale activity sample:", JSON.stringify(a));
-      }
       // Backfilled from a listing snapshot of this exact mint seen within
       // RARITY_CACHE_TTL_SECONDS before it sold (see updateRarityCache()).
       // null on every backfilled field means this mint was never seen as a
@@ -646,6 +629,14 @@ function deriveSales(activities, col, mintRarity) {
         pdpUrl: `https://magiceden.io/item-details/${a.tokenMint}`,
         rarity: cached?.tier ?? null,
         rarityPct: cached?.pct ?? null,
+        // On-chain transaction signature — confirmed present on Magic
+        // Eden's activity objects live. Lets refreshOpenSeaActivity()
+        // below match this exact trade against OpenSea's own aggregated
+        // events feed and exclude it there, since OpenSea's Solana events
+        // endpoint surfaces any on-chain sale of a collection's mints
+        // (see that function's comment), not just trades placed through
+        // opensea.io itself.
+        signature: a.signature || null,
       });
     }
   }
@@ -1661,19 +1652,6 @@ async function refreshOpenSeaActivity(env) {
     const listingsData = await listingsRes.json();
     const eventsData = await eventsRes.json();
 
-    // Temporary diagnostic — a user-reported sale in this feed had
-    // actually executed on Magic Eden, not opensea.io, suggesting
-    // OpenSea's Solana events endpoint aggregates on-chain marketplace
-    // activity more broadly than "trades placed through opensea.io"
-    // (same aggregation model as os_tensor for orderbook data — see the
-    // OPENSEA ACTIVITY section's header comment). Log one raw sale event
-    // in full so the actual field shape can be inspected for whatever
-    // marks its true originating marketplace/protocol, instead of
-    // guessing at a field name. Remove once that field is identified and
-    // a real filter is in place.
-    const firstSaleEvent = (eventsData?.asset_events || []).find((ev) => ev?.event_type === "sale");
-    if (firstSaleEvent) console.log("OpenSea raw sale event sample:", JSON.stringify(firstSaleEvent));
-
     const cache = await loadOpenSeaMetadataCache(env);
     const listings = await resolveOpenSeaListings(
       Array.isArray(listingsData?.listings) ? listingsData.listings : [],
@@ -1686,8 +1664,20 @@ async function refreshOpenSeaActivity(env) {
     // OPENSEA_METADATA_CACHE_KEY's comment for why this cache exists.
     await env.DC_CACHE.put(OPENSEA_METADATA_CACHE_KEY, JSON.stringify(cache), { expirationTtl: OPENSEA_METADATA_CACHE_TTL_SECONDS });
 
+    // OpenSea's Solana events endpoint surfaces any on-chain sale of a
+    // collection's mints, not just trades placed through opensea.io
+    // itself (confirmed live — a raw sale event carries no field
+    // identifying the executing marketplace/program at all), so a Magic
+    // Eden sale can otherwise leak into this feed. Excluding by exact
+    // transaction signature against Magic Eden's own already-tracked
+    // sales (mergeDCCollections() reads what refreshAllCollections()
+    // wrote for all ~225 collections this cycle or a recent one — no
+    // extra network call) is a precise fix: it's the same on-chain
+    // transaction being reported by both marketplaces' indexers, not a
+    // fuzzy mint/timestamp guess.
+    const meSaleSignatures = new Set((await mergeDCCollections(env)).sales.map((s) => s.signature).filter(Boolean));
     const sales = (Array.isArray(eventsData?.asset_events) ? eventsData.asset_events : [])
-      .filter((ev) => ev?.event_type === "sale")
+      .filter((ev) => ev?.event_type === "sale" && !meSaleSignatures.has(ev?.transaction))
       .map(deriveOpenSeaSale);
 
     const entry = { updatedAt: Date.now(), listings, sales, notReady: false };
