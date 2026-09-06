@@ -1652,13 +1652,22 @@ async function refreshOpenSeaActivity(env) {
     const listingsData = await listingsRes.json();
     const eventsData = await eventsRes.json();
 
-    const cache = await loadOpenSeaMetadataCache(env);
-    const listings = await resolveOpenSeaListings(
-      Array.isArray(listingsData?.listings) ? listingsData.listings : [],
-      env,
-      cache,
-      OPENSEA_LISTING_RESOLVE_LIMIT
+    // Same root cause as the sales filter below, applied to listings: a
+    // mint actively listed on Magic Eden showed up on OpenSea too, at a
+    // consistent ~12% higher price (a fee OpenSea's/Tensor's feed bakes
+    // into the price it reports that Magic Eden's own API doesn't) —
+    // it's the same underlying on-chain listing, not two independent
+    // ones, since a mint can only have one real active listing at a
+    // time. Excluded by mint address (listings have no shared
+    // transaction id the way a settled sale does) before it's even
+    // resolved, saving a wasted metadata fetch on a listing that's
+    // getting dropped anyway.
+    const meListedMints = new Set((await mergeDCCollections(env)).listings.map((l) => l.mintAddress).filter(Boolean));
+    const rawListings = (Array.isArray(listingsData?.listings) ? listingsData.listings : []).filter(
+      (l) => !meListedMints.has(l?.asset?.identifier)
     );
+    const cache = await loadOpenSeaMetadataCache(env);
+    const listings = await resolveOpenSeaListings(rawListings, env, cache, OPENSEA_LISTING_RESOLVE_LIMIT);
     // Persist any newly-resolved metadata so both the next cycle here and
     // refreshOpenSeaFullCatalog()'s crawl (below) don't re-fetch it — see
     // OPENSEA_METADATA_CACHE_KEY's comment for why this cache exists.
@@ -1749,7 +1758,14 @@ async function refreshOpenSeaFullCatalog(env) {
     return;
   }
   try {
-    const rawListings = await fetchAllOpenSeaListings(env);
+    // Same cross-reference as refreshOpenSeaActivity() above — a mint
+    // already actively listed on Magic Eden gets excluded here too, by
+    // mint address, before it's resolved. See that function's comment
+    // for why (same underlying on-chain listing, ~12% price markup
+    // artifact from OpenSea's/Tensor's side, not two independent
+    // listings).
+    const meListedMints = new Set((await mergeDCCollections(env)).listings.map((l) => l.mintAddress).filter(Boolean));
+    const rawListings = (await fetchAllOpenSeaListings(env)).filter((l) => !meListedMints.has(l?.asset?.identifier));
     const cache = await loadOpenSeaMetadataCache(env);
     const listings = await resolveOpenSeaListings(rawListings, env, cache, OPENSEA_METADATA_RESOLVE_CAP);
     await env.DC_CACHE.put(OPENSEA_METADATA_CACHE_KEY, JSON.stringify(cache), { expirationTtl: OPENSEA_METADATA_CACHE_TTL_SECONDS });
