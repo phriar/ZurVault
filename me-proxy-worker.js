@@ -1240,6 +1240,27 @@ function buildScoutSystemPrompt() {
 // elsewhere.
 const OPENSEA_COLLECTION_SLUG = "candy-dc";
 const OPENSEA_STATS_URL = `https://api.opensea.io/api/v2/collections/${OPENSEA_COLLECTION_SLUG}/stats`;
+
+// Temporary instrumentation (Phase 0 of the OpenSea full-catalog browse
+// work) — OpenSea doesn't publish a fixed numeric rate limit for real API
+// keys (token bucket, shared across every key on the account, refill rate
+// undisclosed), so before designing a full-listing crawl + per-mint cache
+// against a guessed budget, log what the API itself reports on every call
+// it already makes. Once real X-RateLimit-Limit/reset numbers are visible
+// in the Worker's logs across a few cron cycles, this can either be
+// trimmed down or promoted into the self-throttling logic Phase 1 needs.
+function logOpenSeaRateLimit(label, res) {
+  const limit = res.headers.get("X-RateLimit-Limit");
+  const remaining = res.headers.get("X-RateLimit-Remaining");
+  const reset = res.headers.get("X-RateLimit-Reset");
+  const retryAfter = res.headers.get("Retry-After");
+  if (limit == null && remaining == null) return; // no rate-limit headers on this response
+  const resetIn = reset ? `${Math.max(0, Number(reset) - Math.floor(Date.now() / 1000))}s` : "?";
+  console.log(
+    `OpenSea rate limit [${label}]: status=${res.status} remaining=${remaining}/${limit} resetIn=${resetIn}` +
+      (retryAfter ? ` retryAfter=${retryAfter}s` : "")
+  );
+}
 // Free, keyless, public endpoint — used only to convert OpenSea's
 // ETH-denominated volume (see deriveOpenSeaLiquidityStats() below) into
 // a SOL-equivalent for side-by-side comparison with Magic Eden. One call
@@ -1394,6 +1415,7 @@ async function refreshLiquidityStats(env) {
       fetch(OPENSEA_STATS_URL, { headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY } }),
       fetchEthToSolRate(),
     ]);
+    logOpenSeaRateLimit("stats", osRes);
     if (!osRes.ok) throw new Error(`OpenSea stats: HTTP ${osRes.status}`);
     const openSea = deriveOpenSeaLiquidityStats(await osRes.json(), ethToSolRate);
 
@@ -1492,7 +1514,7 @@ async function resolveOpenSeaListings(rawListings, env) {
   const sanePrice = (n) => typeof n === "number" && n >= SCOUT_MIN_SANE_PRICE_SOL;
   const slice = rawListings.slice(0, OPENSEA_LISTING_RESOLVE_LIMIT);
 
-  async function resolveOne(l) {
+  async function resolveOne(l, idx) {
     const mint = l?.asset?.identifier;
     const priceSol = l?.price?.current?.currency === "SOL" ? lamportsToSol(l.price.current.value, l.price.current.decimals) : null;
     if (!mint || !sanePrice(priceSol)) return null;
@@ -1500,6 +1522,13 @@ async function resolveOpenSeaListings(rawListings, env) {
       const res = await fetch(openSeaNftUrl(mint), {
         headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY },
       });
+      // Only the first/last of the slice (plus any 429) get logged — one
+      // line per resolve here would be ~100/cycle of near-identical noise.
+      // First vs. last is enough to see how much budget this loop alone
+      // burns per cycle once real numbers are flowing.
+      if (idx === 0 || idx === slice.length - 1 || res.status === 429) {
+        logOpenSeaRateLimit(`listing-resolve[${idx}/${slice.length - 1}]`, res);
+      }
       if (!res.ok) return null;
       const nft = (await res.json())?.nft || {};
       const rarityInfo = normalizeRarity(nft.traits);
@@ -1533,7 +1562,7 @@ async function resolveOpenSeaListings(rawListings, env) {
   const resolved = [];
   for (let i = 0; i < slice.length; i += OPENSEA_RESOLVE_BATCH_SIZE) {
     const batch = slice.slice(i, i + OPENSEA_RESOLVE_BATCH_SIZE);
-    resolved.push(...(await Promise.all(batch.map(resolveOne))));
+    resolved.push(...(await Promise.all(batch.map((l, j) => resolveOne(l, i + j)))));
   }
   return resolved.filter(Boolean);
 }
@@ -1551,6 +1580,8 @@ async function refreshOpenSeaActivity(env) {
       fetch(OPENSEA_LISTINGS_URL, { headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY } }),
       fetch(OPENSEA_EVENTS_URL, { headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY } }),
     ]);
+    logOpenSeaRateLimit("listings", listingsRes);
+    logOpenSeaRateLimit("events", eventsRes);
     if (!listingsRes.ok) throw new Error(`OpenSea listings: HTTP ${listingsRes.status}`);
     if (!eventsRes.ok) throw new Error(`OpenSea events: HTTP ${eventsRes.status}`);
     const listingsData = await listingsRes.json();
