@@ -412,13 +412,23 @@
   <div class="tab active" data-view="listings">For Sale</div>
   <div class="tab" data-view="sales">Recent Sales</div>
 </div>
-<p class="os-activity-sub">Unfiltered across candy.io's whole DC catalog on OpenSea — it's all one shared collection there, not split per series the way Magic Eden's is.</p>
+<p class="os-activity-sub">Every active listing across candy.io's whole DC catalog on OpenSea — it's all one shared collection there, not split per series the way Magic Eden's is, so Character and Rarity below are ZurVault's own filters built from each listing's own traits; OpenSea's own site doesn't offer them here.</p>
 
 <div class="controls">
+  <select id="osCharacterFilter"><option value="">All characters</option></select>
   <div class="view-toggle" id="osViewToggle">
     <button class="pill active" data-view="grid">Grid</button>
     <button class="pill" data-view="list">List</button>
   </div>
+</div>
+
+<div class="pills" id="osRarityPills">
+  <button class="pill active" data-tier="">All Rarities</button>
+  <button class="pill" data-tier="Common">Common</button>
+  <button class="pill" data-tier="Uncommon">Uncommon</button>
+  <button class="pill" data-tier="Rare">Rare</button>
+  <button class="pill" data-tier="Epic">Epic</button>
+  <button class="pill" data-tier="Legendary">Legendary</button>
 </div>
 
 <div id="osStatus"><span class="dot"></span>Loading OpenSea activity…</div>
@@ -807,15 +817,75 @@ let osListings = [];
 let osSales = [];
 let osCurrentView = 'listings';
 let osCurrentDisplay = 'grid';
+let osSelectedTier = null;
+let osSelectedCharacter = '';
+let osListingsUpdatedAt = null;
+let osSalesUpdatedAt = null;
 
 const osStatusEl = document.getElementById('osStatus');
 const osGridEl = document.getElementById('osGrid');
 const osViewToggleEl = document.getElementById('osViewToggle');
 const osTabsEl = document.getElementById('osTabs');
+const osCharacterFilterEl = document.getElementById('osCharacterFilter');
+const osRarityPillsEl = document.getElementById('osRarityPills');
 
 function setOsStatus(msg, isErr){
   osStatusEl.innerHTML = (isErr ? '' : '<span class="dot"></span>') + msg;
   osStatusEl.classList.toggle('err', !!isErr);
+}
+
+// Listings (the full candy-dc crawl, GET /v2/opensea-full-listings) and
+// sales (the recent-activity feed, GET /v2/opensea-activity) load and
+// refresh independently of each other — see loadOpenSeaFullListings()
+// and loadOpenSeaActivity() below — so the combined status line has to
+// be rebuilt from whichever of the two most recently updated, rather
+// than set once by a single fetch the way it used to be.
+function refreshOsStatus(){
+  const parts = [];
+  if(osListingsUpdatedAt) parts.push(`${osListings.length} listings`);
+  if(osSalesUpdatedAt) parts.push(`${osSales.length} recent sales`);
+  if(parts.length === 0){ setOsStatus('Loading OpenSea activity…'); return; }
+  const latest = Math.max(osListingsUpdatedAt || 0, osSalesUpdatedAt || 0);
+  const updated = new Date(latest).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  setOsStatus(`${parts.join(', ')} · updated ${updated}.`);
+}
+
+// Character isn't a small fixed set the way Rarity tiers are (dozens of
+// DC characters across the whole candy-dc catalog), so this is a <select>
+// built from whatever distinct values are actually present in the live
+// crawl — same "don't hardcode what varies" approach long-box.html's
+// Item Type pills use, just a dropdown instead of pills given the count.
+function buildOsCharacterOptions(){
+  const chars = [...new Set(osListings.map(i => i.character).filter(Boolean))].sort();
+  const current = osCharacterFilterEl.value;
+  osCharacterFilterEl.innerHTML = '<option value="">All characters</option>' +
+    chars.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  if(chars.includes(current)) osCharacterFilterEl.value = current;
+}
+
+// Full candy-dc listings crawl (every active listing, not just a recent
+// sample) — see me-proxy-worker.js's OPENSEA FULL CATALOG section for
+// why this exists as its own endpoint: candy-dc has no sub-collections
+// for OpenSea's own site to filter or browse by, so this Character/
+// Rarity filtering has to be built here instead. Independent of
+// loadOpenSeaActivity() below — a failure in one never touches the other.
+async function loadOpenSeaFullListings(){
+  let data;
+  try{
+    const res = await fetch(`${ME_BASE}/opensea-full-listings`);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    data = await res.json();
+  }catch(e){
+    console.error(e);
+    return; // keep whatever listings are already showing rather than clearing a working view
+  }
+  if(data.notReady) return;
+
+  osListings = Array.isArray(data.listings) ? data.listings : [];
+  osListingsUpdatedAt = data.updatedAt || Date.now();
+  buildOsCharacterOptions();
+  refreshOsStatus();
+  if(osCurrentView === 'listings') renderOs();
 }
 
 async function loadOpenSeaActivity(){
@@ -826,20 +896,19 @@ async function loadOpenSeaActivity(){
     data = await res.json();
   }catch(e){
     console.error(e);
-    setOsStatus('OpenSea activity unavailable right now.', true);
+    if(!osListingsUpdatedAt) setOsStatus('OpenSea activity unavailable right now.', true);
     return;
   }
 
   if(data.notReady){
-    setOsStatus('Still gathering data — check back shortly.');
+    if(!osListingsUpdatedAt) setOsStatus('Still gathering data — check back shortly.');
     return;
   }
 
-  osListings = Array.isArray(data.listings) ? data.listings : [];
   osSales = Array.isArray(data.sales) ? data.sales : [];
-  const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
-  setOsStatus(`${osListings.length} listings, ${osSales.length} recent sales · updated ${updated}.`);
-  renderOs();
+  osSalesUpdatedAt = data.updatedAt || Date.now();
+  refreshOsStatus();
+  if(osCurrentView === 'sales') renderOs();
 }
 
 function renderOs(){
@@ -861,11 +930,17 @@ function activateOsTab(view){
 // DC_COLLECTIONS symbol as their "context", which doesn't exist for an
 // unfiltered OpenSea item.
 function renderOsListings(){
-  const items = osListings.slice().sort((a, b) => (b.listedAt ?? 0) - (a.listedAt ?? 0));
+  const items = osListings
+    .filter(i => !osSelectedTier || i.rarity === osSelectedTier)
+    .filter(i => !osSelectedCharacter || i.character === osSelectedCharacter)
+    .sort((a, b) => (b.listedAt ?? 0) - (a.listedAt ?? 0));
 
   if(items.length === 0){
     osGridEl.className = osCurrentDisplay;
-    osGridEl.innerHTML = `<div class="empty">No OpenSea listings available right now.<br>Check back later.</div>`;
+    const hint = (osSelectedTier || osSelectedCharacter)
+      ? 'Try a different character or rarity tier, or check back later.'
+      : 'Check back later.';
+    osGridEl.innerHTML = `<div class="empty">No OpenSea listings match this view yet.<br>${hint}</div>`;
     return;
   }
 
@@ -906,11 +981,17 @@ function renderOsListings(){
 }
 
 function renderOsSales(){
-  const items = osSales.slice().sort((a, b) => (b.soldAt ?? 0) - (a.soldAt ?? 0));
+  const items = osSales
+    .filter(i => !osSelectedTier || i.rarity === osSelectedTier)
+    .filter(i => !osSelectedCharacter || i.character === osSelectedCharacter)
+    .sort((a, b) => (b.soldAt ?? 0) - (a.soldAt ?? 0));
 
   if(items.length === 0){
     osGridEl.className = osCurrentDisplay;
-    osGridEl.innerHTML = `<div class="empty">No recent OpenSea sales available right now.<br>Check back later.</div>`;
+    const hint = (osSelectedTier || osSelectedCharacter)
+      ? 'Try a different character or rarity tier, or check back later.'
+      : 'Check back later.';
+    osGridEl.innerHTML = `<div class="empty">No recent OpenSea sales match this view yet.<br>${hint}</div>`;
     return;
   }
 
@@ -952,6 +1033,20 @@ function renderOsSales(){
 
 osTabsEl.querySelectorAll('.tab').forEach(t => {
   t.addEventListener('click', () => activateOsTab(t.dataset.view));
+});
+
+osCharacterFilterEl.addEventListener('change', () => {
+  osSelectedCharacter = osCharacterFilterEl.value;
+  renderOs();
+});
+
+osRarityPillsEl.querySelectorAll('.pill[data-tier]').forEach(p => {
+  p.addEventListener('click', () => {
+    osRarityPillsEl.querySelectorAll('.pill[data-tier]').forEach(x => x.classList.remove('active'));
+    p.classList.add('active');
+    osSelectedTier = p.dataset.tier || null;
+    renderOs();
+  });
 });
 
 osViewToggleEl.querySelectorAll('.pill').forEach(p => {
@@ -1258,6 +1353,12 @@ setInterval(loadLiquidity, LIQUIDITY_REFRESH_INTERVAL);
 const OS_ACTIVITY_REFRESH_INTERVAL = 22 * 60 * 1000; // same cron-trailing reasoning as REFRESH_INTERVAL
 loadOpenSeaActivity();
 setInterval(loadOpenSeaActivity, OS_ACTIVITY_REFRESH_INTERVAL);
+
+// Independent of loadOpenSeaActivity() above — separate KV entry, own
+// cron job (refreshOpenSeaFullCatalog() in me-proxy-worker.js), own
+// backfill timeline, so it's fetched/refreshed on its own.
+loadOpenSeaFullListings();
+setInterval(loadOpenSeaFullListings, OS_ACTIVITY_REFRESH_INTERVAL);
 </script>
 </body>
 </html>
