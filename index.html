@@ -144,6 +144,17 @@
   }
   select:focus{ outline:1px solid rgba(143,111,232,0.4); }
 
+  /* Search by name/edition number, e.g. "1102" matches "(1102/4750)" in
+     a listing's name — same substring-against-name approach long-box.html
+     already uses, just not previously offered on the homepage panels. */
+  .search-input{
+    background:rgba(0,0,0,0.5); border:1px solid var(--border); color:rgba(255,255,255,0.7);
+    font-family:'DM Mono',monospace; font-size:.68rem; letter-spacing:.02em;
+    padding:9px 12px; border-radius:2px; flex:1; min-width:160px;
+  }
+  .search-input::placeholder{ color:rgba(255,255,255,0.55); text-transform:uppercase; letter-spacing:.1em; font-size:.68rem; }
+  .search-input:focus{ outline:1px solid rgba(143,111,232,0.4); }
+
   .pill{
     font-family:'DM Mono',monospace; font-size:.68rem; letter-spacing:.12em; text-transform:uppercase;
     color:rgba(255,255,255,0.6); padding:8px 14px; border:1px solid var(--border); border-radius:20px;
@@ -387,6 +398,7 @@
     <option value="price-asc">Price: low → high</option>
     <option value="price-desc">Price: high → low</option>
   </select>
+  <input type="text" id="searchInput" class="search-input" placeholder="Search by name or #…">
   <div class="view-toggle" id="viewToggle">
     <button class="pill active" data-view="grid">Grid</button>
     <button class="pill" data-view="list">List</button>
@@ -416,6 +428,7 @@
 
 <div class="controls">
   <select id="osCharacterFilter"><option value="">All characters</option></select>
+  <input type="text" id="osSearchInput" class="search-input" placeholder="Search by name or #…">
   <div class="view-toggle" id="osViewToggle">
     <button class="pill active" data-view="grid">Grid</button>
     <button class="pill" data-view="list">List</button>
@@ -712,11 +725,13 @@ let allSales = [];
 let currentView = 'listings';
 let currentDisplay = 'grid';
 let selectedTier = null;
+let searchQuery = '';
 
 const statusEl = document.getElementById('status');
 const gridEl = document.getElementById('grid');
 const subFilterEl = document.getElementById('subFilter');
 const sortByEl = document.getElementById('sortBy');
+const searchInputEl = document.getElementById('searchInput');
 const viewToggleEl = document.getElementById('viewToggle');
 const rarityPillsEl = document.getElementById('rarityPills');
 const liquidityCardsEl = document.getElementById('liquidityCards');
@@ -819,6 +834,7 @@ let osCurrentView = 'listings';
 let osCurrentDisplay = 'grid';
 let osSelectedTier = null;
 let osSelectedCharacter = '';
+let osSearchQuery = '';
 let osListingsUpdatedAt = null;
 let osSalesUpdatedAt = null;
 
@@ -827,6 +843,7 @@ const osGridEl = document.getElementById('osGrid');
 const osViewToggleEl = document.getElementById('osViewToggle');
 const osTabsEl = document.getElementById('osTabs');
 const osCharacterFilterEl = document.getElementById('osCharacterFilter');
+const osSearchInputEl = document.getElementById('osSearchInput');
 const osRarityPillsEl = document.getElementById('osRarityPills');
 
 function setOsStatus(msg, isErr){
@@ -933,12 +950,13 @@ function renderOsListings(){
   const items = osListings
     .filter(i => !osSelectedTier || i.rarity === osSelectedTier)
     .filter(i => !osSelectedCharacter || i.character === osSelectedCharacter)
+    .filter(i => !osSearchQuery || `${i.name || ''} ${i.character || ''}`.toLowerCase().includes(osSearchQuery))
     .sort((a, b) => (b.listedAt ?? 0) - (a.listedAt ?? 0));
 
   if(items.length === 0){
     osGridEl.className = osCurrentDisplay;
-    const hint = (osSelectedTier || osSelectedCharacter)
-      ? 'Try a different character or rarity tier, or check back later.'
+    const hint = (osSelectedTier || osSelectedCharacter || osSearchQuery)
+      ? 'Try a different search, a different character, or a different rarity tier.'
       : 'Check back later.';
     osGridEl.innerHTML = `<div class="empty">No OpenSea listings match this view yet.<br>${hint}</div>`;
     return;
@@ -984,12 +1002,13 @@ function renderOsSales(){
   const items = osSales
     .filter(i => !osSelectedTier || i.rarity === osSelectedTier)
     .filter(i => !osSelectedCharacter || i.character === osSelectedCharacter)
+    .filter(i => !osSearchQuery || `${i.name || ''} ${i.character || ''}`.toLowerCase().includes(osSearchQuery))
     .sort((a, b) => (b.soldAt ?? 0) - (a.soldAt ?? 0));
 
   if(items.length === 0){
     osGridEl.className = osCurrentDisplay;
-    const hint = (osSelectedTier || osSelectedCharacter)
-      ? 'Try a different character or rarity tier, or check back later.'
+    const hint = (osSelectedTier || osSelectedCharacter || osSearchQuery)
+      ? 'Try a different search, a different character, or a different rarity tier.'
       : 'Check back later.';
     osGridEl.innerHTML = `<div class="empty">No recent OpenSea sales match this view yet.<br>${hint}</div>`;
     return;
@@ -1037,6 +1056,11 @@ osTabsEl.querySelectorAll('.tab').forEach(t => {
 
 osCharacterFilterEl.addEventListener('change', () => {
   osSelectedCharacter = osCharacterFilterEl.value;
+  renderOs();
+});
+
+osSearchInputEl.addEventListener('input', () => {
+  osSearchQuery = osSearchInputEl.value.trim().toLowerCase();
   renderOs();
 });
 
@@ -1201,13 +1225,20 @@ function renderListings(){
   // sub-collections" view here (5,000+ listings) no longer risks
   // burying the OpenSea panel the way it did before that split.
   const items = sortItems(
-    allListings.filter(i => (!sub || i.sub === sub) && (!selectedTier || i.rarity === selectedTier)),
+    allListings.filter(i =>
+      (!sub || i.sub === sub) &&
+      (!selectedTier || i.rarity === selectedTier) &&
+      (!searchQuery || `${i.name || ''} ${i.sub || ''}`.toLowerCase().includes(searchQuery))
+    ),
     sortByEl.value, 'listedAt'
   );
 
   if(items.length === 0){
     gridEl.className = currentDisplay;
-    gridEl.innerHTML = `<div class="empty">No listings match this view yet.<br>Try a different sub-collection, a different rarity tier, or check back later.</div>`;
+    const hint = searchQuery
+      ? 'Try a different search, a different sub-collection, or a different rarity tier.'
+      : 'Try a different sub-collection, a different rarity tier, or check back later.';
+    gridEl.innerHTML = `<div class="empty">No listings match this view yet.<br>${hint}</div>`;
     return;
   }
 
@@ -1261,13 +1292,20 @@ function renderSales(){
   // out just like renderListings(), so "no rarity yet" sales simply don't
   // match any specific tier filter (still show up under "All Rarities").
   const items = sortItems(
-    allSales.filter(i => (!sub || i.sub === sub) && (!selectedTier || i.rarity === selectedTier)),
+    allSales.filter(i =>
+      (!sub || i.sub === sub) &&
+      (!selectedTier || i.rarity === selectedTier) &&
+      (!searchQuery || `${i.name || ''} ${i.sub || ''}`.toLowerCase().includes(searchQuery))
+    ),
     sortByEl.value, 'soldAt'
   ).slice(0, 200);
 
   if(items.length === 0){
     gridEl.className = currentDisplay;
-    gridEl.innerHTML = `<div class="empty">No sales in the last 7 days for this view.<br>Try a different sub-collection, a different rarity tier, or check back later.</div>`;
+    const hint = searchQuery
+      ? 'Try a different search, a different sub-collection, or a different rarity tier.'
+      : 'Try a different sub-collection, a different rarity tier, or check back later.';
+    gridEl.innerHTML = `<div class="empty">No sales in the last 7 days for this view.<br>${hint}</div>`;
     return;
   }
 
@@ -1318,6 +1356,11 @@ function timeAgo(ts){
 }
 
 subFilterEl.addEventListener('change', render);
+
+searchInputEl.addEventListener('input', () => {
+  searchQuery = searchInputEl.value.trim().toLowerCase();
+  render();
+});
 sortByEl.addEventListener('change', render);
 
 viewToggleEl.querySelectorAll('.pill').forEach(p => {
