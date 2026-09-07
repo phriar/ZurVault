@@ -1957,6 +1957,46 @@ export default {
       });
     }
 
+    // Temporary debug endpoint — enumerating the distinct OpenSea collection
+    // slugs a known wallet's holdings span (GET /api/v2/chain/{chain}/
+    // account/{address}/nfts, paginated), to discover the real candy.io DC
+    // per-issue collection slugs before deciding whether/how to expand the
+    // crawl beyond the flat candy-dc bucket. Not meant to be permanent.
+    if (url.pathname === "/v2/__debug-opensea-collections") {
+      if (!env.OPENSEA_API_KEY) {
+        return new Response(JSON.stringify({ error: "OPENSEA_API_KEY not configured" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const address = url.searchParams.get("address") || "HsRZSjQR5AeZsFQySdZjCaHh5N4sxYhnvaT7ax1aJNN";
+      const collectionCounts = {};
+      let cursor = null;
+      let pages = 0;
+      const MAX_PAGES = 15; // safety bound — same reasoning as OPENSEA_FULL_CRAWL_MAX_PAGES
+      do {
+        const nftUrl = `https://api.opensea.io/api/v2/chain/solana/account/${address}/nfts?limit=200${cursor ? `&next=${encodeURIComponent(cursor)}` : ""}`;
+        const res = await fetch(nftUrl, { headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY } });
+        if (!res.ok) {
+          return new Response(JSON.stringify({ error: `HTTP ${res.status}`, collectionCounts, pages }), {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const data = await res.json();
+        for (const nft of data?.nfts || []) {
+          const slug = nft?.collection || "(none)";
+          collectionCounts[slug] = (collectionCounts[slug] || 0) + 1;
+        }
+        cursor = data?.next || null;
+        pages++;
+      } while (cursor && pages < MAX_PAGES);
+      return new Response(JSON.stringify({ address, pages, collectionCounts }, null, 2), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Outbound-to-Magic-Eden click tracking. Only ME links are ever tracked
     // here — Candy.io isn't a buy destination right now, so nothing on the
     // client ever calls this for a Candy link. POSTed via
