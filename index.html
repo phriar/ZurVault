@@ -1105,9 +1105,37 @@ marketTabsEl.querySelectorAll('.market-tab').forEach(t => {
 // "(edition/total)", e.g. "Flashpoint (2011) #1 (501/1314)" — pull that
 // out to show as a mint/edition badge in list view, where there's room for
 // it. Falls back to nothing if the name doesn't match that pattern.
-function parseEdition(name){
+// "(0/1)" is excluded on purpose — the "Bat Cowl" achievement-badge tokens
+// all carry that literal placeholder instead of a real mint position (every
+// one of them is "(0/1)"), so it's not a meaningful mint number and showing
+// it as one is misleading — see editionParts() below, which the mint-number
+// search also relies on to keep those 100 badges out of "(0/…" searches.
+function editionParts(name){
   const m = /\((\d+)\s*\/\s*(\d+)\)\s*$/.exec(name || '');
-  return m ? `#${m[1]} / ${m[2]}` : null;
+  if(!m || (m[1] === '0' && m[2] === '1')) return null;
+  return { num: m[1], total: m[2] };
+}
+function parseEdition(name){
+  const e = editionParts(name);
+  return e ? `#${e.num} / ${e.total}` : null;
+}
+
+// A query containing "/" (typed as "1102/" or "(1102/", the pattern users
+// naturally reach for once they've seen a "(1102/4750)" mint badge) is
+// treated as a mint-number search: exact match against just the numerator,
+// via editionParts() — not a substring check — so it can't also match the
+// total on the other side of the slash, and so editionParts()'s "(0/1)"
+// exclusion actually keeps the Bat Cowl badges out of a "0/" search. Any
+// other query keeps the plain substring-against-name-and-sub behavior.
+function matchesSearch(item, q){
+  if(!q) return true;
+  if(q.includes('/')){
+    const digits = (q.match(/(\d+)/) || [])[1];
+    if(!digits) return false;
+    const e = editionParts(item.name);
+    return !!e && e.num === digits;
+  }
+  return `${item.name || ''} ${item.sub || ''}`.toLowerCase().includes(q);
 }
 
 // rarityPct, when present, is that collection's fixed supply-distribution
@@ -1228,7 +1256,7 @@ function renderListings(){
     allListings.filter(i =>
       (!sub || i.sub === sub) &&
       (!selectedTier || i.rarity === selectedTier) &&
-      (!searchQuery || `${i.name || ''} ${i.sub || ''}`.toLowerCase().includes(searchQuery))
+      matchesSearch(i, searchQuery)
     ),
     sortByEl.value, 'listedAt'
   );
@@ -1295,7 +1323,7 @@ function renderSales(){
     allSales.filter(i =>
       (!sub || i.sub === sub) &&
       (!selectedTier || i.rarity === selectedTier) &&
-      (!searchQuery || `${i.name || ''} ${i.sub || ''}`.toLowerCase().includes(searchQuery))
+      matchesSearch(i, searchQuery)
     ),
     sortByEl.value, 'soldAt'
   ).slice(0, 200);
