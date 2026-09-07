@@ -1957,6 +1957,34 @@ export default {
       });
     }
 
+    // Temporary debug endpoint — investigating whether OpenSea's public API
+    // can resolve a profile username (e.g. "AbsoluteDC") to its underlying
+    // wallet address, and whether a raw candy-dc listing carries a
+    // seller/maker field, to figure out if "show only this seller's
+    // listings" is buildable. Not meant to be permanent; remove once
+    // answered either way.
+    if (url.pathname === "/v2/__debug-opensea") {
+      if (!env.OPENSEA_API_KEY) {
+        return new Response(JSON.stringify({ error: "OPENSEA_API_KEY not configured" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const account = url.searchParams.get("account") || "AbsoluteDC";
+      const [accountRes, listingsRes] = await Promise.all([
+        fetch(`https://api.opensea.io/api/v2/accounts/${encodeURIComponent(account)}`, {
+          headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY },
+        }),
+        fetch(OPENSEA_LISTINGS_URL, { headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY } }),
+      ]);
+      const accountBody = { status: accountRes.status, body: await accountRes.json().catch(() => null) };
+      const listingsBody = await listingsRes.json().catch(() => null);
+      return new Response(
+        JSON.stringify({ account: accountBody, sampleListing: listingsBody?.listings?.[0] ?? null }, null, 2),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Outbound-to-Magic-Eden click tracking. Only ME links are ever tracked
     // here — Candy.io isn't a buy destination right now, so nothing on the
     // client ever calls this for a Candy link. POSTed via
