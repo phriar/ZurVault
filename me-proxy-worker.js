@@ -1778,6 +1778,124 @@ async function refreshOpenSeaFullCatalog(env) {
 }
 
 // ---------------------------------------------------------------------
+// OPENSEA COLLECTION DISCOVERY — a growing directory of the real,
+// per-issue OpenSea collections (Absolute Batman, The Bat Cowl
+// Collection, etc.) that candy.io's DC catalog actually spans, separate
+// from the flat candy-dc catch-all everything else in this file crawls.
+//
+// There's no OpenSea endpoint that lists every collection candy.io has
+// ever created — only ways to see what a given wallet currently holds
+// (GET /api/v2/chain/{chain}/account/{address}/nfts). Confirmed live:
+// scanning the site owner's own OpenSea selling account turned up 13
+// real DC collections the account happened to hold items in at that
+// moment — a wallet's holdings shift constantly (items sell and leave),
+// so that's a partial, moving snapshot, not a complete/stable list.
+// This is why discovery is a periodic re-scan that only ever *adds* to
+// OPENSEA_KNOWN_COLLECTIONS_KEY, never removes from it: a collection a
+// tracked wallet has since sold out of still exists as a real
+// collection, it just isn't visible from that wallet's current holdings
+// any more. KNOWN_HOLDER_WALLETS is a small seed list, not an
+// exhaustive one — worth adding more prolific-holder wallets to over
+// time if discovery growth stalls.
+const KNOWN_HOLDER_WALLETS = [
+  "HsRZSjQR5AeZsFQySdZjCaHh5N4sxYhnvaT7ax1aJNN", // AbsoluteDC — site owner's own OpenSea selling account
+];
+
+// candy-dc is excluded because it's handled as its own dedicated
+// catch-all crawl already, not part of this "named collections"
+// directory. candy-mlb is a non-DC sports-card promo that showed up in
+// the same wallet's holdings — same "exclude non-DC entries" rule
+// DC_COLLECTIONS itself already follows.
+const OPENSEA_EXCLUDED_SLUGS = new Set(["candy-dc", "candy-mlb"]);
+
+const OPENSEA_KNOWN_COLLECTIONS_KEY = "opensea-known-collections";
+const OPENSEA_DISCOVERY_STATE_KEY = "opensea-discovery-last-run";
+// Directory-building, not time-sensitive — nowhere near the 20-min main
+// cron's cadence, so this doesn't compete for OpenSea rate-limit budget
+// on every cycle for something that only needs to run occasionally.
+const OPENSEA_DISCOVERY_INTERVAL_SECONDS = 60 * 60 * 6; // 6 hours
+
+// Every distinct `collection` slug currently showing up across one
+// wallet's held Solana NFTs, paginated. Bounded by MAX_PAGES for the
+// same "don't let a future spike turn this into unbounded pagination
+// inside a cron" reasoning as OPENSEA_FULL_CRAWL_MAX_PAGES.
+async function fetchWalletCollectionSlugs(address, env) {
+  const slugs = new Set();
+  let cursor = null;
+  let pages = 0;
+  const MAX_PAGES = 15;
+  do {
+    const nftUrl = `https://api.opensea.io/api/v2/chain/solana/account/${address}/nfts?limit=200${cursor ? `&next=${encodeURIComponent(cursor)}` : ""}`;
+    const res = await fetch(nftUrl, { headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY } });
+    if (!res.ok) break; // keep whatever slugs were already found rather than failing the whole scan
+    const data = await res.json();
+    for (const nft of data?.nfts || []) {
+      if (nft?.collection) slugs.add(nft.collection);
+    }
+    cursor = data?.next || null;
+    pages++;
+  } while (cursor && pages < MAX_PAGES);
+  return slugs;
+}
+
+// Only called for genuinely new slugs (see discoverOpenSeaCollections()
+// below), so this is a rare call, not a per-cycle cost.
+async function fetchCollectionDisplayName(slug, env) {
+  try {
+    const res = await fetch(`https://api.opensea.io/api/v2/collections/${slug}`, {
+      headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.name || null;
+  } catch {
+    return null;
+  }
+}
+
+async function loadKnownOpenSeaCollections(env) {
+  try {
+    const raw = await env.DC_CACHE.get(OPENSEA_KNOWN_COLLECTIONS_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {}; // corrupt/unreadable directory just means starting the growth over, not a hard failure
+  }
+}
+
+// Cron entry point — same isolation contract as the other refresh*
+// functions: failures are caught/logged, never thrown out of
+// scheduled(). Self-throttles via OPENSEA_DISCOVERY_STATE_KEY rather
+// than relying on the cron cadence alone, since this needs to run far
+// less often than every 20 minutes.
+async function discoverOpenSeaCollections(env) {
+  if (!env.OPENSEA_API_KEY) return;
+  try {
+    const lastRun = await env.DC_CACHE.get(OPENSEA_DISCOVERY_STATE_KEY);
+    if (lastRun && Date.now() - Number(lastRun) < OPENSEA_DISCOVERY_INTERVAL_SECONDS * 1000) return;
+
+    const directory = await loadKnownOpenSeaCollections(env);
+    let added = 0;
+    for (const address of KNOWN_HOLDER_WALLETS) {
+      const slugs = await fetchWalletCollectionSlugs(address, env);
+      for (const slug of slugs) {
+        if (OPENSEA_EXCLUDED_SLUGS.has(slug) || directory[slug]) continue;
+        const name = await fetchCollectionDisplayName(slug, env);
+        directory[slug] = { name: name || slug, discoveredAt: Date.now() };
+        added++;
+      }
+    }
+    await env.DC_CACHE.put(OPENSEA_KNOWN_COLLECTIONS_KEY, JSON.stringify(directory));
+    await env.DC_CACHE.put(OPENSEA_DISCOVERY_STATE_KEY, String(Date.now()));
+    if (added > 0) {
+      console.log(`discoverOpenSeaCollections: found ${added} new collection(s), ${Object.keys(directory).length} known total`);
+    }
+  } catch (err) {
+    console.error("discoverOpenSeaCollections failed:", err.message);
+  }
+}
+
+// ---------------------------------------------------------------------
 
 export default {
   async fetch(request, env, ctx) {
@@ -1957,43 +2075,20 @@ export default {
       });
     }
 
-    // Temporary debug endpoint — enumerating the distinct OpenSea collection
-    // slugs a known wallet's holdings span (GET /api/v2/chain/{chain}/
-    // account/{address}/nfts, paginated), to discover the real candy.io DC
-    // per-issue collection slugs before deciding whether/how to expand the
-    // crawl beyond the flat candy-dc bucket. Not meant to be permanent.
-    if (url.pathname === "/v2/__debug-opensea-collections") {
-      if (!env.OPENSEA_API_KEY) {
-        return new Response(JSON.stringify({ error: "OPENSEA_API_KEY not configured" }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const address = url.searchParams.get("address") || "HsRZSjQR5AeZsFQySdZjCaHh5N4sxYhnvaT7ax1aJNN";
-      const collectionCounts = {};
-      let cursor = null;
-      let pages = 0;
-      const MAX_PAGES = 15; // safety bound — same reasoning as OPENSEA_FULL_CRAWL_MAX_PAGES
-      do {
-        const nftUrl = `https://api.opensea.io/api/v2/chain/solana/account/${address}/nfts?limit=200${cursor ? `&next=${encodeURIComponent(cursor)}` : ""}`;
-        const res = await fetch(nftUrl, { headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY } });
-        if (!res.ok) {
-          return new Response(JSON.stringify({ error: `HTTP ${res.status}`, collectionCounts, pages }), {
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-        const data = await res.json();
-        for (const nft of data?.nfts || []) {
-          const slug = nft?.collection || "(none)";
-          collectionCounts[slug] = (collectionCounts[slug] || 0) + 1;
-        }
-        cursor = data?.next || null;
-        pages++;
-      } while (cursor && pages < MAX_PAGES);
-      return new Response(JSON.stringify({ address, pages, collectionCounts }, null, 2), {
+    // Growing directory of real per-issue OpenSea collections discovered by
+    // discoverOpenSeaCollections() (see the OPENSEA COLLECTION DISCOVERY
+    // section above) — what the frontend's "Collection" dropdown builds
+    // its options from, alongside its own hardcoded "Candy DC" catch-all
+    // entry (that one's never in this KV directory — see
+    // OPENSEA_EXCLUDED_SLUGS). No edge cache here (unlike dc-summary/
+    // liquidity/opensea-activity): this changes at most every
+    // OPENSEA_DISCOVERY_INTERVAL_SECONDS, and a single small JSON blob
+    // read from KV directly is already cheap enough not to need one.
+    if (url.pathname === "/v2/opensea-collections") {
+      const raw = await env.DC_CACHE.get(OPENSEA_KNOWN_COLLECTIONS_KEY);
+      return new Response(raw || "{}", {
         status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" },
       });
     }
 
@@ -2650,5 +2745,9 @@ export default {
     // low-stakes (that mint just gets re-resolved next cycle instead of
     // staying cached a cycle early), not worth real locking for.
     ctx.waitUntil(refreshOpenSeaFullCatalog(env));
+    // Independent of everything above — self-throttles internally via
+    // OPENSEA_DISCOVERY_STATE_KEY, so it's a no-op most cycles rather
+    // than something that needs its own separate cron cadence.
+    ctx.waitUntil(discoverOpenSeaCollections(env));
   },
 };
