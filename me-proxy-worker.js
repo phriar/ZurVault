@@ -1584,11 +1584,7 @@ async function resolveOpenSeaListings(rawListings, env, cache, newResolveCap) {
       const mint = l?.asset?.identifier;
       const priceSol = l?.price?.current?.currency === "SOL" ? lamportsToSol(l.price.current.value, l.price.current.decimals) : null;
       if (!mint || !sanePrice(priceSol)) return null;
-      // The listing's own seller wallet (confirmed live at
-      // svm_order.maker) — lets the frontend filter to a specific
-      // tracked seller (e.g. "AbsoluteDC", the site owner's own OpenSea
-      // selling account) without a second API call.
-      return { mint, priceSol, listedAt: l?.order_created_at || null, seller: l?.svm_order?.maker || null };
+      return { mint, priceSol, listedAt: l?.order_created_at || null };
     })
     .filter(Boolean);
 
@@ -1597,7 +1593,6 @@ async function resolveOpenSeaListings(rawListings, env, cache, newResolveCap) {
     mintAddress: p.mint,
     price: p.priceSol,
     listedAt: p.listedAt,
-    seller: p.seller,
     // See deriveOpenSeaSale() above — nft.opensea_url (and the old
     // /assets/solana/{mint}/{mint} fallback this replaced) both 404 live;
     // /item/solana/{mint} is the real working format.

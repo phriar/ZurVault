@@ -268,17 +268,6 @@
   <button class="pill" data-tier="Legendary">Legendary</button>
 </div>
 
-<!-- OpenSea-only, hidden on the Magic Eden tab (toggled in JS alongside
-     marketSub). "AbsoluteDC" (wallet HsRZSjQR5AeZsFQySdZjCaHh5N4sxYhnvaT7ax1aJNN,
-     confirmed via OpenSea's accounts API) is the site owner's own OpenSea
-     selling account — this lets a visitor specifically find and buy from
-     the owner's own current inventory rather than digging for it in the
-     full unsorted feed. A single toggle, not a seller-picker, since this
-     is the one seller asked about; easy to point elsewhere later. -->
-<div class="pills" id="sellerPills" style="display:none;">
-  <button class="pill" data-seller-only="1">AbsoluteDC Only</button>
-</div>
-
 <!-- Item Type (Collectible/Pack/Comic, etc.) isn't a fixed known set the
      way rarity tiers are — it's built from whatever distinct values are
      actually present in the live data (see buildItemTypePills()), same
@@ -323,10 +312,6 @@ const pillsEl = document.getElementById('pills');
 const itemTypePillsEl = document.getElementById('itemTypePills');
 const marketTabsEl = document.getElementById('marketTabs');
 const marketSubEl = document.getElementById('marketSub');
-const sellerPillsEl = document.getElementById('sellerPills');
-
-// See sellerPills' own comment above for why this one seller specifically.
-const ABSOLUTEDC_SELLER = 'HsRZSjQR5AeZsFQySdZjCaHh5N4sxYhnvaT7ax1aJNN';
 
 let allListings = [];
 let osListings = [];
@@ -336,7 +321,6 @@ let minPrice = null;
 let maxPrice = null;
 let searchQuery = '';
 let selectedTier = null;
-let sellerOnly = false;
 let currentView = 'grid';
 
 // Every item carries `market` ('me'/'os') from load time on, so the
@@ -466,13 +450,12 @@ function render(){
     .filter(i => !searchQuery || `${i.name || ''} ${i.sub || i.character || ''}`.toLowerCase().includes(searchQuery))
     .filter(i => !selectedTier || i.rarity === selectedTier)
     .filter(i => !selectedItemType || i.itemType === selectedItemType)
-    .filter(i => !sellerOnly || i.seller === ABSOLUTEDC_SELLER)
     .slice()
     .sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
 
   if(items.length === 0){
     gridEl.className = currentView;
-    const hint = (minPrice !== null || maxPrice !== null || searchQuery || selectedTier || selectedItemType || sellerOnly)
+    const hint = (minPrice !== null || maxPrice !== null || searchQuery || selectedTier || selectedItemType)
       ? 'Try a wider price range, a different search, a different rarity tier, or a different item type.'
       : 'Check back later.';
     gridEl.innerHTML = `<div class="empty">Nothing matches this filter right now.<br>${hint}</div>`;
@@ -632,14 +615,6 @@ marketTabsEl.querySelectorAll('.market-tab').forEach(t => {
     marketTabsEl.querySelectorAll('.market-tab').forEach(x => x.classList.toggle('active', x === t));
     currentMarket = t.dataset.market;
     marketSubEl.hidden = currentMarket !== 'os';
-    sellerPillsEl.style.display = currentMarket === 'os' ? 'flex' : 'none';
-    if(currentMarket !== 'os'){
-      // Magic Eden has no equivalent concept of this seller — reset so
-      // switching back to OpenSea later doesn't silently apply a filter
-      // the user can't currently see the toggle for.
-      sellerOnly = false;
-      sellerPillsEl.querySelector('.pill').classList.remove('active');
-    }
     // Item Type only ever applies to Magic Eden data (OS listings carry
     // no itemType field), so this naturally clears/hides on switching —
     // buildItemTypePills() already hides itself when <2 distinct values
@@ -648,12 +623,6 @@ marketTabsEl.querySelectorAll('.market-tab').forEach(t => {
     refreshStatus();
     render();
   });
-});
-
-sellerPillsEl.querySelector('.pill[data-seller-only]').addEventListener('click', function(){
-  sellerOnly = !sellerOnly;
-  this.classList.toggle('active', sellerOnly);
-  render();
 });
 
 const REFRESH_INTERVAL = 22 * 60 * 1000; // trails the Worker's own 20-min cron refresh
