@@ -61,6 +61,24 @@
     color:rgba(255,255,255,0.6); letter-spacing:.03em;
   }
 
+  /* Market-level switcher (Magic Eden / OpenSea) — same bigger, filled
+     segmented control as index.html's #marketTabs, reused verbatim here
+     for visual consistency rather than the thin .pill filter-row style
+     below, so it reads as a distinct, higher-level choice. */
+  .market-tabs{ display:flex; gap:12px; flex-wrap:wrap; padding:4px 32px 4px; }
+  .market-tab{
+    font-family:'DM Mono',monospace; font-size:1rem; letter-spacing:.08em; text-transform:uppercase;
+    color:rgba(255,255,255,0.65); padding:16px 32px; border:1px solid var(--border); border-radius:10px;
+    cursor:pointer; transition:all .15s; background:rgba(255,255,255,0.02);
+  }
+  .market-tab:hover{ color:rgba(255,255,255,0.8); border-color:rgba(143,111,232,0.4); }
+  .market-tab.active{ color:#fff; background:linear-gradient(135deg, var(--deep), var(--gold)); border-color:transparent; }
+
+  .market-sub{
+    padding:0 32px 16px; font-size:.62rem; line-height:1.6; letter-spacing:.02em;
+    color:rgba(255,255,255,0.5); max-width:640px;
+  }
+
   .controls{
     display:flex; gap:8px; padding:16px 32px; flex-wrap:wrap; align-items:center; border-bottom:1px solid var(--border);
     background:rgba(255,255,255,0.015);
@@ -217,6 +235,17 @@
   <p class="sub">Enter a min and max SOL price range, then see what's available in each rarity tier. Just want a quick "under X SOL" browse instead? Try <a href="dollar-bin.html" style="color:var(--gold)">the Dollar Bin</a>.</p>
 </header>
 
+<div class="market-tabs" id="marketTabs">
+  <div class="market-tab active" data-market="me">Magic Eden</div>
+  <div class="market-tab" data-market="os">OpenSea</div>
+</div>
+<!-- candy.io's whole DC catalog sits under one flat OpenSea collection
+     (candy-dc) with no per-series sub-collections at all — this is
+     ZurVault's own live price-sort over that one shared pool, not
+     something OpenSea's own site offers. See me-proxy-worker.js's
+     OPENSEA FULL CATALOG section. -->
+<p class="market-sub" id="marketSub" hidden>Every active OpenSea listing across candy.io's whole DC catalog — it's one flat shared collection there, not split per comic series the way Magic Eden's is, so this price sort is ZurVault's own, not OpenSea's.</p>
+
 <div class="controls">
   <div class="price-range">
     <input type="number" id="minPrice" class="price-input" placeholder="Min SOL" min="0" step="0.01">
@@ -251,7 +280,7 @@
 <div id="grid" class="grid"></div>
 
 <footer>
-  Live listing data via Magic Eden public API · <a href="index.html">zurvault.com</a>
+  Live listing data via Magic Eden and OpenSea public APIs · <a href="index.html">zurvault.com</a>
   <p class="support-note">Built by a collector, for collectors. Zur is free to use. If it's helped you find something for your collection, support is welcome, never expected.<span class="wallet-line"><span class="wallet-symbol">&#9678;</span> <button type="button" class="wallet-addr" id="walletAddr" data-full="CCiBnYND2nj9JApdGMMk2trGH65NA565XTfETaj6dnHs" title="Click to copy">CCiBnY...j6dnHs</button> &middot; Click to copy</span></p>
 </footer>
 <script>
@@ -281,14 +310,40 @@ const maxPriceEl = document.getElementById('maxPrice');
 const searchInputEl = document.getElementById('searchInput');
 const pillsEl = document.getElementById('pills');
 const itemTypePillsEl = document.getElementById('itemTypePills');
+const marketTabsEl = document.getElementById('marketTabs');
+const marketSubEl = document.getElementById('marketSub');
 
 let allListings = [];
+let osListings = [];
+let currentMarket = 'me';
 let selectedItemType = null;
 let minPrice = null;
 let maxPrice = null;
 let searchQuery = '';
 let selectedTier = null;
 let currentView = 'grid';
+
+// Every item carries `market` ('me'/'os') from load time on, so the
+// render layer never has to guess which shape it's holding. The two
+// feeds otherwise already share the same `mintAddress`/`price`/`rarity`/
+// `rarityPct`/`name`/`image` field names, which is what let the price
+// range, rarity pills, and sort logic stay untouched below.
+function itemUrl(i){ return i.market === 'os' ? i.openSeaUrl : i.pdpUrl; }
+function itemTagText(i){ return i.market === 'os' ? 'OpenSea &#8599;' : 'Magic Eden &#8599;'; }
+// ME's per-card "tags" come from a symbol -> character reverse lookup
+// (SYMBOL_TO_CHARACTERS, below) since a listing only carries its raw
+// collection symbol; OpenSea listings already carry Character directly.
+function itemTags(i){
+  if(i.market === 'os') return i.character ? [{ name: i.character }] : [];
+  return (SYMBOL_TO_CHARACTERS[i.symbol] || []).slice(0, 3);
+}
+// click-log/click-stats (site-nav.js) assume a Magic Eden DC_COLLECTIONS
+// symbol as their "context" — there's no equivalent for an unfiltered
+// OpenSea item, so these attributes are simply omitted for market:'os'
+// (same reasoning as index.html's OpenSea Listings panel).
+function itemTrackAttrs(i){
+  return i.market === 'os' ? '' : `data-track="me" data-track-context="${esc(i.symbol)}" data-track-mint="${esc(i.mintAddress)}"`;
+}
 
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 
@@ -332,20 +387,19 @@ function rarityBadge(rarity, rarityPct){
 function renderGrid(items){
   gridEl.className = 'grid';
   gridEl.innerHTML = items.map(i => {
-    const tags = (SYMBOL_TO_CHARACTERS[i.symbol] || []).slice(0, 3)
-      .map(c => `<span class="tag">${esc(c.name)}</span>`).join('');
+    const tags = itemTags(i).map(c => `<span class="tag">${esc(c.name)}</span>`).join('');
     const edition = parseEdition(i.name);
     return `
       <div class="card">
-        <a class="card-link" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}" data-track-mint="${esc(i.mintAddress)}">
+        <a class="card-link" href="${esc(itemUrl(i))}" target="_blank" rel="noopener" ${itemTrackAttrs(i)}>
           <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
           <div class="body">
-            <div class="sub">${esc(i.sub)}</div>
+            <div class="sub">${esc(i.market === 'os' ? (i.character || '') : i.sub)}</div>
             <div class="name">${esc(i.name)}</div>
             ${rarityBadge(i.rarity, i.rarityPct)}
             ${tags ? `<div class="tags">${tags}</div>` : ''}
             <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
-            <div class="me-tag">Magic Eden &#8599;</div>
+            <div class="me-tag">${itemTagText(i)}</div>
             ${edition ? `<div class="mint">${edition}</div>` : ''}
           </div>
         </a>
@@ -361,22 +415,21 @@ function renderGrid(items){
 function renderList(items){
   gridEl.className = 'list';
   gridEl.innerHTML = items.map(i => {
-    const tags = (SYMBOL_TO_CHARACTERS[i.symbol] || []).slice(0, 3)
-      .map(c => `<span class="tag">${esc(c.name)}</span>`).join('');
+    const tags = itemTags(i).map(c => `<span class="tag">${esc(c.name)}</span>`).join('');
     const edition = parseEdition(i.name);
     return `
       <div class="list-row">
-        <a class="row-link" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}" data-track-mint="${esc(i.mintAddress)}">
+        <a class="row-link" href="${esc(itemUrl(i))}" target="_blank" rel="noopener" ${itemTrackAttrs(i)}>
           <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
           <div class="info">
-            <div class="sub">${esc(i.sub)}</div>
+            <div class="sub">${esc(i.market === 'os' ? (i.character || '') : i.sub)}</div>
             <div class="name">${esc(i.name)}</div>
             ${rarityBadge(i.rarity, i.rarityPct)}
             ${tags ? `<div class="tags">${tags}</div>` : ''}
           </div>
           <div class="price-col">
             <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
-            <div class="me-tag">Magic Eden &#8599;</div>
+            <div class="me-tag">${itemTagText(i)}</div>
             ${edition ? `<div class="mint">${edition}</div>` : ''}
           </div>
         </a>
@@ -387,10 +440,14 @@ function renderList(items){
 }
 
 function render(){
-  const items = allListings
+  const source = currentMarket === 'os' ? osListings : allListings;
+  const items = source
     .filter(i => minPrice === null || (i.price !== null && i.price >= minPrice))
     .filter(i => maxPrice === null || (i.price !== null && i.price <= maxPrice))
-    .filter(i => !searchQuery || `${i.name || ''} ${i.sub || ''}`.toLowerCase().includes(searchQuery))
+    // OS items have no `sub` (candy-dc has no sub-collections — see
+    // marketSub's note above); `character` covers the same "what is
+    // this" search intent there.
+    .filter(i => !searchQuery || `${i.name || ''} ${i.sub || i.character || ''}`.toLowerCase().includes(searchQuery))
     .filter(i => !selectedTier || i.rarity === selectedTier)
     .filter(i => !selectedItemType || i.itemType === selectedItemType)
     .slice()
@@ -439,29 +496,80 @@ function buildItemTypePills(items){
   itemTypePillsEl.style.display = 'flex';
 }
 
+// Status text is tracked per market (meStatus/osStatus) rather than set
+// directly, since load() and loadOpenSea() refresh independently of
+// whichever tab happens to be active when either one finishes — the
+// same "a failure in one never touches the other" independence as
+// index.html's Magic Eden/OpenSea panels. refreshStatus() just displays
+// whichever market's status is current.
+let meStatus = { text: 'Loading…', isErr: false };
+let osStatus = { text: 'Loading…', isErr: false };
+function refreshStatus(){
+  const s = currentMarket === 'os' ? osStatus : meStatus;
+  setStatus(s.text, s.isErr);
+}
+
 async function load(){
-  setStatus('Loading…');
+  meStatus = { text: 'Loading…', isErr: false };
+  refreshStatus();
   try{
     const res = await fetch(`${ME_BASE}/dc-summary`);
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
     if(data.notReady){
-      setStatus('The listings service is still setting up — check back in a few minutes.', true);
+      meStatus = { text: 'The listings service is still setting up — check back in a few minutes.', isErr: true };
+      refreshStatus();
       return;
     }
 
-    allListings = (data.listings || []).filter(i => i.price !== null);
+    allListings = (data.listings || []).filter(i => i.price !== null).map(i => ({ ...i, market: 'me' }));
     const withRarity = allListings.filter(i => i.rarity).length;
-    buildItemTypePills(allListings);
+    if(currentMarket === 'me') buildItemTypePills(allListings);
     const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
-    setStatus(`${allListings.length} priced listing(s), ${withRarity} with rarity data · updated ${updated}.`);
+    meStatus = { text: `${allListings.length} priced listing(s), ${withRarity} with rarity data · updated ${updated}.`, isErr: false };
   }catch(e){
     console.error(e);
-    setStatus('Could not reach the listings service. Try reloading in a moment.', true);
+    meStatus = { text: 'Could not reach the listings service. Try reloading in a moment.', isErr: true };
+    refreshStatus();
     return;
   }
-  render();
+  refreshStatus();
+  if(currentMarket === 'me') render();
+}
+
+// Every active candy-dc listing on OpenSea (not a recent sample — see
+// me-proxy-worker.js's OPENSEA FULL CATALOG section), independent of
+// load() above so a failure in one never touches the other.
+async function loadOpenSea(){
+  osStatus = { text: 'Loading…', isErr: false };
+  if(currentMarket === 'os') refreshStatus();
+  try{
+    const res = await fetch(`${ME_BASE}/opensea-full-listings`);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    if(data.notReady){
+      osStatus = { text: 'Still gathering data — check back shortly.', isErr: false };
+      if(currentMarket === 'os') refreshStatus();
+      return;
+    }
+
+    osListings = (data.listings || []).filter(i => i.price !== null).map(i => ({ ...i, market: 'os' }));
+    const withRarity = osListings.filter(i => i.rarity).length;
+    if(currentMarket === 'os') buildItemTypePills(osListings);
+    const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+    osStatus = { text: `${osListings.length} priced listing(s), ${withRarity} with rarity data · updated ${updated}.`, isErr: false };
+  }catch(e){
+    console.error(e);
+    osStatus = { text: 'Could not reach the OpenSea listings service. Try reloading in a moment.', isErr: true };
+    if(currentMarket === 'os') refreshStatus();
+    return;
+  }
+  if(currentMarket === 'os'){
+    refreshStatus();
+    render();
+  }
 }
 
 function parsePriceInput(el){
@@ -502,9 +610,30 @@ pillsEl.querySelectorAll('.pill[data-tier]').forEach(p => {
   });
 });
 
+marketTabsEl.querySelectorAll('.market-tab').forEach(t => {
+  t.addEventListener('click', () => {
+    marketTabsEl.querySelectorAll('.market-tab').forEach(x => x.classList.toggle('active', x === t));
+    currentMarket = t.dataset.market;
+    marketSubEl.hidden = currentMarket !== 'os';
+    // Item Type only ever applies to Magic Eden data (OS listings carry
+    // no itemType field), so this naturally clears/hides on switching —
+    // buildItemTypePills() already hides itself when <2 distinct values
+    // are present, which is exactly 0 for an all-empty-itemType dataset.
+    buildItemTypePills(currentMarket === 'os' ? osListings : allListings);
+    refreshStatus();
+    render();
+  });
+});
+
 const REFRESH_INTERVAL = 22 * 60 * 1000; // trails the Worker's own 20-min cron refresh
 load();
 setInterval(load, REFRESH_INTERVAL);
+
+// Independent of load() above — separate KV entry, own cron job
+// (refreshOpenSeaFullCatalog() in me-proxy-worker.js), own backfill
+// timeline (see that section's comment), so it's fetched on its own.
+loadOpenSea();
+setInterval(loadOpenSea, REFRESH_INTERVAL);
 </script>
 </body>
 </html>
