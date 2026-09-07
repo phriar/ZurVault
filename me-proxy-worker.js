@@ -1584,7 +1584,11 @@ async function resolveOpenSeaListings(rawListings, env, cache, newResolveCap) {
       const mint = l?.asset?.identifier;
       const priceSol = l?.price?.current?.currency === "SOL" ? lamportsToSol(l.price.current.value, l.price.current.decimals) : null;
       if (!mint || !sanePrice(priceSol)) return null;
-      return { mint, priceSol, listedAt: l?.order_created_at || null };
+      // The listing's own seller wallet (confirmed live at
+      // svm_order.maker) — lets the frontend filter to a specific
+      // tracked seller (e.g. "AbsoluteDC", the site owner's own OpenSea
+      // selling account) without a second API call.
+      return { mint, priceSol, listedAt: l?.order_created_at || null, seller: l?.svm_order?.maker || null };
     })
     .filter(Boolean);
 
@@ -1593,6 +1597,7 @@ async function resolveOpenSeaListings(rawListings, env, cache, newResolveCap) {
     mintAddress: p.mint,
     price: p.priceSol,
     listedAt: p.listedAt,
+    seller: p.seller,
     // See deriveOpenSeaSale() above — nft.opensea_url (and the old
     // /assets/solana/{mint}/{mint} fallback this replaced) both 404 live;
     // /item/solana/{mint} is the real working format.
@@ -1955,34 +1960,6 @@ export default {
         status: result.ok ? 200 : 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    }
-
-    // Temporary debug endpoint — investigating whether OpenSea's public API
-    // can resolve a profile username (e.g. "AbsoluteDC") to its underlying
-    // wallet address, and whether a raw candy-dc listing carries a
-    // seller/maker field, to figure out if "show only this seller's
-    // listings" is buildable. Not meant to be permanent; remove once
-    // answered either way.
-    if (url.pathname === "/v2/__debug-opensea") {
-      if (!env.OPENSEA_API_KEY) {
-        return new Response(JSON.stringify({ error: "OPENSEA_API_KEY not configured" }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const account = url.searchParams.get("account") || "AbsoluteDC";
-      const [accountRes, listingsRes] = await Promise.all([
-        fetch(`https://api.opensea.io/api/v2/accounts/${encodeURIComponent(account)}`, {
-          headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY },
-        }),
-        fetch(OPENSEA_LISTINGS_URL, { headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY } }),
-      ]);
-      const accountBody = { status: accountRes.status, body: await accountRes.json().catch(() => null) };
-      const listingsBody = await listingsRes.json().catch(() => null);
-      return new Response(
-        JSON.stringify({ account: accountBody, sampleListing: listingsBody?.listings?.[0] ?? null }, null, 2),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
     }
 
     // Outbound-to-Magic-Eden click tracking. Only ME links are ever tracked
