@@ -1247,6 +1247,11 @@ function buildScoutSystemPrompt() {
 // existing cron design (BATCH_SIZE, throttleMagicEden()) already avoids
 // elsewhere.
 const OPENSEA_COLLECTION_SLUG = "candy-dc";
+// Display name for the flat catch-all itself, used the same way a real
+// discovered collection's name is (see OPENSEA COLLECTION DISCOVERY
+// below) so the frontend's Collection filter can treat every listing
+// uniformly regardless of which bucket it came from.
+const OPENSEA_CATCHALL_NAME = "Candy DC";
 const OPENSEA_STATS_URL = `https://api.opensea.io/api/v2/collections/${OPENSEA_COLLECTION_SLUG}/stats`;
 
 // Temporary instrumentation (Phase 0 of the OpenSea full-catalog browse
@@ -1584,7 +1589,17 @@ async function resolveOpenSeaListings(rawListings, env, cache, newResolveCap) {
       const mint = l?.asset?.identifier;
       const priceSol = l?.price?.current?.currency === "SOL" ? lamportsToSol(l.price.current.value, l.price.current.decimals) : null;
       if (!mint || !sanePrice(priceSol)) return null;
-      return { mint, priceSol, listedAt: l?.order_created_at || null };
+      // _collectionSlug/_collectionName are set by the caller (see
+      // refreshOpenSeaFullCatalog()/refreshOpenSeaNamedCollections()
+      // below) before raw listings ever reach here — this function
+      // itself has no notion of which collection a listing came from.
+      return {
+        mint,
+        priceSol,
+        listedAt: l?.order_created_at || null,
+        collectionSlug: l?._collectionSlug || null,
+        collectionName: l?._collectionName || null,
+      };
     })
     .filter(Boolean);
 
@@ -1593,6 +1608,8 @@ async function resolveOpenSeaListings(rawListings, env, cache, newResolveCap) {
     mintAddress: p.mint,
     price: p.priceSol,
     listedAt: p.listedAt,
+    collectionSlug: p.collectionSlug,
+    collectionName: p.collectionName,
     // See deriveOpenSeaSale() above — nft.opensea_url (and the old
     // /assets/solana/{mint}/{mint} fallback this replaced) both 404 live;
     // /item/solana/{mint} is the real working format.
@@ -1726,19 +1743,21 @@ const OPENSEA_FULL_LISTINGS_KEY = "opensea-full-listings";
 // OPENSEA_ACTIVITY_TTL_SECONDS above.
 const OPENSEA_FULL_LISTINGS_TTL_SECONDS = 2400;
 
-// Walks every page of active candy-dc listings via OpenSea's `next`
-// cursor, bounded by OPENSEA_FULL_CRAWL_MAX_PAGES so a future spike in
-// active listing count can't turn this into unbounded pagination inside
-// a cron — same reasoning as BATCH_SIZE elsewhere in this file. Stops
-// early (keeping whatever pages already succeeded) on the first failed
-// page rather than discarding a partial crawl.
-async function fetchAllOpenSeaListings(env) {
+// Walks every page of a given collection's active listings via OpenSea's
+// `next` cursor, bounded by maxPages so a future spike in active listing
+// count can't turn this into unbounded pagination inside a cron — same
+// reasoning as BATCH_SIZE elsewhere in this file. Stops early (keeping
+// whatever pages already succeeded) on the first failed page rather than
+// discarding a partial crawl. `label` scopes the rate-limit log lines
+// (see logOpenSeaRateLimit) to whichever collection is being crawled.
+async function fetchOpenSeaListingsForSlug(slug, env, maxPages, label) {
+  const baseUrl = `https://api.opensea.io/api/v2/listings/collection/${slug}/all?limit=100`;
   const listings = [];
   let cursor = null;
-  for (let page = 0; page < OPENSEA_FULL_CRAWL_MAX_PAGES; page++) {
-    const url = cursor ? `${OPENSEA_LISTINGS_URL}&next=${encodeURIComponent(cursor)}` : OPENSEA_LISTINGS_URL;
+  for (let page = 0; page < maxPages; page++) {
+    const url = cursor ? `${baseUrl}&next=${encodeURIComponent(cursor)}` : baseUrl;
     const res = await fetch(url, { headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY } });
-    if (page === 0 || res.status === 429) logOpenSeaRateLimit(`full-crawl-page[${page}]`, res);
+    if (page === 0 || res.status === 429) logOpenSeaRateLimit(`${label}-page[${page}]`, res);
     if (!res.ok) break;
     const data = await res.json();
     listings.push(...(Array.isArray(data?.listings) ? data.listings : []));
@@ -1746,6 +1765,13 @@ async function fetchAllOpenSeaListings(env) {
     if (!cursor) break;
   }
   return listings;
+}
+
+// Thin wrapper preserving the existing candy-dc-only crawl's own name/
+// behavior — refreshOpenSeaFullCatalog() below still calls this exactly
+// as before.
+async function fetchAllOpenSeaListings(env) {
+  return fetchOpenSeaListingsForSlug(OPENSEA_COLLECTION_SLUG, env, OPENSEA_FULL_CRAWL_MAX_PAGES, "full-crawl");
 }
 
 // Cron entry point — same isolation contract as the other refresh*
@@ -1765,7 +1791,9 @@ async function refreshOpenSeaFullCatalog(env) {
     // artifact from OpenSea's/Tensor's side, not two independent
     // listings).
     const meListedMints = new Set((await mergeDCCollections(env)).listings.map((l) => l.mintAddress).filter(Boolean));
-    const rawListings = (await fetchAllOpenSeaListings(env)).filter((l) => !meListedMints.has(l?.asset?.identifier));
+    const rawListings = (await fetchAllOpenSeaListings(env))
+      .filter((l) => !meListedMints.has(l?.asset?.identifier))
+      .map((l) => ({ ...l, _collectionSlug: OPENSEA_COLLECTION_SLUG, _collectionName: OPENSEA_CATCHALL_NAME }));
     const cache = await loadOpenSeaMetadataCache(env);
     const listings = await resolveOpenSeaListings(rawListings, env, cache, OPENSEA_METADATA_RESOLVE_CAP);
     await env.DC_CACHE.put(OPENSEA_METADATA_CACHE_KEY, JSON.stringify(cache), { expirationTtl: OPENSEA_METADATA_CACHE_TTL_SECONDS });
@@ -1892,6 +1920,66 @@ async function discoverOpenSeaCollections(env) {
     }
   } catch (err) {
     console.error("discoverOpenSeaCollections failed:", err.message);
+  }
+}
+
+// ---------------------------------------------------------------------
+// OPENSEA NAMED COLLECTIONS — active listings for every collection in
+// the OPENSEA_KNOWN_COLLECTIONS_KEY directory (see OPENSEA COLLECTION
+// DISCOVERY above), tagged with their real collection name — this is
+// what lets the Back Issue Bin's Collection dropdown filter by "Absolute
+// Batman" or "The Bat Cowl Collection" rather than just Character.
+//
+// Each named collection is a single comic issue's print run, not the
+// whole flat candy-dc catalog, so its active-listing count is expected
+// to be small (single digits to a few dozen) — OPENSEA_NAMED_CRAWL_MAX_PAGES
+// is a much smaller safety bound than the candy-dc crawl's. The new-mint
+// resolve budget (OPENSEA_NAMED_RESOLVE_CAP) is shared across every
+// known collection combined for this cycle, not per-collection, so a
+// growing directory can't quietly multiply the OpenSea rate-limit risk
+// — worth watching the logs after this first ships, same as every other
+// budget number in this file, since the real per-cycle demand is only
+// knowable once it's actually running.
+const OPENSEA_NAMED_CRAWL_MAX_PAGES = 3;
+const OPENSEA_NAMED_RESOLVE_CAP = 40;
+const OPENSEA_NAMED_LISTINGS_KEY = "opensea-named-listings";
+// Same "2x the cron cadence" reasoning as OPENSEA_FULL_LISTINGS_TTL_SECONDS.
+const OPENSEA_NAMED_LISTINGS_TTL_SECONDS = 2400;
+
+// Cron entry point — same isolation contract as the other refresh*
+// functions: any failure caught/logged, never thrown out of scheduled(),
+// last-known-good KV entry left in place on failure.
+async function refreshOpenSeaNamedCollections(env) {
+  if (!env.OPENSEA_API_KEY) {
+    console.error("refreshOpenSeaNamedCollections: OPENSEA_API_KEY not configured");
+    return;
+  }
+  try {
+    const directory = await loadKnownOpenSeaCollections(env);
+    const slugs = Object.keys(directory);
+    if (slugs.length === 0) return; // nothing discovered yet — discoverOpenSeaCollections() hasn't run or found anything
+
+    // Same cross-reference as refreshOpenSeaFullCatalog() — a mint
+    // already actively listed on Magic Eden gets excluded here too.
+    const meListedMints = new Set((await mergeDCCollections(env)).listings.map((l) => l.mintAddress).filter(Boolean));
+
+    const rawListings = [];
+    for (const slug of slugs) {
+      const slugListings = await fetchOpenSeaListingsForSlug(slug, env, OPENSEA_NAMED_CRAWL_MAX_PAGES, `named-crawl:${slug}`);
+      for (const l of slugListings) {
+        if (meListedMints.has(l?.asset?.identifier)) continue;
+        rawListings.push({ ...l, _collectionSlug: slug, _collectionName: directory[slug]?.name || slug });
+      }
+    }
+
+    const cache = await loadOpenSeaMetadataCache(env);
+    const listings = await resolveOpenSeaListings(rawListings, env, cache, OPENSEA_NAMED_RESOLVE_CAP);
+    await env.DC_CACHE.put(OPENSEA_METADATA_CACHE_KEY, JSON.stringify(cache), { expirationTtl: OPENSEA_METADATA_CACHE_TTL_SECONDS });
+
+    const entry = { updatedAt: Date.now(), listings, notReady: false };
+    await env.DC_CACHE.put(OPENSEA_NAMED_LISTINGS_KEY, JSON.stringify(entry), { expirationTtl: OPENSEA_NAMED_LISTINGS_TTL_SECONDS });
+  } catch (err) {
+    console.error("refreshOpenSeaNamedCollections failed:", err.message);
   }
 }
 
@@ -2042,6 +2130,35 @@ export default {
           headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=30" },
         });
         ctx.waitUntil(cache.put(fullListingsCacheKey, toCache));
+      }
+      return new Response(body, {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" },
+      });
+    }
+
+    // Active listings across every known real OpenSea collection (see the
+    // OPENSEA NAMED COLLECTIONS section above) — a single KV entry written
+    // once per cron cycle by refreshOpenSeaNamedCollections(), read here
+    // behind the same short edge-cache shape as /v2/opensea-full-listings.
+    // Meant to be combined client-side with that endpoint's candy-dc
+    // catch-all listings (both carry the same collectionSlug/
+    // collectionName fields) for a single unified Collection filter.
+    if (url.pathname === "/v2/opensea-named-listings") {
+      const cache = caches.default;
+      const namedListingsCacheKey = new Request(url.origin + "/__opensea-named-listings-merged", { method: "GET" });
+      const cachedNamedListings = await cache.match(namedListingsCacheKey);
+      let body;
+      if (cachedNamedListings) {
+        body = await cachedNamedListings.text();
+      } else {
+        const raw = await env.DC_CACHE.get(OPENSEA_NAMED_LISTINGS_KEY);
+        body = raw || JSON.stringify({ notReady: true });
+        const toCache = new Response(body, {
+          status: 200,
+          headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=30" },
+        });
+        ctx.waitUntil(cache.put(namedListingsCacheKey, toCache));
       }
       return new Response(body, {
         status: 200,
@@ -2749,5 +2866,12 @@ export default {
     // OPENSEA_DISCOVERY_STATE_KEY, so it's a no-op most cycles rather
     // than something that needs its own separate cron cadence.
     ctx.waitUntil(discoverOpenSeaCollections(env));
+    // Reads whatever discoverOpenSeaCollections() has written so far —
+    // on the very first cycle after deploy, before any discovery has
+    // run, the directory is empty and this is a no-op (see its own
+    // length-0 guard); it'll pick up the directory fine starting the
+    // next cycle once discovery has written it. Not worth sequencing
+    // after discovery just to close that one-cycle gap.
+    ctx.waitUntil(refreshOpenSeaNamedCollections(env));
   },
 };

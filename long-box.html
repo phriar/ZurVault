@@ -95,6 +95,13 @@
   .search-input{ flex:1; min-width:160px; text-transform:none; letter-spacing:.02em; }
   .search-input::placeholder{ color:rgba(255,255,255,0.55); text-transform:uppercase; letter-spacing:.1em; font-size:.68rem; }
 
+  select{
+    background:rgba(0,0,0,0.5); border:1px solid var(--border); color:rgba(255,255,255,0.7);
+    font-family:'DM Mono',monospace; font-size:.68rem; letter-spacing:.1em; text-transform:uppercase;
+    padding:9px 12px; border-radius:2px; max-width:100%; min-width:0;
+  }
+  select:focus{ outline:1px solid rgba(143,111,232,0.4); }
+
   .pills{
     display:flex; gap:8px; padding:16px 32px; flex-wrap:wrap; border-bottom:1px solid var(--border);
     background:rgba(255,255,255,0.015);
@@ -253,6 +260,11 @@
     <input type="number" id="maxPrice" class="price-input" placeholder="Max SOL" min="0" step="0.01">
   </div>
   <input type="text" id="searchInput" class="search-input" placeholder="Search by name&hellip;">
+  <!-- OpenSea-only (toggled in JS alongside marketSub) — built from
+       whichever real collection names + the "Candy DC" catch-all are
+       actually present in the live OpenSea listings, same "don't
+       hardcode what varies" approach as Item Type below. -->
+  <select id="collectionFilter" style="display:none;"><option value="">All Collections</option></select>
   <div class="view-toggle" id="viewToggle">
     <button class="pill active" data-view="grid">Grid</button>
     <button class="pill" data-view="list">List</button>
@@ -312,6 +324,7 @@ const pillsEl = document.getElementById('pills');
 const itemTypePillsEl = document.getElementById('itemTypePills');
 const marketTabsEl = document.getElementById('marketTabs');
 const marketSubEl = document.getElementById('marketSub');
+const collectionFilterEl = document.getElementById('collectionFilter');
 
 let allListings = [];
 let osListings = [];
@@ -321,6 +334,7 @@ let minPrice = null;
 let maxPrice = null;
 let searchQuery = '';
 let selectedTier = null;
+let selectedCollection = '';
 let currentView = 'grid';
 
 // Every item carries `market` ('me'/'os') from load time on, so the
@@ -439,6 +453,22 @@ function renderList(items){
   }).join('');
 }
 
+// OpenSea-only — built from whatever distinct collectionName values are
+// actually present in the live merged listings (candy-dc catch-all +
+// every known real collection, see loadOpenSea()'s own comment), same
+// "don't hardcode what varies" approach as buildItemTypePills() below.
+// Re-run on every loadOpenSea() rather than once, since which real
+// collections have active listings changes over time as the discovery
+// directory grows.
+function buildOsCollectionOptions(){
+  const names = [...new Set(osListings.map(i => i.collectionName).filter(Boolean))].sort();
+  const current = collectionFilterEl.value;
+  collectionFilterEl.innerHTML = '<option value="">All Collections</option>' +
+    names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  if(names.includes(current)) collectionFilterEl.value = current;
+  else selectedCollection = '';
+}
+
 function render(){
   const source = currentMarket === 'os' ? osListings : allListings;
   const items = source
@@ -450,13 +480,14 @@ function render(){
     .filter(i => !searchQuery || `${i.name || ''} ${i.sub || i.character || ''}`.toLowerCase().includes(searchQuery))
     .filter(i => !selectedTier || i.rarity === selectedTier)
     .filter(i => !selectedItemType || i.itemType === selectedItemType)
+    .filter(i => !selectedCollection || i.collectionName === selectedCollection)
     .slice()
     .sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
 
   if(items.length === 0){
     gridEl.className = currentView;
-    const hint = (minPrice !== null || maxPrice !== null || searchQuery || selectedTier || selectedItemType)
-      ? 'Try a wider price range, a different search, a different rarity tier, or a different item type.'
+    const hint = (minPrice !== null || maxPrice !== null || searchQuery || selectedTier || selectedItemType || selectedCollection)
+      ? 'Try a wider price range, a different search, a different rarity tier, a different item type, or a different collection.'
       : 'Check back later.';
     gridEl.innerHTML = `<div class="empty">Nothing matches this filter right now.<br>${hint}</div>`;
     return;
@@ -541,31 +572,48 @@ async function load(){
 // Every active candy-dc listing on OpenSea (not a recent sample — see
 // me-proxy-worker.js's OPENSEA FULL CATALOG section), independent of
 // load() above so a failure in one never touches the other.
+// Fetches one OpenSea listings feed, returning its priced listings or []
+// on any failure/not-ready — a problem with one feed should never blank
+// out whatever the other one has (same "a failure in one never touches
+// the other" independence used throughout this site).
+async function fetchOpenSeaFeed(path){
+  try{
+    const res = await fetch(`${ME_BASE}/${path}`);
+    if(!res.ok) return [];
+    const data = await res.json();
+    if(data.notReady) return [];
+    return (data.listings || []).filter(i => i.price !== null);
+  }catch(e){
+    console.error(e);
+    return [];
+  }
+}
+
+// Combines the flat candy-dc catch-all (opensea-full-listings) with every
+// known real named collection (opensea-named-listings, see
+// me-proxy-worker.js's OPENSEA NAMED COLLECTIONS section) — both already
+// carry the same collectionSlug/collectionName fields server-side, so
+// they merge into one list the Collection dropdown can filter uniformly.
 async function loadOpenSea(){
   osStatus = { text: 'Loading…', isErr: false };
   if(currentMarket === 'os') refreshStatus();
-  try{
-    const res = await fetch(`${ME_BASE}/opensea-full-listings`);
-    if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
 
-    if(data.notReady){
-      osStatus = { text: 'Still gathering data — check back shortly.', isErr: false };
-      if(currentMarket === 'os') refreshStatus();
-      return;
-    }
+  const [catchAll, named] = await Promise.all([
+    fetchOpenSeaFeed('opensea-full-listings'),
+    fetchOpenSeaFeed('opensea-named-listings'),
+  ]);
 
-    osListings = (data.listings || []).filter(i => i.price !== null).map(i => ({ ...i, market: 'os' }));
-    const withRarity = osListings.filter(i => i.rarity).length;
-    if(currentMarket === 'os') buildItemTypePills(osListings);
-    const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
-    osStatus = { text: `${osListings.length} priced listing(s), ${withRarity} with rarity data · updated ${updated}.`, isErr: false };
-  }catch(e){
-    console.error(e);
-    osStatus = { text: 'Could not reach the OpenSea listings service. Try reloading in a moment.', isErr: true };
+  if(catchAll.length === 0 && named.length === 0){
+    osStatus = { text: 'Still gathering data — check back shortly.', isErr: false };
     if(currentMarket === 'os') refreshStatus();
     return;
   }
+
+  osListings = [...catchAll, ...named].map(i => ({ ...i, market: 'os' }));
+  buildOsCollectionOptions();
+  const withRarity = osListings.filter(i => i.rarity).length;
+  if(currentMarket === 'os') buildItemTypePills(osListings);
+  osStatus = { text: `${osListings.length} priced listing(s), ${withRarity} with rarity data.`, isErr: false };
   if(currentMarket === 'os'){
     refreshStatus();
     render();
@@ -615,6 +663,14 @@ marketTabsEl.querySelectorAll('.market-tab').forEach(t => {
     marketTabsEl.querySelectorAll('.market-tab').forEach(x => x.classList.toggle('active', x === t));
     currentMarket = t.dataset.market;
     marketSubEl.hidden = currentMarket !== 'os';
+    collectionFilterEl.style.display = currentMarket === 'os' ? '' : 'none';
+    if(currentMarket !== 'os'){
+      // Magic Eden has no equivalent "real collection" concept the way
+      // OpenSea's does here — reset so switching back to OpenSea later
+      // doesn't silently apply a filter the dropdown can't currently show.
+      selectedCollection = '';
+      collectionFilterEl.value = '';
+    }
     // Item Type only ever applies to Magic Eden data (OS listings carry
     // no itemType field), so this naturally clears/hides on switching —
     // buildItemTypePills() already hides itself when <2 distinct values
@@ -623,6 +679,11 @@ marketTabsEl.querySelectorAll('.market-tab').forEach(t => {
     refreshStatus();
     render();
   });
+});
+
+collectionFilterEl.addEventListener('change', () => {
+  selectedCollection = collectionFilterEl.value;
+  render();
 });
 
 const REFRESH_INTERVAL = 22 * 60 * 1000; // trails the Worker's own 20-min cron refresh
