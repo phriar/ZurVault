@@ -83,6 +83,12 @@
     font-family:'DM Mono',monospace; font-size:.68rem; letter-spacing:.02em;
     padding:9px 12px; border-radius:2px; flex:1; min-width:160px;
   }
+  select{
+    background:rgba(0,0,0,0.5); border:1px solid var(--border); color:rgba(255,255,255,0.7);
+    font-family:'DM Mono',monospace; font-size:.68rem; letter-spacing:.1em; text-transform:uppercase;
+    padding:9px 12px; border-radius:2px; max-width:100%; min-width:0;
+  }
+  select:focus{ outline:1px solid rgba(143,111,232,0.4); }
   .search-input::placeholder{ color:rgba(255,255,255,0.55); text-transform:uppercase; letter-spacing:.1em; font-size:.68rem; }
   .search-input:focus{ outline:1px solid rgba(143,111,232,0.4); }
   .pill{
@@ -279,6 +285,12 @@
 </div>
 
 <div class="controls" id="browseControls">
+  <select id="sortBy">
+    <option value="price-asc" selected>Price: low &rarr; high</option>
+    <option value="price-desc">Price: high &rarr; low</option>
+    <option value="collection-asc">Collection: A &rarr; Z</option>
+    <option value="collection-desc">Collection: Z &rarr; A</option>
+  </select>
   <input type="text" id="searchInput" class="search-input" placeholder="Search by name or collection&hellip;">
   <div class="view-toggle" id="viewToggle">
     <button class="pill active" data-view="grid">Grid</button>
@@ -333,6 +345,7 @@ const ME_BASE = ME_PROXY_BASE + "/v2";
 const statusEl = document.getElementById('status');
 const gridEl = document.getElementById('grid');
 const searchInputEl = document.getElementById('searchInput');
+const sortByEl = document.getElementById('sortBy');
 const viewToggleEl = document.getElementById('viewToggle');
 const modeTabsEl = document.getElementById('modeTabs');
 const browseControlsEl = document.getElementById('browseControls');
@@ -615,10 +628,16 @@ function setMode(mode){
 function render(){
   if(currentMode === 'odds'){ renderOdds(); return; }
 
+  const sort = sortByEl.value;
   const items = allPackListings
     .filter(i => !searchQuery || `${i.name || ''} ${i.sub || ''}`.toLowerCase().includes(searchQuery))
     .slice()
-    .sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
+    .sort((a, b) => {
+      if(sort === 'price-desc') return (b.price ?? -Infinity) - (a.price ?? -Infinity);
+      if(sort === 'collection-asc') return (a.sub || '').localeCompare(b.sub || '') || (a.price ?? Infinity) - (b.price ?? Infinity);
+      if(sort === 'collection-desc') return (b.sub || '').localeCompare(a.sub || '') || (a.price ?? Infinity) - (b.price ?? Infinity);
+      return (a.price ?? Infinity) - (b.price ?? Infinity);
+    });
 
   if(items.length === 0){
     gridEl.className = currentView;
@@ -662,6 +681,8 @@ searchInputEl.addEventListener('input', () => {
   searchQuery = searchInputEl.value.trim().toLowerCase();
   render();
 });
+
+sortByEl.addEventListener('change', render);
 
 oddsSearchInputEl.addEventListener('input', () => {
   oddsSearchQuery = oddsSearchInputEl.value.trim().toLowerCase();
