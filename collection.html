@@ -10,17 +10,17 @@
 <link rel="manifest" href="site.webmanifest">
 <meta name="theme-color" content="#0a0a0a">
 <title>Collection — ZurVault</title>
-<meta name="description" content="Live Magic Eden listings and sales for a DC Comics NFT collection on Solana.">
+<meta name="description" content="Unofficial fan-built DC Comics NFT price tracker — live Magic Eden listings and sales for a Solana collection.">
 <link rel="canonical" href="https://zurvault.com/collection.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="ZurVault">
 <meta property="og:title" content="Collection — ZurVault">
-<meta property="og:description" content="Live Magic Eden listings and sales for a DC Comics NFT collection on Solana.">
+<meta property="og:description" content="Unofficial fan-built DC Comics NFT price tracker — live Magic Eden listings and sales for a Solana collection.">
 <meta property="og:url" content="https://zurvault.com/collection.html">
 <meta property="og:image" content="https://zurvault.com/icon-512.png">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Collection — ZurVault">
-<meta name="twitter:description" content="Live Magic Eden listings and sales for a DC Comics NFT collection on Solana.">
+<meta name="twitter:description" content="Unofficial fan-built DC Comics NFT price tracker — live Magic Eden listings and sales for a Solana collection.">
 <meta name="twitter:image" content="https://zurvault.com/icon-512.png">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 <style>
@@ -453,7 +453,7 @@ async function loadCollection(){
   }
 
   document.title = `${collection.name} — ZurVault`;
-  const collDesc = collection.blurb || `Live Magic Eden listings and sales for ${collection.name}, a DC Comics NFT collection on Solana.`;
+  const collDesc = collection.blurb || `Unofficial fan-built price tracker: live Magic Eden listings and sales for ${collection.name}, a DC Comics NFT collection on Solana.`;
   document.querySelector('meta[name="description"]').setAttribute('content', collDesc);
   document.querySelector('meta[property="og:title"]').setAttribute('content', `${collection.name} — ZurVault`);
   document.querySelector('meta[property="og:description"]').setAttribute('content', collDesc);
