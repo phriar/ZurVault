@@ -9,6 +9,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="site.webmanifest">
 <meta name="theme-color" content="#0a0a0a">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' https: data:; connect-src 'self' https://zurvault-proxy.stholt.workers.dev;">
 <title>Collection — ZurVault</title>
 <meta name="description" content="Unofficial fan-built DC Comics NFT price tracker — live Magic Eden listings and sales for a Solana collection.">
 <link rel="canonical" href="https://zurvault.com/collection.html">
@@ -64,6 +65,12 @@
     margin-top:14px; max-width:560px; font-family:'Cormorant Garamond',serif; font-size:1.05rem;
     line-height:1.65; color:rgba(255,255,255,0.55);
   }
+  .zc-crosslink{
+    margin-top:10px; font-family:'DM Mono',monospace; font-size:.8rem;
+    color:rgba(255,255,255,0.4);
+  }
+  .zc-crosslink a{ color:rgba(143,111,232,0.92); text-decoration:none; }
+  .zc-crosslink a:hover{ color:var(--gold); }
 
   .back-link{
     display:inline-block; margin-top:14px; font-family:'DM Mono',monospace; font-size:.94rem;
@@ -201,6 +208,7 @@
   <div class="brand"><a href="collections.html" id="collCrumbHome">ZurVault</a> / <span id="collCrumbType">Collections</span> / <span id="collNameCrumb">…</span></div>
   <h1 id="collTitle">Loading&hellip;</h1>
   <p class="blurb" id="collBlurb"></p>
+  <p class="zc-crosslink">Own some of these? See your collection on <a href="https://zurcovers.com" target="_blank" rel="noopener">ZurCovers &#8599;</a></p>
   <a class="back-link" id="collBackLink" href="collections.html">&#8592; All Series</a>
   <div class="tabs">
     <div class="tab active" data-view="listings">For Sale</div>
@@ -224,6 +232,7 @@
 <footer>
   Live listing data via Magic Eden public API · <a href="index.html">zurvault.com</a>
 </footer>
+<script src="/site-footer.js"></script>
 
 <script>
 const ME_PROXY_BASE = "https://zurvault-proxy.stholt.workers.dev";
@@ -245,7 +254,13 @@ let currentDisplay = 'grid';
 let currentKind = 'series';
 
 function setStatus(msg, isErr){
-  statusEl.innerHTML = (isErr ? '' : '<span class="dot"></span>') + msg;
+  statusEl.textContent = '';
+  if(!isErr){
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+    statusEl.appendChild(dot);
+  }
+  statusEl.appendChild(document.createTextNode(msg));
   statusEl.classList.toggle('err', !!isErr);
 }
 
@@ -425,7 +440,7 @@ async function loadCollection(){
   if(!raw){
     collTitleEl.textContent = 'Not found';
     collNameCrumbEl.textContent = '?';
-    setStatus(`No series or character matches "${esc(sId || cId || '')}". Go back and pick one from the list.`, true);
+    setStatus(`No series or character matches "${sId || cId || ''}". Go back and pick one from the list.`, true);
     gridEl.innerHTML = `<div class="empty">Unknown series or character.<br><a href="collections.html" style="color:var(--gold)">&#8592; Back to all collections</a></div>`;
     return;
   }
@@ -459,7 +474,7 @@ async function loadCollection(){
   document.querySelector('meta[property="og:description"]').setAttribute('content', collDesc);
   document.querySelector('meta[name="twitter:title"]').setAttribute('content', `${collection.name} — ZurVault`);
   document.querySelector('meta[name="twitter:description"]').setAttribute('content', collDesc);
-  collTitleEl.innerHTML = `${esc(collection.name)}`;
+  collTitleEl.textContent = collection.name;
   collNameCrumbEl.textContent = collection.name;
   if(collection.blurb) collBlurbEl.textContent = collection.blurb;
   renderHistory(collection);

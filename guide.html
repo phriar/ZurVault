@@ -9,6 +9,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="site.webmanifest">
 <meta name="theme-color" content="#0a0a0a">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' https: data:; connect-src 'self' https://zurvault-proxy.stholt.workers.dev;">
 <title>How to Buy, Sell &amp; Read — ZurVault</title>
 <meta name="description" content="Unofficial fan-built guide — how to buy a DC Comics NFT on Magic Eden and read it on candy.io, for Solana collectors.">
 <link rel="canonical" href="https://zurvault.com/guide.html">
@@ -112,7 +113,7 @@
   <h2>2. Buy on Magic Eden</h2>
   <ol>
     <li>Find a comic you want on ZurVault — from a <a href="collections.html?tab=characters" style="color:var(--gold)">character page</a> or the <a href="index.html" style="color:var(--gold)">latest listings</a> — and click through to it.</li>
-    <li>That link opens the listing on <strong>Magic Eden</strong>. Connect your wallet there when prompted.</li>
+    <li>That link opens the listing on <strong>Magic Eden</strong>. Approve your wallet's prompt there to proceed.</li>
     <li>Review the price, then confirm the purchase. Your wallet will ask you to approve the transaction — check the details before approving.</li>
     <li>Once the transaction confirms, the comic NFT is in your wallet.</li>
   </ol>
@@ -120,7 +121,7 @@
 
   <h2>3. Sell on Magic Eden</h2>
   <ol>
-    <li>Go to <strong>Magic Eden</strong> and connect the wallet holding the comic you want to sell.</li>
+    <li>Go to <strong>Magic Eden</strong> and open it with the wallet holding the comic you want to sell.</li>
     <li>Find it in your wallet/profile view, then choose to <strong>list it for sale</strong> — you'll set either a fixed price or start an auction.</li>
     <li>Confirm the listing in your wallet. Nothing is sold yet — this just puts it up for sale.</li>
     <li>Once someone buys it, the SOL lands in your wallet automatically. You can edit the price or cancel the listing at any time before it sells.</li>
@@ -128,7 +129,7 @@
 
   <h2>4. Read on candy.io</h2>
   <ol>
-    <li>Go to <strong>candy.io</strong> and connect the same wallet you used to buy.</li>
+    <li>Go to <strong>candy.io</strong> and open it with the same wallet you used to buy.</li>
     <li>candy.io reads your wallet's holdings and shows the comics you own.</li>
     <li>Open one to read it directly — no separate download or app needed.</li>
   </ol>
@@ -144,5 +145,6 @@
   A ZurVault companion to <a href="https://candy.io" target="_blank" rel="noopener">candy.io</a> · <a href="index.html">zurvault.com</a>
   <p class="support-note">Built by a collector, for collectors. Zur is free to use. If it's helped you find something for your collection, support is welcome, never expected.</p>
 </footer>
+<script src="/site-footer.js"></script>
 </body>
 </html>

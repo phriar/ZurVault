@@ -9,6 +9,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="site.webmanifest">
 <meta name="theme-color" content="#0a0a0a">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' https: data:; connect-src 'self' https://zurvault-proxy.stholt.workers.dev;">
 <title>Grail Comics — ZurVault</title>
 <meta name="description" content="Unofficial fan-built DC Comics NFT price tracker — the comics that built the DC Universe, first appearances and landmark storylines, with live floor price and last sale from Magic Eden.">
 <link rel="canonical" href="https://zurvault.com/grails.html">
@@ -221,6 +222,7 @@
 <footer>
   A ZurVault companion to <a href="https://candy.io" target="_blank" rel="noopener">candy.io</a> · <a href="index.html">zurvault.com</a>
 </footer>
+<script src="/site-footer.js"></script>
 
 <script>
 const ME_PROXY_BASE = "https://zurvault-proxy.stholt.workers.dev";
@@ -447,8 +449,8 @@ async function load(){
       marketBySymbol[grail.symbol] = { floor, lastSale, image, listings: symbolListings, sales: symbolSales };
 
       // Surfaced, not silent — matches this repo's existing convention
-      // (see discover.html's UNRESOLVED_ handling) of flagging sync
-      // gaps in the console rather than failing the page.
+      // (see the discover.html tool's UNRESOLVED_ handling) of flagging
+      // sync gaps in the console rather than failing the page.
       if(!listings.some(l => l.symbol === grail.symbol) && !sales.some(s => s.symbol === grail.symbol)){
         console.warn(`grails-data.js: "${grail.title}" (${grail.symbol}) has no listings or sales in the current /v2/dc-summary response — check it still exists in DC_COLLECTIONS.`);
       }

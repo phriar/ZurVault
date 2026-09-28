@@ -9,6 +9,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="site.webmanifest">
 <meta name="theme-color" content="#0a0a0a">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' https: data:; connect-src 'self' https://zurvault-proxy.stholt.workers.dev;">
 <title>Spotlight — ZurVault</title>
 <meta name="description" content="Unofficial fan-built spotlight on a standout DC Comics NFT issue.">
 <link rel="canonical" href="https://zurvault.com/spotlight.html">
@@ -120,6 +121,7 @@
 <footer>
   A ZurVault companion to <a href="https://candy.io" target="_blank" rel="noopener">candy.io</a> · <a href="index.html">zurvault.com</a>
 </footer>
+<script src="/site-footer.js"></script>
 
 <script>
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
@@ -131,7 +133,13 @@ const loadingEl = document.getElementById('loading');
 const contentEl = document.getElementById('content');
 
 if(!entry){
-  loadingEl.innerHTML = `No spotlight matches "${esc(id)}".<br><a href="collections.html?tab=characters">&#8592; Back to Characters</a>`;
+  loadingEl.textContent = '';
+  loadingEl.appendChild(document.createTextNode(`No spotlight matches "${id}".`));
+  loadingEl.appendChild(document.createElement('br'));
+  const backLink = document.createElement('a');
+  backLink.href = 'collections.html?tab=characters';
+  backLink.textContent = '← Back to Characters';
+  loadingEl.appendChild(backLink);
 }else{
   document.title = `${entry.title} — ZurVault`;
   const spotDesc = `Unofficial fan-built spotlight on ${entry.title}.`;

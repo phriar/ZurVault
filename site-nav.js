@@ -1,7 +1,7 @@
 /* ============================================================
    ZurVault shared top banner. Include right after <body> opens:
      <script src="site-nav.js" data-active="index"></script>
-   data-active values: index | discover | collections | artists | long-box | dollar-bin | spotlight | guide | comics | candy | grails | packs | dashboard | scout
+   data-active values: index | collections | artists | long-box | dollar-bin | spotlight | guide | grails | packs | dashboard | scout | click-stats
 
    Self-injects its own <style> + markup, so every page shares one
    consistent site identity strip instead of duplicating markup.
@@ -23,12 +23,17 @@
 
   var COWL_URL = 'https://arweave.net/uyG3Nvb1UKTtm3q-tdHs4GNYOiEyaSTc7O0zhsc9gIQ';
 
-  // Primary nav is intentionally short. discover.html, comics.html,
-  // candy-watcher.html, and click-stats.html are deliberately unlisted
-  // here (config-generation tool, reading fallback now that candy.io is
-  // primary, a power-user watcher tool, and an internal report,
-  // respectively) — all still work fine at their direct URLs and still
-  // include site-nav.js, they're just not in the banner. grails.html and
+  // Primary nav is intentionally short. click-stats.html is deliberately
+  // unlisted here (an internal report) — still works fine at its direct
+  // URL and still includes site-nav.js, it's just not in the banner.
+  // discover.html, comics.html, and candy-watcher.html (config-generation
+  // tool, comic-reader fallback, and power-user chain watcher) were removed
+  // from this repo entirely 2026-09-27 as part of the Safe Browsing
+  // cleanup — wallet-address inputs and a `?url=`-driven remote fetch read
+  // as wallet-drainer-shaped UI to Google's classifier regardless of what
+  // they actually did. Archived outside the repo at ../zurvault-tools/;
+  // don't relink them here without addressing that pattern first, same
+  // rule as the slideshow.html retirement below. grails.html and
   // spotlight.html joined that same unlisted-but-functional group
   // 2026-08-19 by user request (own direct-URL cross-links from other
   // pages — e.g. index.html's spotlight
@@ -52,8 +57,9 @@
   // the repo, not just unlisted, alongside slideshow-legacy.html — while
   // the Safe Browsing review is active.
   // scout/index.html (added 2026-08-25) joined the unlisted group too —
-  // an AI comic-search POC, same "direct URL only" treatment as
-  // discover.html. It's also the reason PAGES' hrefs (and zv-brand's,
+  // an AI comic-search POC, same "direct URL only" treatment discover.html
+  // used to get before it was removed outright (see above). It's also the
+  // reason PAGES' hrefs (and zv-brand's,
   // below) became root-relative: Scout lives one directory deep, where a
   // document-relative "index.html" would resolve to scout/index.html
   // itself instead of the real homepage.
@@ -63,12 +69,16 @@
   // the real homepage. Root-relative resolves correctly from any depth,
   // and is identical to the old document-relative behavior for every
   // page at the root, so this is a no-op change for everything but Scout.
-  // 'zurcovers' (added 2026-09-01) is the one PAGES entry that isn't a page
-  // in this repo — zurcovers.com is a separate sibling product (its own
-  // "Long Box" is a wallet's held-collection shelf view, a different concept
-  // from this site's marketplace browsing — see long-box.html's own rename
-  // comment). `external: true` opens it in a new tab and skips the "active"
-  // treatment below, since no page here ever passes data-active="zurcovers".
+  // 'zurcovers' (added 2026-09-01, relabeled "My Collection ↗" 2026-09-27
+  // per the ZurVault/ZurCovers link-contract cleanup) is the one PAGES
+  // entry that isn't a page in this repo — zurcovers.com is a separate
+  // sibling product (its own "Long Box" is a wallet's held-collection
+  // shelf view, a different concept from this site's marketplace browsing
+  // — see long-box.html's own rename comment). `external: true` opens it
+  // in a new tab and skips the "active" treatment below, since no page
+  // here ever passes data-active="zurcovers". Points at the zurcovers.com
+  // root for now — Part B of the cleanup brief resolves the actual wallet
+  // landing route; update the href once that's known instead of the root.
   var PAGES = [
     { id: 'index',       label: 'Listings',      href: '/index.html' },
     { id: 'collections', label: 'Characters',    href: '/collections.html?tab=characters' },
@@ -78,7 +88,7 @@
     { id: 'packs',       label: 'Packs',         href: '/packs.html' },
     { id: 'dashboard',   label: 'Dashboard',     href: '/dashboard.html' },
     { id: 'guide',       label: 'How To',        href: '/guide.html' },
-    { id: 'zurcovers',   label: 'ZurCovers ↗',   href: 'https://zurcovers.com', external: true },
+    { id: 'zurcovers',   label: 'My Collection ↗', href: 'https://zurcovers.com', external: true },
   ];
 
   var style = document.createElement('style');

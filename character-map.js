@@ -21,8 +21,9 @@
        Infinite Earths x3, Dark Crisis, Absolute Power, DCeased, Legends,
        DC Worlds Collide, Blackest Night)
      - entries that aren't comics at all (MLB-branded NFTs, "Achievements")
-     - UNRESOLVED_* symbols (no confirmed Magic Eden symbol yet — see
-       discover.html)
+     - UNRESOLVED_* symbols (no confirmed Magic Eden symbol yet — resolve
+       via the discover.html tool, archived at ../zurvault-tools/ outside
+       this repo since 2026-09-27's Safe Browsing cleanup)
      - single-collection "own character" candidates that could become their
        own bucket later but aren't worth a page yet: Green Arrow, Poison
        Ivy, The Demon, The Spectre, Peacemaker, Shazam/Whiz Comics

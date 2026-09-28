@@ -9,6 +9,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="site.webmanifest">
 <meta name="theme-color" content="#0a0a0a">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' https: data:; connect-src 'self' https://zurvault-proxy.stholt.workers.dev;">
 <title>Artist — ZurVault</title>
 <meta name="description" content="Unofficial fan-built DC Comics NFT price tracker — live Magic Eden listings and sales by cover artist.">
 <link rel="canonical" href="https://zurvault.com/artist.html">
@@ -60,6 +61,12 @@
     font-size:clamp(1.8rem,5vw,2.6rem); color:rgba(255,255,255,0.92); margin-top:10px;
   }
   header h1 span{ color:var(--gold); }
+  .zc-crosslink{
+    margin-top:10px; font-family:'DM Mono',monospace; font-size:.8rem;
+    color:rgba(255,255,255,0.4);
+  }
+  .zc-crosslink a{ color:rgba(143,111,232,0.92); text-decoration:none; }
+  .zc-crosslink a:hover{ color:var(--gold); }
 
   .back-link{
     display:inline-block; margin-top:14px; font-family:'DM Mono',monospace; font-size:.94rem;
@@ -153,6 +160,7 @@
 <header>
   <div class="brand"><a href="artists.html">ZurVault</a> / Artists / <span id="artistNameCrumb">…</span></div>
   <h1 id="artistTitle">Loading&hellip;</h1>
+  <p class="zc-crosslink">Own some of these? See your collection on <a href="https://zurcovers.com" target="_blank" rel="noopener">ZurCovers &#8599;</a></p>
   <a class="back-link" href="artists.html">&#8592; All Artists</a>
 </header>
 
@@ -174,6 +182,7 @@
 <footer>
   Live listing data via Magic Eden public API · <a href="index.html">zurvault.com</a>
 </footer>
+<script src="/site-footer.js"></script>
 
 <script>
 const ME_PROXY_BASE = "https://zurvault-proxy.stholt.workers.dev";
@@ -283,7 +292,7 @@ async function loadArtist(){
   document.querySelector('meta[property="og:description"]').setAttribute('content', artistDesc);
   document.querySelector('meta[name="twitter:title"]').setAttribute('content', `${artistName} — ZurVault`);
   document.querySelector('meta[name="twitter:description"]').setAttribute('content', artistDesc);
-  artistTitleEl.innerHTML = `${esc(artistName)}`;
+  artistTitleEl.textContent = artistName;
   artistNameCrumbEl.textContent = artistName;
 
   setStatus('Loading…');

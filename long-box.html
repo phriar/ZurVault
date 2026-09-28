@@ -9,6 +9,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="site.webmanifest">
 <meta name="theme-color" content="#0a0a0a">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' https: data:; connect-src 'self' https://zurvault-proxy.stholt.workers.dev;">
 <title>The Back Issue Bin — ZurVault</title>
 <meta name="description" content="Unofficial fan-built DC Comics NFT price tracker — the cheapest listings across every tracked Solana collection, sorted low to high, filter by price range and rarity tier.">
 <link rel="canonical" href="https://zurvault.com/long-box.html">
@@ -291,6 +292,7 @@
   Live listing data via Magic Eden and OpenSea public APIs · <a href="index.html">zurvault.com</a>
   <p class="support-note">Built by a collector, for collectors. Zur is free to use. If it's helped you find something for your collection, support is welcome, never expected.</p>
 </footer>
+<script src="/site-footer.js"></script>
 <script>
 const ME_PROXY_BASE = "https://zurvault-proxy.stholt.workers.dev";
 const ME_BASE = ME_PROXY_BASE + "/v2";
@@ -692,6 +694,32 @@ collectionFilterEl.addEventListener('change', () => {
   selectedCollection = collectionFilterEl.value;
   render();
 });
+
+// Cross-site link contract (ZurCovers → ZurVault): ?q= pre-fills the name/
+// sub-collection search and applies it on load, same sanitization as manual
+// typing (searchQuery only ever does a substring match against
+// already-fetched listing data — never touches the DOM as markup). ?min=/
+// ?max= optionally pre-fill the price range the same way. Values just
+// populate the existing inputs and state vars; render() picks them up
+// exactly like a normal user edit would.
+(function applyUrlParams(){
+  const params = new URLSearchParams(window.location.search);
+  const q = params.get('q');
+  if(q){
+    searchInputEl.value = q;
+    searchQuery = q.trim().toLowerCase();
+  }
+  const min = parsePriceInput({ value: params.get('min') || '' });
+  if(min !== null){
+    minPriceEl.value = min;
+    minPrice = min;
+  }
+  const max = parsePriceInput({ value: params.get('max') || '' });
+  if(max !== null){
+    maxPriceEl.value = max;
+    maxPrice = max;
+  }
+})();
 
 const REFRESH_INTERVAL = 22 * 60 * 1000; // trails the Worker's own 20-min cron refresh
 load();

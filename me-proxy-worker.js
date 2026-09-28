@@ -31,8 +31,9 @@
  * 1. Go to https://dash.cloudflare.com → Workers & Pages → Create → Worker
  * 2. Delete the default code, paste this whole file in, click Deploy
  * 3. Note the URL Cloudflare gives you, e.g. https://zurvault-me-proxy.YOURNAME.workers.dev
- * 4. In dc.html / discover.html, change ME_BASE to that URL instead of
- *    https://api-mainnet.magiceden.dev/v2
+ * 4. In dc.html / the discover.html tool (../zurvault-tools/discover.html,
+ *    archived outside this repo since 2026-09-27), change ME_BASE to that
+ *    URL instead of https://api-mainnet.magiceden.dev/v2
  * 5. Create a KV namespace (Workers & Pages → KV → Create), bind it to this
  *    Worker as `DC_CACHE` (Worker Settings → Variables → KV Namespace
  *    Bindings), and add a Cron Trigger under Worker Settings → Triggers
@@ -90,7 +91,7 @@ const EDGE_CACHE_SECONDS = 60;
 // dropdown instantly with no network round-trip; this Worker needs its own
 // copy because the scheduled() cron handler below runs independently of
 // any visitor's page load and has to know what to fetch on its own. When
-// you resolve a new collection via discover.html, update BOTH copies.
+// you resolve a new collection via the discover.html tool, update BOTH copies.
 // ---------------------------------------------------------------------
 const DC_COLLECTIONS = [
   { sub: "Absolute Green Lantern (2025-)", symbol: "absolute_green_lantern_2025_1" },
@@ -2453,8 +2454,9 @@ export default {
       }
     }
 
-    // Not linked from anywhere in the live site — same "direct URL only"
-    // treatment as discover.html/candy-watcher.html. Tallies, the daily
+    // Not linked from anywhere in the live site — an internal report,
+    // same "direct URL only" treatment click-stats.html has always had.
+    // Tallies, the daily
     // trend, and the recent feed all come from key names only (see above),
     // so this stays cheap even with a large backlog of click entries.
     // RECENT_CLICK_FEED_LIMIT caps the individual-click feed's response
