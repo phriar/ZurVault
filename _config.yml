@@ -1,0 +1,13 @@
+# GitHub Pages (Jekyll) build settings.
+# Keep internal notes, Worker source, and editor junk off the public site;
+# only the HTML/JS pages and assets should be served at zurvault.com.
+include:
+  - .well-known
+exclude:
+  - CLAUDE.md
+  - README.md
+  - SCOUT-PLAN.md
+  - zurvault-collections-export.md
+  - me-proxy-worker.js
+  - .DS_Store
+  - .gitignore

@@ -1151,8 +1151,8 @@ async function loadAll(isRefresh){
         .map(c => `<option value="${c.sub}">${c.sub}</option>`).join('');
 
     // Deep-link support: ?symbol=<Magic Eden symbol> pre-selects the
-    // matching sub-collection, so an external site (zurcovers.com's wallet
-    // viewer, so far) that only knows a listing's ME symbol — not this
+    // matching sub-collection, so an external site (zurcovers.com,
+    // so far) that only knows a listing's ME symbol — not this
     // page's own "sub" display label — can link straight into that
     // collection's listings instead of the unfiltered view. Silent no-op
     // on an unknown/UNRESOLVED_* symbol: leaves the dropdown at "All

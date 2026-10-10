@@ -26,14 +26,9 @@
   // Primary nav is intentionally short. click-stats.html is deliberately
   // unlisted here (an internal report) — still works fine at its direct
   // URL and still includes site-nav.js, it's just not in the banner.
-  // discover.html, comics.html, and candy-watcher.html (config-generation
-  // tool, comic-reader fallback, and power-user chain watcher) were removed
-  // from this repo entirely 2026-09-27 as part of the Safe Browsing
-  // cleanup — wallet-address inputs and a `?url=`-driven remote fetch read
-  // as wallet-drainer-shaped UI to Google's classifier regardless of what
-  // they actually did. Archived outside the repo at ../zurvault-tools/;
-  // don't relink them here without addressing that pattern first, same
-  // rule as the slideshow.html retirement below. grails.html and
+  // discover.html, comics.html, and candy-watcher.html (internal tools)
+  // were retired 2026-09-27 and are not part of the public site; see
+  // CLAUDE.md before relinking anything here. grails.html and
   // spotlight.html joined that same unlisted-but-functional group
   // 2026-08-19 by user request (own direct-URL cross-links from other
   // pages — e.g. index.html's spotlight
@@ -53,9 +48,7 @@
   // pair, under the `collections` nav id, that character browsing has
   // lived in since characters.html/character.html were retired outright —
   // that retirement wasn't reversed, this is a nav-link change only.
-  // slideshow.html was pulled the same way on 2026-08-09 — removed from
-  // the repo, not just unlisted, alongside slideshow-legacy.html — while
-  // the Safe Browsing review is active.
+  // slideshow.html was retired the same way on 2026-08-09.
   // scout/index.html (added 2026-08-25) joined the unlisted group too —
   // an AI comic-search POC, same "direct URL only" treatment discover.html
   // used to get before it was removed outright (see above). It's also the
@@ -72,13 +65,12 @@
   // 'zurcovers' (added 2026-09-01, relabeled "My Collection ↗" 2026-09-27
   // per the ZurVault/ZurCovers link-contract cleanup) is the one PAGES
   // entry that isn't a page in this repo — zurcovers.com is a separate
-  // sibling product (its own "Long Box" is a wallet's held-collection
+  // sibling product (its own "Long Box" is a held-collection
   // shelf view, a different concept from this site's marketplace browsing
   // — see long-box.html's own rename comment). `external: true` opens it
   // in a new tab and skips the "active" treatment below, since no page
   // here ever passes data-active="zurcovers". Points at the zurcovers.com
-  // root for now — Part B of the cleanup brief resolves the actual wallet
-  // landing route; update the href once that's known instead of the root.
+  // root for now; update the href once its landing route is known.
   var PAGES = [
     { id: 'index',       label: 'Listings',      href: '/index.html' },
     { id: 'collections', label: 'Characters',    href: '/collections.html?tab=characters' },
