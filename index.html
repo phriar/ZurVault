@@ -765,6 +765,28 @@ async function loadLiquidity(){
   }
 
   liquidityStatusEl.textContent = data.updatedAt ? `Updated ${new Date(data.updatedAt).toLocaleTimeString()}` : '';
+  applyOsLiquidity();
+}
+
+// OpenSea's own stats endpoint (what /v2/liquidity reports above) only
+// covers the candy-dc catch-all collection, while most OpenSea trading
+// happens in the per-issue collections. Once /v2/os-summary is serving
+// per-collection sales (salesScope 'collections'), the OpenSea card is
+// recomputed from those instead: floor = cheapest active listing, volume
+// and counts = summed sales in the window. Runs after either feed loads.
+function applyOsLiquidity(){
+  const d = data.os;
+  if(!d.loaded || d.salesScope !== 'collections') return;
+  const nowSec = Date.now() / 1000;
+  const toSec = ts => ts > 1e12 ? ts / 1000 : ts;
+  const inWindow = secs => d.sales.filter(x => x.price !== null && x.soldAt && nowSec - toSec(x.soldAt) <= secs);
+  const s24 = inWindow(86400), s7 = inWindow(7 * 86400);
+  const sum = arr => arr.reduce((t, x) => t + x.price, 0);
+  const prices = d.listings.map(x => x.price).filter(p => typeof p === 'number');
+  setLiquidityField('openSea', 'floor', prices.length ? `${fmtSol(Math.min(...prices))} SOL` : '—');
+  setLiquidityField('openSea', 'vol24h', `${fmtSol(sum(s24))} SOL`);
+  setLiquidityField('openSea', 'sales24h', String(s24.length));
+  setLiquidityField('openSea', 'sub7d', `7d: ${fmtSol(sum(s7))} SOL · ${s7.length} sales`);
 }
 
 function shortMint(mint){
@@ -931,6 +953,7 @@ async function loadOS(isRefresh){
   Object.assign(data.os, { listings: d.listings, sales: d.sales, salesScope: d.salesScope, loaded: true });
   const collections = new Set(d.listings.map(i => i.sub)).size;
   setMarketStatus('os', `${d.listings.length} OpenSea listings across ${collections} collection(s), ${d.sales.length} recent sales · updated ${updatedTime(d.updatedAt)}, auto-refreshes every 22 min.`);
+  applyOsLiquidity();
   if(market === 'os') activateMarket('os');
 }
 

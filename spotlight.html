@@ -167,6 +167,7 @@ if(!entry){
     ctaHtml = `
       <div class="cta">
         <div class="cta-text">View this collection</div>
+        <a class="cta-btn" href="index.html?symbol=${encodeURIComponent(entry.collectionSymbol)}">Listings on ZurVault</a>
         <a class="cta-btn" href="https://magiceden.io/marketplace/${encodeURIComponent(entry.collectionSymbol)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(entry.collectionSymbol)}">Magic Eden &#8599;</a>
       </div>`;
   }

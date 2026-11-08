@@ -272,9 +272,12 @@
 <header>
   <h1>Sealed <span>Packs</span></h1>
   <p class="sub">Every currently-listed Pack across every tracked DC collection, sorted cheapest first. Packs aren't their own collection — "Pack" is an item type that shows up alongside individual comics within a collection's own listing pool, so this page filters live across all of them rather than tracking a separate catalog.</p>
-  <p class="note">For Sale only. Magic Eden's sales/activity data doesn't carry item-type attributes the way live listings do, so a "Recently Sold Packs" view isn't possible from what this site currently tracks.</p>
-  <p class="note">The <strong>Pack Odds</strong> tab estimates what rarity tier you'd pull from each series' Packs, from live Magic Eden listing data — it is <strong>not</strong> official candy.io pack-fill data. Full explanation of the source and method is pinned at the top of that tab.</p>
+  <p class="note">For Sale only — a "Recently Sold Packs" view isn't possible from what this site currently tracks, since sales data doesn't reliably carry the item-type attribute live listings do.</p>
+  <p class="note">The <strong>Pack Odds</strong> tab estimates what rarity tier you'd pull from each series' Packs, from live listing data on whichever marketplace is selected — it is <strong>not</strong> official candy.io pack-fill data. Full explanation of the source and method is pinned at the top of that tab.</p>
 </header>
+
+<!-- OpenSea / Magic Eden switch (os-data.js) — OpenSea default. -->
+<div id="marketSwitch"></div>
 
 <div class="tabs" id="modeTabs">
   <div class="tab active" data-mode="browse">Browse Packs</div>
@@ -321,6 +324,7 @@
   <p class="support-note">Built by a collector, for collectors. Zur is free to use. If it's helped you find something for your collection, support is welcome, never expected.</p>
 </footer>
 <script src="/site-footer.js"></script>
+<script src="/os-data.js"></script>
 <script>
 const ME_PROXY_BASE = "https://zurvault-proxy.stholt.workers.dev";
 const ME_BASE = ME_PROXY_BASE + "/v2";
@@ -397,7 +401,7 @@ function renderGrid(items){
     const edition = parseEdition(i.name);
     return `
       <div class="card">
-        <a class="card-link" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}" data-track-mint="${esc(i.mintAddress)}">
+        <a class="card-link" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" ${ZurOS.trackAttrs(i, i.mintAddress, esc)}>
           <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
           <div class="body">
             <div class="sub">${esc(i.sub)}</div>
@@ -405,7 +409,7 @@ function renderGrid(items){
             ${rarityBadge(i.rarity, i.rarityPct)}
             ${tags ? `<div class="tags">${tags}</div>` : ''}
             <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
-            <div class="me-tag">Magic Eden &#8599;</div>
+            ${ZurOS.marketTag(i)}
             ${edition ? `<div class="mint">${edition}</div>` : ''}
           </div>
         </a>
@@ -423,7 +427,7 @@ function renderList(items){
     const edition = parseEdition(i.name);
     return `
       <div class="list-row">
-        <a class="row-link" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}" data-track-mint="${esc(i.mintAddress)}">
+        <a class="row-link" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" ${ZurOS.trackAttrs(i, i.mintAddress, esc)}>
           <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
           <div class="info">
             <div class="sub">${esc(i.sub)}</div>
@@ -433,7 +437,7 @@ function renderList(items){
           </div>
           <div class="price-col">
             <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
-            <div class="me-tag">Magic Eden &#8599;</div>
+            ${ZurOS.marketTag(i)}
             ${edition ? `<div class="mint">${edition}</div>` : ''}
           </div>
         </a>
@@ -568,10 +572,10 @@ function oddsCardHTML(g){
       <div class="pct-col">${unratedPct.toFixed(1)}% <span class="src">${g.unratedCount} seen</span></div>
     </div>` : '';
   const buyCTA = g.cheapestPack ? `
-    <a class="odds-buy" href="${esc(g.cheapestPack.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(g.symbol)}" data-track-mint="${esc(g.cheapestPack.mintAddress)}">
+    <a class="odds-buy" href="${esc(g.cheapestPack.pdpUrl)}" target="_blank" rel="noopener" ${ZurOS.trackAttrs(g.cheapestPack, g.cheapestPack.mintAddress, esc)}>
       Buy a Pack &middot; <span class="buy-price">${g.cheapestPack.price !== null ? g.cheapestPack.price + ' SOL' : '—'}</span> &#8599;
     </a>
-    <div class="odds-buy-meta">${g.packCount} Pack${g.packCount === 1 ? '' : 's'} currently listed for this series &middot; opens the cheapest one on Magic Eden</div>` : '';
+    <div class="odds-buy-meta">${g.packCount} Pack${g.packCount === 1 ? '' : 's'} currently listed for this series &middot; opens the cheapest one on ${ZurOS.marketLabel(market)}</div>` : '';
   return `
     <div class="odds-card">
       <div class="odds-head">
@@ -635,30 +639,70 @@ function render(){
   else renderGrid(items);
 }
 
+// One dataset per marketplace; the switch picks which one renders.
+// OpenSea items get itemType from the Worker's OpenSea metadata (see
+// os-data.js) — until that's gathered, OpenSea simply shows no Packs.
+let market = ZurOS.getMarket();
+const byMarket = { os: null, me: null };
+const marketStatus = { os: null, me: null };
+
+function setMarketStatus(m, msg, isErr){
+  marketStatus[m] = [msg, !!isErr];
+  if(m === market) setStatus(msg, isErr);
+}
+function showMarket(m){
+  if(m) market = m;
+  const d = byMarket[market] || { listings: [], sales: [] };
+  allListings = d.listings;
+  allPackListings = allListings.filter(i => i.itemType === 'Pack');
+  allSales = d.sales;
+  if(marketStatus[market]) setStatus(...marketStatus[market]); else setStatus('Loading…');
+  render();
+}
+function updatedText(ts){
+  return ts ? new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+}
+
+async function loadOS(force){
+  try{
+    const d = await ZurOS.load(force);
+    const listings = d.listings.filter(i => i.price !== null);
+    byMarket.os = { listings, sales: d.sales };
+    const packs = listings.filter(i => i.itemType === 'Pack').length;
+    const typed = listings.filter(i => i.itemType).length;
+    const pending = !typed && listings.length ? ' · OpenSea item-type data is still being gathered' : '';
+    setMarketStatus('os', `${packs} Pack listing(s) on OpenSea · updated ${updatedText(d.updatedAt)}${pending}.`);
+  }catch(e){
+    console.error(e);
+    setMarketStatus('os', 'Could not reach the OpenSea listings service. Try reloading in a moment.', true);
+  }
+  if(market === 'os') showMarket();
+}
+
 async function load(){
-  setStatus('Loading…');
   try{
     const res = await fetch(`${ME_BASE}/dc-summary`);
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
     if(data.notReady){
-      setStatus('The listings service is still setting up — check back in a few minutes.', true);
+      setMarketStatus('me', 'The listings service is still setting up — check back in a few minutes.', true);
       return;
     }
 
-    allListings = (data.listings || []).filter(i => i.price !== null);
-    allPackListings = allListings.filter(i => i.itemType === 'Pack');
-    allSales = data.sales || [];
-    const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
-    setStatus(`${allPackListings.length} Pack listing(s) tracked · updated ${updated}.`);
+    const listings = (data.listings || []).filter(i => i.price !== null);
+    byMarket.me = { listings, sales: data.sales || [] };
+    setMarketStatus('me', `${listings.filter(i => i.itemType === 'Pack').length} Pack listing(s) on Magic Eden · updated ${updatedText(data.updatedAt)}.`);
   }catch(e){
     console.error(e);
-    setStatus('Could not reach the listings service. Try reloading in a moment.', true);
+    setMarketStatus('me', 'Could not reach the Magic Eden listings service. Try reloading in a moment.', true);
     return;
   }
-  render();
+  if(market === 'me') showMarket();
 }
+
+ZurOS.mountMarketSwitch(document.getElementById('marketSwitch'), market, showMarket);
+setStatus('Loading…');
 
 searchInputEl.addEventListener('input', () => {
   searchQuery = searchInputEl.value.trim().toLowerCase();
@@ -686,6 +730,8 @@ viewToggleEl.querySelectorAll('.pill[data-view]').forEach(p => {
 });
 
 const REFRESH_INTERVAL = 22 * 60 * 1000; // trails the Worker's own 20-min cron refresh
+loadOS();
+setInterval(() => loadOS(true), REFRESH_INTERVAL);
 load();
 setInterval(load, REFRESH_INTERVAL);
 </script>

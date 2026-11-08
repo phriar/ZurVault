@@ -209,8 +209,11 @@
 <header>
   <div class="brand"><a href="index.html">ZurVault</a> / Grail Comics</div>
   <h1>Grail <span>Comics</span></h1>
-  <p class="sub">The comics that built the DC Universe — first appearances and landmark storylines, readable for the first time as NFTs. Live floor price and last sale pulled straight from Magic Eden.</p>
+  <p class="sub">The comics that built the DC Universe — first appearances and landmark storylines, readable for the first time as NFTs. Live floor price and last sale pulled straight from OpenSea and Magic Eden.</p>
 </header>
+
+<!-- OpenSea / Magic Eden switch (os-data.js) — OpenSea default. -->
+<div id="marketSwitch"></div>
 
 <div class="pills" id="pills">
   <button class="pill active" data-era="">All Eras</button>
@@ -223,6 +226,7 @@
   A ZurVault companion to <a href="https://candy.io" target="_blank" rel="noopener">candy.io</a> · <a href="index.html">zurvault.com</a>
 </footer>
 <script src="/site-footer.js"></script>
+<script src="/os-data.js"></script>
 
 <script>
 const ME_PROXY_BASE = "https://zurvault-proxy.stholt.workers.dev";
@@ -233,7 +237,6 @@ const gridEl = document.getElementById('grid');
 const pillsEl = document.getElementById('pills');
 
 let selectedEra = '';
-let marketBySymbol = {};
 
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 
@@ -283,7 +286,17 @@ function buildEraPills(){
 // grails-data.js, for the same reason pricing does: it's marketplace
 // data, not editorial content.
 function joinMarketData(symbol){
-  return marketBySymbol[symbol] || { floor: null, lastSale: null, image: '', listings: [], sales: [] };
+  return (marketData[market] || {})[symbol] || { floor: null, lastSale: null, image: '', listings: [], sales: [] };
+}
+
+// "Browse full collection" on the active marketplace — OpenSea's own
+// collection page when we know its slug for this symbol, else Magic Eden.
+function browseLink(symbol){
+  const osColl = market === 'os' && osCollections.find(c => c.symbol === symbol);
+  if(osColl){
+    return `<a class="browse-link" href="https://opensea.io/collection/${encodeURIComponent(osColl.slug)}" target="_blank" rel="noopener">Browse full collection on OpenSea &#8599;</a>`;
+  }
+  return `<a class="browse-link" href="https://magiceden.io/marketplace/${encodeURIComponent(symbol)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(symbol)}">Browse full collection on Magic Eden &#8599;</a>`;
 }
 
 function renderCard(grail){
@@ -317,14 +330,14 @@ function renderCard(grail){
 
   const listingsPanel = listings.length
     ? listings.map(l => `
-        <a class="item-row" href="${esc(l.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(l.symbol)}" data-track-mint="${esc(l.mintAddress)}">
+        <a class="item-row" href="${esc(l.pdpUrl)}" target="_blank" rel="noopener" ${ZurOS.trackAttrs(l, l.mintAddress, esc)}>
           <img ${l.image ? `src="${esc(l.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
           <div class="item-info">
             <div class="item-name">${esc(l.name)}</div>
           </div>
           <div class="item-price-col">
             <div class="item-price">${l.price} SOL</div>
-            <div class="me-tag">Magic Eden &#8599;</div>
+            ${ZurOS.marketTag(l)}
           </div>
         </a>
       `).join('')
@@ -332,15 +345,15 @@ function renderCard(grail){
 
   const salesPanel = sales.length
     ? sales.map(s => `
-        <a class="item-row" href="${esc(s.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(s.symbol)}" data-track-mint="${esc(s.mint)}">
+        <a class="item-row" href="${esc(s.pdpUrl)}" target="_blank" rel="noopener" ${ZurOS.trackAttrs(s, s.mint, esc)}>
           <img ${s.image ? `src="${esc(s.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
           <div class="item-info">
-            <div class="item-name">Sold &middot; ${shortMint(s.mint)}</div>
+            <div class="item-name">${s.market === 'os' ? esc(s.name || 'Sold') : `Sold &middot; ${shortMint(s.mint)}`}</div>
             ${s.soldAt ? `<div class="item-time">${timeAgo(s.soldAt)}</div>` : ''}
           </div>
           <div class="item-price-col">
             <div class="item-price">${s.price} SOL</div>
-            <div class="me-tag">Magic Eden &#8599;</div>
+            ${ZurOS.marketTag(s)}
           </div>
         </a>
       `).join('')
@@ -378,7 +391,7 @@ function renderCard(grail){
       <div class="item-panel" data-symbol="${symbolAttr}" data-panel="listings" hidden>${listingsPanel}</div>
       <div class="item-panel" data-symbol="${symbolAttr}" data-panel="sales" hidden>${salesPanel}</div>
       <div class="card-cta">
-        <a class="browse-link" href="https://magiceden.io/marketplace/${encodeURIComponent(grail.symbol)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(grail.symbol)}">Browse full collection on Magic Eden &#8599;</a>
+        ${browseLink(grail.symbol)}
       </div>
     </div>
   `;
@@ -412,64 +425,90 @@ gridEl.addEventListener('click', (e) => {
   btn.classList.toggle('active', willShow);
 });
 
-async function load(){
-  buildEraPills();
-  setStatus('Loading live pricing&hellip;');
+// Per-marketplace market data per grail symbol; the switch picks which
+// one the cards read. Never mixed into one floor/last-sale figure.
+let market = ZurOS.getMarket();
+const marketData = { os: {}, me: {} };
+const marketStatus = { os: null, me: null };
+let osCollections = [];
 
+function buildMarketBySymbol(listings, sales){
+  const out = {};
+  for(const grail of GRAIL_COMICS){
+    const symbolListings = listings
+      .filter(l => l.symbol === grail.symbol && l.price !== null)
+      .slice()
+      .sort((a, b) => a.price - b.price);
+    const floor = symbolListings.length ? symbolListings[0].price : null;
+    const image = (listings.find(l => l.symbol === grail.symbol && l.image) || sales.find(s => s.symbol === grail.symbol && s.image) || {}).image || '';
+    const symbolSales = sales
+      .filter(s => s.symbol === grail.symbol && s.price !== null)
+      .slice()
+      .sort((a, b) => (b.soldAt || 0) - (a.soldAt || 0));
+    const lastSale = symbolSales.length ? symbolSales[0] : null;
+    out[grail.symbol] = { floor, lastSale, image, listings: symbolListings, sales: symbolSales };
+  }
+  return out;
+}
+
+function updatedText(ts){
+  return ts ? new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+}
+
+function setMarketStatus(m, msg, isErr){
+  marketStatus[m] = [msg, !!isErr];
+  if(m === market) setStatus(msg, isErr);
+}
+
+function showMarket(m){
+  if(m) market = m;
+  if(marketStatus[market]) setStatus(...marketStatus[market]);
+  render();
+}
+
+async function loadOS(force){
+  try{
+    const d = await ZurOS.load(force);
+    osCollections = d.collections || [];
+    marketData.os = buildMarketBySymbol(d.listings, d.sales);
+    setMarketStatus('os', `${GRAIL_COMICS.length} grail comic(s) &middot; OpenSea pricing updated ${updatedText(d.updatedAt)}.`);
+  }catch(e){
+    console.error(e);
+    setMarketStatus('os', 'Could not reach the OpenSea listings service — showing grail write-ups without live pricing. Try reloading in a moment.', true);
+  }
+  if(market === 'os') render();
+}
+
+async function loadME(){
   try{
     const res = await fetch(`${ME_BASE}/dc-summary`);
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-
     if(data.notReady){
-      setStatus('The listings service is still setting up — pricing will appear once it finishes its first scan.', true);
-      marketBySymbol = {};
-      render();
-      return;
+      setMarketStatus('me', 'The listings service is still setting up — pricing will appear once it finishes its first scan.', true);
+    } else {
+      marketData.me = buildMarketBySymbol(data.listings || [], data.sales || []);
+      setMarketStatus('me', `${GRAIL_COMICS.length} grail comic(s) &middot; Magic Eden pricing updated ${updatedText(data.updatedAt)}.`);
     }
-
-    const listings = data.listings || [];
-    const sales = data.sales || [];
-    marketBySymbol = {};
-
-    for(const grail of GRAIL_COMICS){
-      const symbolListings = listings
-        .filter(l => l.symbol === grail.symbol && l.price !== null)
-        .slice()
-        .sort((a, b) => a.price - b.price);
-      const floor = symbolListings.length ? symbolListings[0].price : null;
-      const image = (listings.find(l => l.symbol === grail.symbol) || {}).image || '';
-
-      const symbolSales = sales
-        .filter(s => s.symbol === grail.symbol && s.price !== null)
-        .slice()
-        .sort((a, b) => (b.soldAt || 0) - (a.soldAt || 0));
-      const lastSale = symbolSales.length ? symbolSales[0] : null;
-
-      marketBySymbol[grail.symbol] = { floor, lastSale, image, listings: symbolListings, sales: symbolSales };
-
-      // Surfaced, not silent — matches this repo's existing convention
-      // (see the discover.html tool's UNRESOLVED_ handling) of flagging
-      // sync gaps in the console rather than failing the page.
-      if(!listings.some(l => l.symbol === grail.symbol) && !sales.some(s => s.symbol === grail.symbol)){
-        console.warn(`grails-data.js: "${grail.title}" (${grail.symbol}) has no listings or sales in the current /v2/dc-summary response — check it still exists in DC_COLLECTIONS.`);
-      }
-    }
-
-    const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
-    setStatus(`${GRAIL_COMICS.length} grail comic(s) &middot; pricing updated ${updated}.`);
   }catch(e){
     console.error(e);
-    setStatus('Could not reach the listings service — showing grail write-ups without live pricing. Try reloading in a moment.', true);
-    marketBySymbol = {};
+    setMarketStatus('me', 'Could not reach the Magic Eden listings service — showing grail write-ups without live pricing. Try reloading in a moment.', true);
   }
-
-  render();
+  if(market === 'me') render();
 }
+
+async function load(force){
+  await Promise.all([loadOS(force), loadME()]);
+}
+
+buildEraPills();
+setStatus('Loading live pricing&hellip;');
+render();
+ZurOS.mountMarketSwitch(document.getElementById('marketSwitch'), market, showMarket);
 
 const REFRESH_INTERVAL = 22 * 60 * 1000; // trails the Worker's own 20-min cron refresh
 load();
-setInterval(load, REFRESH_INTERVAL);
+setInterval(() => load(true), REFRESH_INTERVAL);
 </script>
 </body>
 </html>
