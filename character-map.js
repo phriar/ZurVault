@@ -58,6 +58,9 @@ const CHARACTER_MAP = {
       "elseworlds_batman_vol_2", "the_bat_cowl_collection", "the_brave_and_the_bold_19551983_28",
       "batman_beyond_1999_1", "batman_gotham_by_gaslight_the_kryptonian_age_2024_5",
       "dc3_super_power_packs_series_knight_terrors", "batman_2016_158", "batman_19402011_423",
+      // OpenSea-only issues — added 2026-11-07, symbols inferred from their
+      // OpenSea slugs (os-data.js inferSymbol()).
+      "batman_19402011_404", "batman_20112016_2",
       "detective_comics_19372011_140", "batman_2016_161",
       "from_the_dc_vault_death_in_the_family_robin_lives_2024_2",
       "batman_dark_victory_issue_0_2025_sdcc_edition_2025_1",
@@ -148,6 +151,7 @@ const CHARACTER_MAP = {
       "justice_league_20112016_1", "justice_league_the_atom_project_2025_1",
       "dc3_super_power_packs_series_justice_league_vs_suicide_squad",
       "justice_league_the_atom_project_2025_2", "justice_league_unlimited_2024_3",
+      "justice_league_the_atom_project_2025_4", // OpenSea-only, added 2026-11-07
     ],
     highlights: [
       { symbol: "justice_league_of_america_19601987_1", note: "The debut issue of the team's classic Silver Age flagship title — the League's first ongoing series." },
@@ -175,7 +179,7 @@ const CHARACTER_MAP = {
   },
   supergirl: {
     name: "Supergirl",
-    symbols: ["supergirl_woman_of_tomorrow_20212022_1", "supergirl_2025_4"],
+    symbols: ["supergirl_woman_of_tomorrow_20212022_1", "supergirl_2025_4", "supergirl_2025_1" /* OpenSea-only, added 2026-11-07 */],
     highlights: [
       { symbol: "supergirl_woman_of_tomorrow_20212022_1", note: "\"Woman of Tomorrow,\" a well-received recent mini-series exploring Kara Zor-El outside Superman's shadow." },
     ],

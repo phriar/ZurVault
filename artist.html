@@ -11,17 +11,17 @@
 <meta name="theme-color" content="#0a0a0a">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' https: data:; connect-src 'self' https://zurvault-proxy.stholt.workers.dev;">
 <title>Artist — ZurVault</title>
-<meta name="description" content="Unofficial fan-built DC Comics NFT price tracker — live Magic Eden listings and sales by cover artist.">
+<meta name="description" content="Unofficial fan-built DC Comics NFT price tracker — live OpenSea and Magic Eden listings and sales by cover artist.">
 <link rel="canonical" href="https://zurvault.com/artist.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="ZurVault">
 <meta property="og:title" content="Artist — ZurVault">
-<meta property="og:description" content="Unofficial fan-built DC Comics NFT price tracker — live Magic Eden listings and sales by cover artist.">
+<meta property="og:description" content="Unofficial fan-built DC Comics NFT price tracker — live OpenSea and Magic Eden listings and sales by cover artist.">
 <meta property="og:url" content="https://zurvault.com/artist.html">
 <meta property="og:image" content="https://zurvault.com/icon-512.png">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Artist — ZurVault">
-<meta name="twitter:description" content="Unofficial fan-built DC Comics NFT price tracker — live Magic Eden listings and sales by cover artist.">
+<meta name="twitter:description" content="Unofficial fan-built DC Comics NFT price tracker — live OpenSea and Magic Eden listings and sales by cover artist.">
 <meta name="twitter:image" content="https://zurvault.com/icon-512.png">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 <style>
@@ -164,6 +164,9 @@
   <a class="back-link" href="artists.html">&#8592; All Artists</a>
 </header>
 
+<!-- OpenSea / Magic Eden switch (os-data.js) — OpenSea default. -->
+<div id="marketSwitch" style="margin-top:16px"></div>
+
 <div class="controls">
   <select id="sortBy">
     <option value="time-desc" selected>Most recent</option>
@@ -180,9 +183,10 @@
 <div id="grid" class="grid"></div>
 
 <footer>
-  Live listing data via Magic Eden public API · <a href="index.html">zurvault.com</a>
+  Live listing data from OpenSea and Magic Eden · <a href="index.html">zurvault.com</a>
 </footer>
 <script src="/site-footer.js"></script>
+<script src="/os-data.js"></script>
 
 <script>
 const ME_PROXY_BASE = "https://zurvault-proxy.stholt.workers.dev";
@@ -230,14 +234,18 @@ function renderListings(){
   const items = sortItems(allListings, sortByEl.value);
   if(items.length === 0){
     gridEl.className = currentDisplay;
-    gridEl.innerHTML = `<div class="empty">Nothing currently for sale with this artist's cover credit.<br>Check back later, or browse <a href="index.html" style="color:var(--gold)">all DC listings</a>.</div>`;
+    const other = market === 'os' ? 'me' : 'os';
+    const otherCount = byMarket[other].listings.length;
+    const otherHint = otherCount ? `<br>${otherCount} listed on ${ZurOS.marketLabel(other)} — switch above to see them.` : '';
+    const pendingHint = market === 'os' && !otherHint ? '<br>OpenSea cover-artist credits are still being gathered.' : '';
+    gridEl.innerHTML = `<div class="empty">Nothing currently for sale on ${ZurOS.marketLabel(market)} with this artist's cover credit.${otherHint}${pendingHint}<br>Check back later, or browse <a href="index.html" style="color:var(--gold)">all DC listings</a>.</div>`;
     return;
   }
 
   if(currentDisplay === 'list'){
     gridEl.className = 'list';
     gridEl.innerHTML = items.map(i => `
-      <a class="list-row" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}" data-track-mint="${esc(i.mintAddress)}">
+      <a class="list-row" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" ${ZurOS.trackAttrs(i, i.mintAddress, esc)}>
         <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
         <div class="info">
           <div class="sub">${esc(i.sub)}</div>
@@ -245,7 +253,7 @@ function renderListings(){
         </div>
         <div class="price-col">
           <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
-          <div class="me-tag">Magic Eden &#8599;</div>
+          ${ZurOS.marketTag(i)}
           ${parseEdition(i.name) ? `<div class="mint">${parseEdition(i.name)}</div>` : ''}
           ${i.listedAt ? `<div class="time">${timeAgo(i.listedAt)}</div>` : ''}
         </div>
@@ -256,13 +264,13 @@ function renderListings(){
 
   gridEl.className = 'grid';
   gridEl.innerHTML = items.map(i => `
-    <a class="card" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}" data-track-mint="${esc(i.mintAddress)}">
+    <a class="card" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" ${ZurOS.trackAttrs(i, i.mintAddress, esc)}>
       <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
       <div class="body">
         <div class="sub">${esc(i.sub)}</div>
         <div class="name">${esc(i.name)}</div>
         <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
-        <div class="me-tag">Magic Eden &#8599;</div>
+        ${ZurOS.marketTag(i)}
         ${i.listedAt ? `<div class="time">${timeAgo(i.listedAt)}</div>` : ''}
       </div>
     </a>
@@ -270,6 +278,7 @@ function renderListings(){
 }
 
 function render(){
+  allListings = byMarket[market].listings;
   renderListings();
 }
 
@@ -286,7 +295,7 @@ async function loadArtist(){
   }
 
   document.title = `${artistName} — ZurVault`;
-  const artistDesc = `Unofficial fan-built price tracker: live Magic Eden listings and sales for DC Comics NFT covers by ${artistName}.`;
+  const artistDesc = `Unofficial fan-built price tracker: live OpenSea and Magic Eden listings and sales for DC Comics NFT covers by ${artistName}.`;
   document.querySelector('meta[name="description"]').setAttribute('content', artistDesc);
   document.querySelector('meta[property="og:title"]').setAttribute('content', `${artistName} — ZurVault`);
   document.querySelector('meta[property="og:description"]').setAttribute('content', artistDesc);
@@ -295,29 +304,61 @@ async function loadArtist(){
   artistTitleEl.textContent = artistName;
   artistNameCrumbEl.textContent = artistName;
 
+  ZurOS.mountMarketSwitch(document.getElementById('marketSwitch'), market, showMarket);
   setStatus('Loading…');
+  loadOS(artistName);
+  loadME(artistName);
+}
+
+// One dataset per marketplace; the switch picks which one renders.
+// Matching is on each listing's own coverArtists, not a static collection
+// membership list — a collection can span several different artists
+// (variant covers), so this only ever shows listings this artist is
+// actually credited on.
+let market = ZurOS.getMarket();
+const byMarket = { os: { listings: [], status: null }, me: { listings: [], status: null } };
+
+function showMarket(m){
+  if(m) market = m;
+  allListings = byMarket[market].listings;
+  const st = byMarket[market].status;
+  if(st) setStatus(st[0], st[1]); else setStatus('Loading…');
+  render();
+}
+function setMarketStatus(m, msg, isErr){
+  byMarket[m].status = [msg, !!isErr];
+  if(m === market) setStatus(msg, isErr);
+}
+function updatedText(ts){
+  return ts ? new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+}
+
+async function loadOS(artistName){
+  try{
+    const d = await ZurOS.load();
+    byMarket.os.listings = d.listings.filter(i => (i.coverArtists || []).includes(artistName));
+    setMarketStatus('os', `${byMarket.os.listings.length} for sale on OpenSea · updated ${updatedText(d.updatedAt)}.`);
+  }catch(e){
+    console.error(e);
+    setMarketStatus('os', 'Could not reach the OpenSea listings service. Try reloading in a moment.', true);
+  }
+  render();
+}
+
+async function loadME(artistName){
   try{
     const res = await fetch(`${ME_BASE}/dc-summary`);
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-
     if(data.notReady){
-      setStatus('The listings service is still setting up — check back in a few minutes.', true);
+      setMarketStatus('me', 'The listings service is still setting up — check back in a few minutes.', true);
       return;
     }
-
-    // Match on this listing's own coverArtists, not a static collection
-    // membership list — a collection can span several different artists
-    // (variant covers), so this only ever shows listings this artist is
-    // actually credited on.
-    allListings = (data.listings || []).filter(i => (i.coverArtists || []).includes(artistName));
-
-    const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
-    setStatus(`${allListings.length} for sale · updated ${updated}.`);
+    byMarket.me.listings = (data.listings || []).filter(i => (i.coverArtists || []).includes(artistName));
+    setMarketStatus('me', `${byMarket.me.listings.length} for sale on Magic Eden · updated ${updatedText(data.updatedAt)}.`);
   }catch(e){
     console.error(e);
-    setStatus('Could not reach the listings service. Try reloading in a moment.', true);
-    return;
+    setMarketStatus('me', 'Could not reach the Magic Eden listings service. Try reloading in a moment.', true);
   }
   render();
 }

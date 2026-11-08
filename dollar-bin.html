@@ -182,8 +182,11 @@
 
 <header>
   <h1>The <span>Dollar Bin</span></h1>
-  <p class="sub">Every currently-listed comic across every tracked DC collection, sorted cheapest first — instead of checking ~200 collection pages one at a time. Mint number (edition # / total supply) is shown where Magic Eden includes it in the listing name. Want rarity tiers, a name search, or an exact price range instead of quick presets? Try <a href="long-box.html" style="color:var(--gold)">the Back Issue Bin</a>.</p>
+  <p class="sub">Every currently-listed comic across every tracked DC collection, sorted cheapest first — instead of checking ~200 collection pages one at a time. Mint number (edition # / total supply) is shown where the listing name includes it. Want rarity tiers, a name search, or an exact price range instead of quick presets? Try <a href="long-box.html" style="color:var(--gold)">the Back Issue Bin</a>.</p>
 </header>
+
+<!-- OpenSea / Magic Eden switch (os-data.js) — OpenSea default. -->
+<div id="marketSwitch"></div>
 
 <div class="pills" id="pills">
   <button class="pill active" data-max="">All</button>
@@ -200,10 +203,11 @@
 <div id="grid" class="grid"></div>
 
 <footer>
-  Live listing data via Magic Eden public API · <a href="index.html">zurvault.com</a>
+  Live listing data from OpenSea and Magic Eden · <a href="index.html">zurvault.com</a>
   <p class="support-note">Built by a collector, for collectors. Zur is free to use. If it's helped you find something for your collection, support is welcome, never expected.</p>
 </footer>
 <script src="/site-footer.js"></script>
+<script src="/os-data.js"></script>
 <script>
 const ME_PROXY_BASE = "https://zurvault-proxy.stholt.workers.dev";
 const ME_BASE = ME_PROXY_BASE + "/v2";
@@ -255,14 +259,14 @@ function renderGrid(items){
     const edition = parseEdition(i.name);
     return `
       <div class="card">
-        <a class="card-link" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}" data-track-mint="${esc(i.mintAddress)}">
+        <a class="card-link" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" ${ZurOS.trackAttrs(i, i.mintAddress, esc)}>
           <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
           <div class="body">
             <div class="sub">${esc(i.sub)}</div>
             <div class="name">${esc(i.name)}</div>
             ${tags ? `<div class="tags">${tags}</div>` : ''}
             <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
-            <div class="me-tag">Magic Eden &#8599;</div>
+            ${ZurOS.marketTag(i)}
             ${edition ? `<div class="mint">${edition}</div>` : ''}
           </div>
         </a>
@@ -283,7 +287,7 @@ function renderList(items){
     const edition = parseEdition(i.name);
     return `
       <div class="list-row">
-        <a class="row-link" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}" data-track-mint="${esc(i.mintAddress)}">
+        <a class="row-link" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" ${ZurOS.trackAttrs(i, i.mintAddress, esc)}>
           <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
           <div class="info">
             <div class="sub">${esc(i.sub)}</div>
@@ -292,7 +296,7 @@ function renderList(items){
           </div>
           <div class="price-col">
             <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
-            <div class="me-tag">Magic Eden &#8599;</div>
+            ${ZurOS.marketTag(i)}
             ${edition ? `<div class="mint">${edition}</div>` : ''}
           </div>
         </a>
@@ -318,28 +322,59 @@ function render(){
   else renderGrid(items);
 }
 
+// One dataset per marketplace; the switch picks which one render()
+// reads. Never interleaved into one list.
+let market = ZurOS.getMarket();
+const byMarket = { os: null, me: null };
+const statusByMarket = { os: ['Loading…', false], me: ['Loading…', false] };
+function setMarketStatus(m, msg, isErr){
+  statusByMarket[m] = [msg, !!isErr];
+  if(m === market) setStatus(msg, isErr);
+}
+function showMarket(){
+  allListings = byMarket[market] || [];
+  setStatus(...statusByMarket[market]);
+  render();
+}
+
+async function loadOS(force){
+  try{
+    const d = await ZurOS.load(force);
+    byMarket.os = d.listings.filter(i => i.price !== null);
+    const updated = d.updatedAt ? new Date(d.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+    setMarketStatus('os', `${byMarket.os.length} priced OpenSea listing(s) tracked · updated ${updated}.`);
+  }catch(e){
+    console.error(e);
+    if(!byMarket.os) setMarketStatus('os', 'Could not reach the OpenSea listings service. Try reloading in a moment.', true);
+    return;
+  }
+  if(market === 'os') showMarket();
+}
+
 async function load(){
-  setStatus('Loading…');
   try{
     const res = await fetch(`${ME_BASE}/dc-summary`);
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
     if(data.notReady){
-      setStatus('The listings service is still setting up — check back in a few minutes.', true);
+      setMarketStatus('me', 'The listings service is still setting up — check back in a few minutes.', true);
       return;
     }
 
-    allListings = (data.listings || []).filter(i => i.price !== null);
+    byMarket.me = (data.listings || []).filter(i => i.price !== null);
     const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
-    setStatus(`${allListings.length} priced listing(s) tracked · updated ${updated}.`);
+    setMarketStatus('me', `${byMarket.me.length} priced Magic Eden listing(s) tracked · updated ${updated}.`);
   }catch(e){
     console.error(e);
-    setStatus('Could not reach the listings service. Try reloading in a moment.', true);
+    if(!byMarket.me) setMarketStatus('me', 'Could not reach the Magic Eden listings service. Try reloading in a moment.', true);
     return;
   }
-  render();
+  if(market === 'me') showMarket();
 }
+
+ZurOS.mountMarketSwitch(document.getElementById('marketSwitch'), market, m => { market = m; showMarket(); });
+setStatus(...statusByMarket[market]);
 
 pillsEl.querySelectorAll('.pill[data-max]').forEach(p => {
   p.addEventListener('click', () => {
@@ -360,6 +395,8 @@ viewToggleEl.querySelectorAll('.pill[data-view]').forEach(p => {
 });
 
 const REFRESH_INTERVAL = 22 * 60 * 1000; // trails the Worker's own 20-min cron refresh
+loadOS();
+setInterval(() => loadOS(true), REFRESH_INTERVAL);
 load();
 setInterval(load, REFRESH_INTERVAL);
 </script>

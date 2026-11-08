@@ -11,17 +11,17 @@
 <meta name="theme-color" content="#0a0a0a">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' https: data:; connect-src 'self' https://zurvault-proxy.stholt.workers.dev;">
 <title>Latest DC Listings — ZurVault</title>
-<meta name="description" content="Unofficial fan-built price tracker for DC Comics NFTs on Solana — live Magic Eden listings and recent sales for every tracked collection, digital comics minted via candy.io.">
+<meta name="description" content="Unofficial fan-built price tracker for DC Comics NFTs on Solana — live OpenSea and Magic Eden listings and recent sales for every tracked collection, digital comics minted via candy.io.">
 <link rel="canonical" href="https://zurvault.com/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="ZurVault">
 <meta property="og:title" content="ZurVault — DC Comics NFTs on Solana">
-<meta property="og:description" content="Unofficial fan-built price tracker for DC Comics NFTs on Solana — live Magic Eden listings and recent sales for every tracked collection, digital comics minted via candy.io.">
+<meta property="og:description" content="Unofficial fan-built price tracker for DC Comics NFTs on Solana — live OpenSea and Magic Eden listings and recent sales for every tracked collection, digital comics minted via candy.io.">
 <meta property="og:url" content="https://zurvault.com/">
 <meta property="og:image" content="https://zurvault.com/icon-512.png">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="ZurVault — DC Comics NFTs on Solana">
-<meta name="twitter:description" content="Unofficial fan-built price tracker for DC Comics NFTs on Solana — live Magic Eden listings and recent sales for every tracked collection, digital comics minted via candy.io.">
+<meta name="twitter:description" content="Unofficial fan-built price tracker for DC Comics NFTs on Solana — live OpenSea and Magic Eden listings and recent sales for every tracked collection, digital comics minted via candy.io.">
 <meta name="twitter:image" content="https://zurvault.com/icon-512.png">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 <style>
@@ -336,12 +336,12 @@
   </div>
 </section>
 
-<section class="liquidity-widget" id="liquidityWidget" aria-label="Magic Eden vs OpenSea liquidity comparison">
-  <h2 class="liquidity-widget-title">Magic Eden <span>vs</span> OpenSea</h2>
+<section class="liquidity-widget" id="liquidityWidget" aria-label="OpenSea vs Magic Eden liquidity comparison">
+  <h2 class="liquidity-widget-title">OpenSea <span>vs</span> Magic Eden</h2>
   <p class="liquidity-widget-sub">DC comics, aggregate across every tracked collection</p>
   <div class="liquidity-cards" id="liquidityCards">
-    <div class="liquidity-card" data-market="magicEden">
-      <div class="liquidity-card-label">Magic Eden</div>
+    <div class="liquidity-card" data-market="openSea">
+      <div class="liquidity-card-label">OpenSea</div>
       <div class="liquidity-metrics">
         <div class="liquidity-metric"><span class="liquidity-metric-value" data-field="floor">—</span><span class="liquidity-metric-label">Floor</span></div>
         <div class="liquidity-metric"><span class="liquidity-metric-value" data-field="vol24h">—</span><span class="liquidity-metric-label">24h Vol</span></div>
@@ -349,8 +349,8 @@
       </div>
       <div class="liquidity-metric-sub" data-field="sub7d">—</div>
     </div>
-    <div class="liquidity-card" data-market="openSea">
-      <div class="liquidity-card-label">OpenSea</div>
+    <div class="liquidity-card" data-market="magicEden">
+      <div class="liquidity-card-label">Magic Eden</div>
       <div class="liquidity-metrics">
         <div class="liquidity-metric"><span class="liquidity-metric-value" data-field="floor">—</span><span class="liquidity-metric-label">Floor</span></div>
         <div class="liquidity-metric"><span class="liquidity-metric-value" data-field="vol24h">—</span><span class="liquidity-metric-label">24h Vol</span></div>
@@ -366,36 +366,32 @@
   <h1>Latest DC <span>Listings</span></h1>
 </header>
 
-<!-- Top-level marketplace switcher — Magic Eden's own feed is capped at
-     200 items (renderListings()) but on a narrow mobile viewport that's
-     still a long scroll, which would bury the OpenSea panel below it
-     entirely. Gating full panels behind a tab (only one ever visible)
-     means OpenSea is always one tap away regardless of how long the
-     active Magic Eden view is, rather than relying on scroll position.
-     Deliberately NOT the thin underline .tab/.tabs style used for the
-     For Sale/Recent Sales sub-nav inside each panel below — this needs
-     to visibly read as the more important, higher-level choice, not a
-     third row that blends into the sub-tabs directly under it. -->
-<div class="market-tabs" id="marketTabs">
-  <div class="market-tab active" data-market="me">Magic Eden</div>
-  <div class="market-tab" data-market="os">OpenSea</div>
-</div>
+<!-- Top-level marketplace switcher — OpenSea first and selected by
+     default (it's the primary marketplace as of 2026-11-07). Rendered by
+     os-data.js's ZurOS.mountMarketSwitch() so every page shares one
+     control; the choice carries across pages. One panel below, whose
+     dataset swaps with the market — every filter/sort/view works the same
+     on both marketplaces. Marketplaces are never interleaved into one
+     feed. -->
+<div id="marketSwitch"></div>
 
-<div id="marketPanelME">
-<div class="panel-title">Magic Eden <span>Listings</span></div>
+<div id="marketPanel">
+<div class="panel-title"><span id="panelMarket">OpenSea</span> Listings</div>
 <div class="tabs" id="meTabs">
   <div class="tab active" data-view="listings">For Sale</div>
   <div class="tab" data-view="sales">Recent Sales (7d)</div>
 </div>
+<p class="os-activity-sub" id="marketNote" hidden></p>
 
 <div class="controls">
-  <select id="subFilter"><option value="">All sub-collections</option></select>
-  <select id="sortBy">
+  <select id="subFilter" aria-label="Collection"><option value="">All collections</option></select>
+  <select id="charFilter" aria-label="Character"><option value="">All characters</option></select>
+  <select id="sortBy" aria-label="Sort">
     <option value="time-desc" selected>Most recent</option>
     <option value="price-asc">Price: low → high</option>
     <option value="price-desc">Price: high → low</option>
   </select>
-  <input type="text" id="searchInput" class="search-input" placeholder="Search by name or #…">
+  <input type="text" id="searchInput" class="search-input" placeholder="Search by name or #…" aria-label="Search">
   <div class="view-toggle" id="viewToggle">
     <button class="pill active" data-view="grid">Grid</button>
     <button class="pill" data-view="list">List</button>
@@ -411,45 +407,16 @@
   <button class="pill" data-tier="Legendary">Legendary</button>
 </div>
 
-<div id="status"><span class="dot"></span>Loading collections…</div>
+<div id="status"><span class="dot"></span>Loading listings…</div>
 <div id="grid" class="grid"></div>
 </div>
 
-<div id="marketPanelOS" hidden>
-<div class="panel-title">OpenSea <span>Listings</span></div>
-<div class="tabs" id="osTabs">
-  <div class="tab active" data-view="listings">For Sale</div>
-  <div class="tab" data-view="sales">Recent Sales</div>
-</div>
-<p class="os-activity-sub">Every active listing across candy.io's whole DC catalog on OpenSea — it's all one shared collection there, not split per series the way Magic Eden's is, so Character and Rarity below are ZurVault's own filters built from each listing's own traits; OpenSea's own site doesn't offer them here.</p>
-
-<div class="controls">
-  <select id="osCharacterFilter"><option value="">All characters</option></select>
-  <input type="text" id="osSearchInput" class="search-input" placeholder="Search by name or #…">
-  <div class="view-toggle" id="osViewToggle">
-    <button class="pill active" data-view="grid">Grid</button>
-    <button class="pill" data-view="list">List</button>
-  </div>
-</div>
-
-<div class="pills" id="osRarityPills">
-  <button class="pill active" data-tier="">All Rarities</button>
-  <button class="pill" data-tier="Common">Common</button>
-  <button class="pill" data-tier="Uncommon">Uncommon</button>
-  <button class="pill" data-tier="Rare">Rare</button>
-  <button class="pill" data-tier="Epic">Epic</button>
-  <button class="pill" data-tier="Legendary">Legendary</button>
-</div>
-
-<div id="osStatus"><span class="dot"></span>Loading OpenSea activity…</div>
-<div id="osGrid" class="grid"></div>
-</div>
-
 <footer>
-  Live listing data via Magic Eden public API · <a href="index.html">zurvault.com</a>
+  Live listing data from OpenSea and Magic Eden · <a href="index.html">zurvault.com</a>
   <p class="support-note">Built by a collector, for collectors. Zur is free to use. If it's helped you find something for your collection, support is welcome, never expected.</p>
 </footer>
 <script src="/site-footer.js"></script>
+<script src="/os-data.js"></script>
 <script>
 /* ============================================================
    CONFIG — add every Candy.io DC sub-collection's Magic Eden
@@ -703,6 +670,14 @@ const DC_COLLECTIONS = [
 const ME_PROXY_BASE = "https://zurvault-proxy.stholt.workers.dev";
 const ME_BASE = ME_PROXY_BASE + "/v2";
 
+// Two independent datasets, one per marketplace — the market switch only
+// changes which one render() reads (allListings/allSales below are
+// views onto the active one). Never merged into a single feed.
+const data = {
+  os: { listings: [], sales: [], loaded: false, status: 'Loading OpenSea listings…', statusErr: false },
+  me: { listings: [], sales: [], loaded: false, status: 'Loading Magic Eden listings…', statusErr: false },
+};
+let market = ZurOS.getMarket();
 let allListings = [];
 let allSales = [];
 let currentView = 'listings';
@@ -713,6 +688,9 @@ let searchQuery = '';
 const statusEl = document.getElementById('status');
 const gridEl = document.getElementById('grid');
 const subFilterEl = document.getElementById('subFilter');
+const charFilterEl = document.getElementById('charFilter');
+const panelMarketEl = document.getElementById('panelMarket');
+const marketNoteEl = document.getElementById('marketNote');
 const sortByEl = document.getElementById('sortBy');
 const searchInputEl = document.getElementById('searchInput');
 const viewToggleEl = document.getElementById('viewToggle');
@@ -797,292 +775,11 @@ function shortMint(mint){
 // KV entries written before the Worker started capturing it) — never shows
 // a blank label.
 function soldLabel(i){
+  if(i.market === 'os') return esc(i.name || 'Sold');
   return i.buyer ? `Sold to ${shortMint(i.buyer)}` : `Sold · ${shortMint(i.mint)}`;
 }
 
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
-
-/* ============================================================
-   OPENSEA ACTIVITY — recent listings/sales across candy.io's whole DC
-   catalog on OpenSea (one shared collection there, candy-dc — see
-   me-proxy-worker.js's OPENSEA ACTIVITY section for why this is
-   unfiltered rather than split per sub-collection like the Magic Eden
-   feed above). Own fetch/render/state, entirely independent of
-   loadAll()/render() above — a failure here never touches the Magic
-   Eden feed, and vice versa.
-   ============================================================ */
-let osListings = [];
-let osSales = [];
-let osCurrentView = 'listings';
-let osCurrentDisplay = 'grid';
-let osSelectedTier = null;
-let osSelectedCharacter = '';
-let osSearchQuery = '';
-let osListingsUpdatedAt = null;
-let osSalesUpdatedAt = null;
-
-const osStatusEl = document.getElementById('osStatus');
-const osGridEl = document.getElementById('osGrid');
-const osViewToggleEl = document.getElementById('osViewToggle');
-const osTabsEl = document.getElementById('osTabs');
-const osCharacterFilterEl = document.getElementById('osCharacterFilter');
-const osSearchInputEl = document.getElementById('osSearchInput');
-const osRarityPillsEl = document.getElementById('osRarityPills');
-
-function setOsStatus(msg, isErr){
-  osStatusEl.innerHTML = (isErr ? '' : '<span class="dot"></span>') + msg;
-  osStatusEl.classList.toggle('err', !!isErr);
-}
-
-// Listings (the full candy-dc crawl, GET /v2/opensea-full-listings) and
-// sales (the recent-activity feed, GET /v2/opensea-activity) load and
-// refresh independently of each other — see loadOpenSeaFullListings()
-// and loadOpenSeaActivity() below — so the combined status line has to
-// be rebuilt from whichever of the two most recently updated, rather
-// than set once by a single fetch the way it used to be.
-function refreshOsStatus(){
-  const parts = [];
-  if(osListingsUpdatedAt) parts.push(`${osListings.length} listings`);
-  if(osSalesUpdatedAt) parts.push(`${osSales.length} recent sales`);
-  if(parts.length === 0){ setOsStatus('Loading OpenSea activity…'); return; }
-  const latest = Math.max(osListingsUpdatedAt || 0, osSalesUpdatedAt || 0);
-  const updated = new Date(latest).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  setOsStatus(`${parts.join(', ')} · updated ${updated}.`);
-}
-
-// Character isn't a small fixed set the way Rarity tiers are (dozens of
-// DC characters across the whole candy-dc catalog), so this is a <select>
-// built from whatever distinct values are actually present in the live
-// crawl — same "don't hardcode what varies" approach long-box.html's
-// Item Type pills use, just a dropdown instead of pills given the count.
-function buildOsCharacterOptions(){
-  const chars = [...new Set(osListings.map(i => i.character).filter(Boolean))].sort();
-  const current = osCharacterFilterEl.value;
-  osCharacterFilterEl.innerHTML = '<option value="">All characters</option>' +
-    chars.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
-  if(chars.includes(current)) osCharacterFilterEl.value = current;
-}
-
-// Full candy-dc listings crawl (every active listing, not just a recent
-// sample) — see me-proxy-worker.js's OPENSEA FULL CATALOG section for
-// why this exists as its own endpoint: candy-dc has no sub-collections
-// for OpenSea's own site to filter or browse by, so this Character/
-// Rarity filtering has to be built here instead. Independent of
-// loadOpenSeaActivity() below — a failure in one never touches the other.
-async function loadOpenSeaFullListings(){
-  let data;
-  try{
-    const res = await fetch(`${ME_BASE}/opensea-full-listings`);
-    if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    data = await res.json();
-  }catch(e){
-    console.error(e);
-    return; // keep whatever listings are already showing rather than clearing a working view
-  }
-  if(data.notReady) return;
-
-  osListings = Array.isArray(data.listings) ? data.listings : [];
-  osListingsUpdatedAt = data.updatedAt || Date.now();
-  buildOsCharacterOptions();
-  refreshOsStatus();
-  if(osCurrentView === 'listings') renderOs();
-}
-
-async function loadOpenSeaActivity(){
-  let data;
-  try{
-    const res = await fetch(`${ME_BASE}/opensea-activity`);
-    if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    data = await res.json();
-  }catch(e){
-    console.error(e);
-    if(!osListingsUpdatedAt) setOsStatus('OpenSea activity unavailable right now.', true);
-    return;
-  }
-
-  if(data.notReady){
-    if(!osListingsUpdatedAt) setOsStatus('Still gathering data — check back shortly.');
-    return;
-  }
-
-  osSales = Array.isArray(data.sales) ? data.sales : [];
-  osSalesUpdatedAt = data.updatedAt || Date.now();
-  refreshOsStatus();
-  if(osCurrentView === 'sales') renderOs();
-}
-
-function renderOs(){
-  if(osCurrentView === 'sales') renderOsSales();
-  else renderOsListings();
-}
-
-function activateOsTab(view){
-  osCurrentView = view;
-  osTabsEl.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x.dataset.view === view));
-  renderOs();
-}
-
-// character (an OpenSea trait, e.g. "Harley Quinn") stands in for the
-// per-collection "sub" label the Magic Eden feed's cards show — there's
-// no DC_COLLECTIONS match to fall back on here since OpenSea indexes
-// everything under one shared slug. No data-track instrumentation on
-// these links: click-log/click-stats (site-nav.js) assume a Magic Eden
-// DC_COLLECTIONS symbol as their "context", which doesn't exist for an
-// unfiltered OpenSea item.
-function renderOsListings(){
-  const items = osListings
-    .filter(i => !osSelectedTier || i.rarity === osSelectedTier)
-    .filter(i => !osSelectedCharacter || i.character === osSelectedCharacter)
-    .filter(i => !osSearchQuery || `${i.name || ''} ${i.character || ''}`.toLowerCase().includes(osSearchQuery))
-    .sort((a, b) => (b.listedAt ?? 0) - (a.listedAt ?? 0));
-
-  if(items.length === 0){
-    osGridEl.className = osCurrentDisplay;
-    const hint = (osSelectedTier || osSelectedCharacter || osSearchQuery)
-      ? 'Try a different search, a different character, or a different rarity tier.'
-      : 'Check back later.';
-    osGridEl.innerHTML = `<div class="empty">No OpenSea listings match this view yet.<br>${hint}</div>`;
-    return;
-  }
-
-  if(osCurrentDisplay === 'list'){
-    osGridEl.className = 'list';
-    osGridEl.innerHTML = items.map(i => `
-      <a class="list-row" href="${esc(i.openSeaUrl)}" target="_blank" rel="noopener">
-        <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
-        <div class="info">
-          ${i.character ? `<div class="sub">${esc(i.character)}</div>` : ''}
-          <div class="name">${esc(i.name)}</div>
-          ${rarityBadge(i.rarity, i.rarityPct)}
-        </div>
-        <div class="price-col">
-          <div class="price">${i.price !== null ? fmtSol(i.price) + ' SOL' : '—'}</div>
-          <div class="market-tag">OpenSea &#8599;</div>
-          ${i.listedAt ? `<div class="time">${timeAgo(i.listedAt)}</div>` : ''}
-        </div>
-      </a>
-    `).join('');
-    return;
-  }
-
-  osGridEl.className = 'grid';
-  osGridEl.innerHTML = items.map(i => `
-    <a class="card" href="${esc(i.openSeaUrl)}" target="_blank" rel="noopener">
-      <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
-      <div class="body">
-        ${i.character ? `<div class="sub">${esc(i.character)}</div>` : ''}
-        <div class="name">${esc(i.name)}</div>
-        ${rarityBadge(i.rarity, i.rarityPct)}
-        <div class="price">${i.price !== null ? fmtSol(i.price) + ' SOL' : '—'}</div>
-        <div class="market-tag">OpenSea &#8599;</div>
-        ${i.listedAt ? `<div class="time">${timeAgo(i.listedAt)}</div>` : ''}
-      </div>
-    </a>
-  `).join('');
-}
-
-function renderOsSales(){
-  const items = osSales
-    .filter(i => !osSelectedTier || i.rarity === osSelectedTier)
-    .filter(i => !osSelectedCharacter || i.character === osSelectedCharacter)
-    .filter(i => !osSearchQuery || `${i.name || ''} ${i.character || ''}`.toLowerCase().includes(osSearchQuery))
-    .sort((a, b) => (b.soldAt ?? 0) - (a.soldAt ?? 0));
-
-  if(items.length === 0){
-    osGridEl.className = osCurrentDisplay;
-    const hint = (osSelectedTier || osSelectedCharacter || osSearchQuery)
-      ? 'Try a different search, a different character, or a different rarity tier.'
-      : 'Check back later.';
-    osGridEl.innerHTML = `<div class="empty">No recent OpenSea sales match this view yet.<br>${hint}</div>`;
-    return;
-  }
-
-  if(osCurrentDisplay === 'list'){
-    osGridEl.className = 'list';
-    osGridEl.innerHTML = items.map(i => `
-      <a class="list-row" href="${esc(i.openSeaUrl)}" target="_blank" rel="noopener">
-        <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
-        <div class="info">
-          ${i.character ? `<div class="sub">${esc(i.character)}</div>` : ''}
-          <div class="name">${esc(i.name)}</div>
-          ${rarityBadge(i.rarity, i.rarityPct)}
-        </div>
-        <div class="price-col">
-          <div class="price">${i.price !== null ? fmtSol(i.price) + ' SOL' : '—'}</div>
-          <div class="market-tag">OpenSea &#8599;</div>
-          ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
-        </div>
-      </a>
-    `).join('');
-    return;
-  }
-
-  osGridEl.className = 'grid';
-  osGridEl.innerHTML = items.map(i => `
-    <a class="card" href="${esc(i.openSeaUrl)}" target="_blank" rel="noopener">
-      <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
-      <div class="body">
-        ${i.character ? `<div class="sub">${esc(i.character)}</div>` : ''}
-        <div class="name">${esc(i.name)}</div>
-        ${rarityBadge(i.rarity, i.rarityPct)}
-        <div class="price">${i.price !== null ? fmtSol(i.price) + ' SOL' : '—'}</div>
-        <div class="market-tag">OpenSea &#8599;</div>
-        ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
-      </div>
-    </a>
-  `).join('');
-}
-
-osTabsEl.querySelectorAll('.tab').forEach(t => {
-  t.addEventListener('click', () => activateOsTab(t.dataset.view));
-});
-
-osCharacterFilterEl.addEventListener('change', () => {
-  osSelectedCharacter = osCharacterFilterEl.value;
-  renderOs();
-});
-
-osSearchInputEl.addEventListener('input', () => {
-  osSearchQuery = osSearchInputEl.value.trim().toLowerCase();
-  renderOs();
-});
-
-osRarityPillsEl.querySelectorAll('.pill[data-tier]').forEach(p => {
-  p.addEventListener('click', () => {
-    osRarityPillsEl.querySelectorAll('.pill[data-tier]').forEach(x => x.classList.remove('active'));
-    p.classList.add('active');
-    osSelectedTier = p.dataset.tier || null;
-    renderOs();
-  });
-});
-
-osViewToggleEl.querySelectorAll('.pill').forEach(p => {
-  p.addEventListener('click', () => {
-    osViewToggleEl.querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
-    p.classList.add('active');
-    osCurrentDisplay = p.dataset.view;
-    renderOs();
-  });
-});
-
-// Top-level Magic Eden / OpenSea switcher — its own .market-tab class
-// (not .tab), so it's visually a bigger, filled segmented control
-// instead of the thin underline style the For Sale/Recent Sales
-// sub-tabs use inside each panel (#meTabs .tab / #osTabs .tab) — also
-// keeps its click handling naturally scoped, since it's a different
-// class entirely, not just a different container of the same '.tab'.
-const marketTabsEl = document.getElementById('marketTabs');
-const marketPanelMEEl = document.getElementById('marketPanelME');
-const marketPanelOSEl = document.getElementById('marketPanelOS');
-
-marketTabsEl.querySelectorAll('.market-tab').forEach(t => {
-  t.addEventListener('click', () => {
-    marketTabsEl.querySelectorAll('.market-tab').forEach(x => x.classList.toggle('active', x === t));
-    const market = t.dataset.market;
-    marketPanelMEEl.hidden = market !== 'me';
-    marketPanelOSEl.hidden = market !== 'os';
-  });
-});
 
 // Magic Eden listing names for these collections commonly end in
 // "(edition/total)", e.g. "Flashpoint (2011) #1 (501/1314)" — pull that
@@ -1130,79 +827,157 @@ function rarityBadge(rarity, rarityPct){
   return `<div class="rarity-badge rarity-${rarity.toLowerCase()}">${esc(rarity)}${pctText}</div>`;
 }
 
-// The ~200-collection scan (listings + activities per collection) now runs
-// server-side, on a schedule, in the proxy Worker itself (see
-// me-proxy-worker.js's scheduled() handler) — this just reads the single
-// pre-aggregated result from GET /dc-summary instead of looping client-side.
-async function loadAll(isRefresh){
-  if(DC_COLLECTIONS.some(c => c.symbol.startsWith('REPLACE'))){
-    setStatus('Add real Magic Eden collection symbols in DC_COLLECTIONS at the top of this file.', true);
+// Per-market status line — each marketplace keeps its own, and
+// showStatus() paints whichever is active.
+function setMarketStatus(m, msg, isErr){
+  data[m].status = msg;
+  data[m].statusErr = !!isErr;
+  if(m === market) setStatus(msg, isErr);
+}
+
+function updatedTime(ts){
+  return ts ? new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+}
+
+// Collection dropdown, rebuilt per market. Magic Eden's comes from the
+// static DC_COLLECTIONS list (instant, no network wait); OpenSea's from
+// whichever collections actually have listings or sales right now.
+// Sorted alphabetically so a specific collection is findable by scanning.
+function buildSubOptions(){
+  const current = subFilterEl.value;
+  let subs;
+  if(market === 'me'){
+    subs = [...new Set(DC_COLLECTIONS.map(c => c.sub))];
+  } else {
+    subs = [...new Set([...data.os.listings, ...data.os.sales].map(i => i.sub).filter(Boolean))];
+  }
+  subs.sort((a, b) => a.localeCompare(b));
+  subFilterEl.innerHTML = '<option value="">All collections</option>' +
+    subs.map(sub => `<option value="${esc(sub)}">${esc(sub)}</option>`).join('');
+  if(subs.includes(current)) subFilterEl.value = current;
+}
+
+// Character is an OpenSea trait on every OpenSea item; Magic Eden
+// listings carry it as a `characters` array (extractCreativeCredits() in
+// the Worker), sales don't carry it at all — so the dropdown is built
+// from whatever the active market's data actually has.
+function itemCharacters(i){
+  if(i.character) return [i.character];
+  return Array.isArray(i.characters) ? i.characters : [];
+}
+function buildCharOptions(){
+  const current = charFilterEl.value;
+  const chars = [...new Set([...data[market].listings, ...data[market].sales].flatMap(itemCharacters))].sort();
+  charFilterEl.innerHTML = '<option value="">All characters</option>' +
+    chars.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  charFilterEl.hidden = chars.length === 0;
+  if(chars.includes(current)) charFilterEl.value = current;
+}
+
+// Deep-link support: ?symbol=<Magic Eden-style symbol> pre-selects the
+// matching collection, so an external site (zurcovers.com, so far) that
+// only knows a collection's symbol can link straight into it. Works on
+// both markets — OpenSea items carry the same symbol (see os-data.js).
+// Silent no-op on an unknown/UNRESOLVED_* symbol.
+const symbolParam = new URLSearchParams(location.search).get('symbol');
+function applySymbolParam(){
+  if(!symbolParam) return;
+  let sub = null;
+  if(market === 'me'){
+    const match = DC_COLLECTIONS.find(c => c.symbol === symbolParam);
+    sub = match && match.sub;
+  } else {
+    const match = [...data.os.listings, ...data.os.sales].find(i => i.symbol === symbolParam);
+    sub = match && match.sub;
+  }
+  if(sub) subFilterEl.value = sub;
+}
+
+function activateMarket(m){
+  market = m;
+  allListings = data[m].listings;
+  allSales = data[m].sales;
+  panelMarketEl.textContent = ZurOS.marketLabel(m);
+  subFilterEl.value = '';
+  charFilterEl.value = '';
+  buildSubOptions();
+  buildCharOptions();
+  applySymbolParam();
+  updateMarketNote();
+  setStatus(data[m].status, data[m].statusErr);
+  render();
+}
+
+function updateMarketNote(){
+  let note = '';
+  if(market === 'os' && data.os.loaded && data.os.salesScope === 'recent' && currentView === 'sales'){
+    note = 'Showing the most recent OpenSea sales feed — per-collection sales history is still being gathered.';
+  }
+  marketNoteEl.textContent = note;
+  marketNoteEl.hidden = !note;
+}
+
+// OpenSea: one pre-aggregated read (GET /v2/os-summary, via os-data.js).
+async function loadOS(isRefresh){
+  if(!isRefresh) setMarketStatus('os', 'Loading OpenSea listings…');
+  let d;
+  try{
+    d = await ZurOS.load(isRefresh);
+  }catch(e){
+    console.error(e);
+    if(!data.os.loaded) setMarketStatus('os', 'Could not reach the OpenSea listings service. Try reloading in a moment.', true);
     return;
   }
+  Object.assign(data.os, { listings: d.listings, sales: d.sales, salesScope: d.salesScope, loaded: true });
+  const collections = new Set(d.listings.map(i => i.sub)).size;
+  setMarketStatus('os', `${d.listings.length} OpenSea listings across ${collections} collection(s), ${d.sales.length} recent sales · updated ${updatedTime(d.updatedAt)}, auto-refreshes every 22 min.`);
+  if(market === 'os') activateMarket('os');
+}
 
-  if(!isRefresh){
-    // populate sub-collection filter immediately — DC_COLLECTIONS is static,
-    // it doesn't need to wait on any network response. Sorted alphabetically
-    // (DC_COLLECTIONS itself is in no particular order) so a specific
-    // collection — "Absolute Batman Ashcan Special", say — is actually
-    // findable by scanning the list instead of hunting through insertion order.
-    subFilterEl.innerHTML = '<option value="">All sub-collections</option>' +
-      DC_COLLECTIONS.slice().sort((a, b) => a.sub.localeCompare(b.sub))
-        .map(c => `<option value="${c.sub}">${c.sub}</option>`).join('');
-
-    // Deep-link support: ?symbol=<Magic Eden symbol> pre-selects the
-    // matching sub-collection, so an external site (zurcovers.com,
-    // so far) that only knows a listing's ME symbol — not this
-    // page's own "sub" display label — can link straight into that
-    // collection's listings instead of the unfiltered view. Silent no-op
-    // on an unknown/UNRESOLVED_* symbol: leaves the dropdown at "All
-    // sub-collections", same as a visitor who arrived with no param at
-    // all. No render() call needed here — loadAll() always calls it once
-    // real data has loaded, a few lines down, so the filtered view renders
-    // on the very first paint rather than needing a second render pass.
-    const symbolParam = new URLSearchParams(location.search).get('symbol');
-    if(symbolParam){
-      const match = DC_COLLECTIONS.find(c => c.symbol === symbolParam);
-      if(match) subFilterEl.value = match.sub;
-    }
+// Magic Eden: the ~200-collection scan runs server-side on a schedule in
+// the proxy Worker (see me-proxy-worker.js's scheduled() handler) — this
+// reads the single pre-aggregated result from GET /dc-summary.
+async function loadAll(isRefresh){
+  if(DC_COLLECTIONS.some(c => c.symbol.startsWith('REPLACE'))){
+    setMarketStatus('me', 'Add real Magic Eden collection symbols in DC_COLLECTIONS at the top of this file.', true);
+    return;
   }
+  if(isRefresh) setMarketStatus('me', 'Refreshing…');
 
-  setStatus(isRefresh ? 'Refreshing…' : 'Loading…');
-
-  let data;
+  let d;
   try{
     const res = await fetch(`${ME_BASE}/dc-summary`);
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    data = await res.json();
+    d = await res.json();
   }catch(e){
     console.error(e);
-    setStatus('Could not reach the listings service. Try reloading in a moment.', true);
+    setMarketStatus('me', 'Could not reach the Magic Eden listings service. Try reloading in a moment.', true);
     return;
   }
 
-  if(data.notReady){
-    setStatus('Still setting up — the listings service hasn\'t finished its first scan yet. Check back in a few minutes.', true);
+  if(d.notReady){
+    setMarketStatus('me', 'Still setting up — the listings service hasn\'t finished its first scan yet. Check back in a few minutes.', true);
     return;
   }
 
-  allListings = data.listings || [];
-  allSales = data.sales || [];
-  const failed = data.failed || [];
-  const sampleErrors = data.sampleErrors || [];
+  data.me.listings = d.listings || [];
+  data.me.sales = d.sales || [];
+  data.me.loaded = true;
+  const failed = d.failed || [];
+  const sampleErrors = d.sampleErrors || [];
 
-  if(allListings.length === 0){
+  if(data.me.listings.length === 0){
     // Show *why* it failed, not just how many — a wall of sub-collection
     // names with no error detail isn't actionable.
     const reason = sampleErrors.length
       ? sampleErrors.join(' · ')
       : (failed.length ? `${failed.length} collection(s) failed with no error detail captured` : 'unknown reason');
-    setStatus(`No listings found. ${reason}`, true);
+    setMarketStatus('me', `No Magic Eden listings found. ${reason}`, true);
   } else {
-    const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
-    const partialNote = data.partial ? ' · last scan was cut short, more coverage next cycle' : '';
-    setStatus(`${allListings.length} listings, ${allSales.length} recent sales across ${DC_COLLECTIONS.length} sub-collection(s)${failed.length ? ' · failed: ' + failed.join(', ') : ''}${partialNote} · updated ${updated}, auto-refreshes every 22 min.`);
+    const partialNote = d.partial ? ' · last scan was cut short, more coverage next cycle' : '';
+    setMarketStatus('me', `${data.me.listings.length} Magic Eden listings, ${data.me.sales.length} recent sales across ${DC_COLLECTIONS.length} collection(s)${failed.length ? ' · failed: ' + failed.join(', ') : ''}${partialNote} · updated ${updatedTime(d.updatedAt)}, auto-refreshes every 22 min.`);
   }
-  render();
+  if(market === 'me') activateMarket('me');
 }
 
 function sortItems(items, sort, timeField){
@@ -1226,18 +1001,20 @@ function activateTab(view){
   // data-view="listings"/"sales" values) that must stay independent of
   // this feed's tab state.
   document.querySelectorAll('#meTabs .tab').forEach(x => x.classList.toggle('active', x.dataset.view === view));
+  updateMarketNote();
   render();
 }
 
 function renderListings(){
   const sub = subFilterEl.value;
   // Uncapped — Magic Eden and OpenSea are gated behind their own
-  // top-level tab (#marketTabs) now, so an unfiltered "All
+  // top-level switch (#marketSwitch) now, so an unfiltered "All
   // sub-collections" view here (5,000+ listings) no longer risks
   // burying the OpenSea panel the way it did before that split.
   const items = sortItems(
     allListings.filter(i =>
       (!sub || i.sub === sub) &&
+      (!charFilterEl.value || itemCharacters(i).includes(charFilterEl.value)) &&
       (!selectedTier || i.rarity === selectedTier) &&
       matchesSearch(i, searchQuery)
     ),
@@ -1247,8 +1024,8 @@ function renderListings(){
   if(items.length === 0){
     gridEl.className = currentDisplay;
     const hint = searchQuery
-      ? 'Try a different search, a different sub-collection, or a different rarity tier.'
-      : 'Try a different sub-collection, a different rarity tier, or check back later.';
+      ? 'Try a different search, a different collection, or a different rarity tier.'
+      : 'Try a different collection, a different rarity tier, or check back later.';
     gridEl.innerHTML = `<div class="empty">No listings match this view yet.<br>${hint}</div>`;
     return;
   }
@@ -1256,7 +1033,7 @@ function renderListings(){
   if(currentDisplay === 'list'){
     gridEl.className = 'list';
     gridEl.innerHTML = items.map(i => `
-      <a class="list-row" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}" data-track-mint="${esc(i.mintAddress)}">
+      <a class="list-row" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" ${ZurOS.trackAttrs(i, i.mintAddress, esc)}>
         <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
         <div class="info">
           <div class="sub">${esc(i.sub)}</div>
@@ -1265,7 +1042,7 @@ function renderListings(){
         </div>
         <div class="price-col">
           <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
-          <div class="me-tag">Magic Eden &#8599;</div>
+          ${ZurOS.marketTag(i)}
           ${parseEdition(i.name) ? `<div class="mint">${parseEdition(i.name)}</div>` : ''}
           ${i.listedAt ? `<div class="time">${timeAgo(i.listedAt)}</div>` : ''}
         </div>
@@ -1276,14 +1053,14 @@ function renderListings(){
 
   gridEl.className = 'grid';
   gridEl.innerHTML = items.map(i => `
-    <a class="card" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}" data-track-mint="${esc(i.mintAddress)}">
+    <a class="card" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" ${ZurOS.trackAttrs(i, i.mintAddress, esc)}>
       <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
       <div class="body">
         <div class="sub">${esc(i.sub)}</div>
         <div class="name">${esc(i.name)}</div>
         ${rarityBadge(i.rarity, i.rarityPct)}
         <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
-        <div class="me-tag">Magic Eden &#8599;</div>
+        ${ZurOS.marketTag(i)}
         ${parseEdition(i.name) ? `<div class="mint">${parseEdition(i.name)}</div>` : ''}
         ${i.listedAt ? `<div class="time">${timeAgo(i.listedAt)}</div>` : ''}
       </div>
@@ -1305,6 +1082,7 @@ function renderSales(){
   const items = sortItems(
     allSales.filter(i =>
       (!sub || i.sub === sub) &&
+      (!charFilterEl.value || itemCharacters(i).includes(charFilterEl.value)) &&
       (!selectedTier || i.rarity === selectedTier) &&
       matchesSearch(i, searchQuery)
     ),
@@ -1314,8 +1092,8 @@ function renderSales(){
   if(items.length === 0){
     gridEl.className = currentDisplay;
     const hint = searchQuery
-      ? 'Try a different search, a different sub-collection, or a different rarity tier.'
-      : 'Try a different sub-collection, a different rarity tier, or check back later.';
+      ? 'Try a different search, a different collection, or a different rarity tier.'
+      : 'Try a different collection, a different rarity tier, or check back later.';
     gridEl.innerHTML = `<div class="empty">No sales in the last 7 days for this view.<br>${hint}</div>`;
     return;
   }
@@ -1323,7 +1101,7 @@ function renderSales(){
   if(currentDisplay === 'list'){
     gridEl.className = 'list';
     gridEl.innerHTML = items.map(i => `
-      <a class="list-row" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}" data-track-mint="${esc(i.mint)}">
+      <a class="list-row" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" ${ZurOS.trackAttrs(i, i.mint, esc)}>
         <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
         <div class="info">
           <div class="sub">${esc(i.sub)}</div>
@@ -1332,7 +1110,7 @@ function renderSales(){
         </div>
         <div class="price-col">
           <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
-          <div class="me-tag">Magic Eden &#8599;</div>
+          ${ZurOS.marketTag(i)}
           ${i.name && parseEdition(i.name) ? `<div class="mint">${parseEdition(i.name)}</div>` : ''}
           ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
         </div>
@@ -1343,14 +1121,14 @@ function renderSales(){
 
   gridEl.className = 'grid';
   gridEl.innerHTML = items.map(i => `
-    <a class="card" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}" data-track-mint="${esc(i.mint)}">
+    <a class="card" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" ${ZurOS.trackAttrs(i, i.mint, esc)}>
       <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
       <div class="body">
         <div class="sub">${esc(i.sub)}</div>
         <div class="name">${soldLabel(i)}</div>
         ${rarityBadge(i.rarity, i.rarityPct)}
         <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
-        <div class="me-tag">Magic Eden &#8599;</div>
+        ${ZurOS.marketTag(i)}
         ${i.name && parseEdition(i.name) ? `<div class="mint">${parseEdition(i.name)}</div>` : ''}
         ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
       </div>
@@ -1367,6 +1145,7 @@ function timeAgo(ts){
 }
 
 subFilterEl.addEventListener('change', render);
+charFilterEl.addEventListener('change', render);
 
 searchInputEl.addEventListener('input', () => {
   searchQuery = searchInputEl.value.trim().toLowerCase();
@@ -1397,22 +1176,20 @@ document.querySelectorAll('#meTabs .tab').forEach(t => {
 });
 
 const REFRESH_INTERVAL = 22 * 60 * 1000; // trails the Worker's own 20-min cron refresh, so we're not fetching a KV entry that's mid-update
+
+ZurOS.mountMarketSwitch(document.getElementById('marketSwitch'), market, activateMarket);
+activateMarket(market);
+
+// Both marketplaces load up front (independently — a failure in one
+// never touches the other), so switching is instant.
+loadOS();
+setInterval(() => loadOS(true), REFRESH_INTERVAL);
 loadAll();
 setInterval(() => loadAll(true), REFRESH_INTERVAL);
 
 const LIQUIDITY_REFRESH_INTERVAL = 22 * 60 * 1000; // same cron-trailing reasoning as REFRESH_INTERVAL
 loadLiquidity();
 setInterval(loadLiquidity, LIQUIDITY_REFRESH_INTERVAL);
-
-const OS_ACTIVITY_REFRESH_INTERVAL = 22 * 60 * 1000; // same cron-trailing reasoning as REFRESH_INTERVAL
-loadOpenSeaActivity();
-setInterval(loadOpenSeaActivity, OS_ACTIVITY_REFRESH_INTERVAL);
-
-// Independent of loadOpenSeaActivity() above — separate KV entry, own
-// cron job (refreshOpenSeaFullCatalog() in me-proxy-worker.js), own
-// backfill timeline, so it's fetched/refreshed on its own.
-loadOpenSeaFullListings();
-setInterval(loadOpenSeaFullListings, OS_ACTIVITY_REFRESH_INTERVAL);
 </script>
 </body>
 </html>

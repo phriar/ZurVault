@@ -11,17 +11,17 @@
 <meta name="theme-color" content="#0a0a0a">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' https: data:; connect-src 'self' https://zurvault-proxy.stholt.workers.dev;">
 <title>Collection — ZurVault</title>
-<meta name="description" content="Unofficial fan-built DC Comics NFT price tracker — live Magic Eden listings and sales for a Solana collection.">
+<meta name="description" content="Unofficial fan-built DC Comics NFT price tracker — live OpenSea and Magic Eden listings and sales for a Solana collection.">
 <link rel="canonical" href="https://zurvault.com/collection.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="ZurVault">
 <meta property="og:title" content="Collection — ZurVault">
-<meta property="og:description" content="Unofficial fan-built DC Comics NFT price tracker — live Magic Eden listings and sales for a Solana collection.">
+<meta property="og:description" content="Unofficial fan-built DC Comics NFT price tracker — live OpenSea and Magic Eden listings and sales for a Solana collection.">
 <meta property="og:url" content="https://zurvault.com/collection.html">
 <meta property="og:image" content="https://zurvault.com/icon-512.png">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Collection — ZurVault">
-<meta name="twitter:description" content="Unofficial fan-built DC Comics NFT price tracker — live Magic Eden listings and sales for a Solana collection.">
+<meta name="twitter:description" content="Unofficial fan-built DC Comics NFT price tracker — live OpenSea and Magic Eden listings and sales for a Solana collection.">
 <meta name="twitter:image" content="https://zurvault.com/icon-512.png">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 <style>
@@ -219,6 +219,11 @@
 <div id="historySlot"></div>
 <div id="keyIssuesSlot"></div>
 
+<!-- OpenSea / Magic Eden switch (os-data.js) — OpenSea default; the
+     choice carries across pages. -->
+<div id="marketSwitch" style="margin-top:16px"></div>
+<p class="zv-market-note" id="marketNote" hidden></p>
+
 <div class="controls">
   <div class="view-toggle" id="viewToggle">
     <button class="pill active" data-view="grid">Grid</button>
@@ -230,9 +235,10 @@
 <div id="grid" class="grid"></div>
 
 <footer>
-  Live listing data via Magic Eden public API · <a href="index.html">zurvault.com</a>
+  Live listing data from OpenSea and Magic Eden · <a href="index.html">zurvault.com</a>
 </footer>
 <script src="/site-footer.js"></script>
+<script src="/os-data.js"></script>
 
 <script>
 const ME_PROXY_BASE = "https://zurvault-proxy.stholt.workers.dev";
@@ -291,6 +297,7 @@ function shortMint(mint){
 // KV entries written before the Worker started capturing it) — never shows
 // a blank label.
 function soldLabel(i){
+  if(i.market === 'os') return esc(i.name || 'Sold');
   return i.buyer ? `Sold to ${shortMint(i.buyer)}` : `Sold · ${shortMint(i.mint)}`;
 }
 
@@ -316,10 +323,17 @@ function renderKeyIssues(collection){
     const match = allListings.find(i => i.symbol === k.symbol) || allSales.find(i => i.symbol === k.symbol);
     const image = match ? match.image : '';
     const name = match ? match.name : null;
-    const href = match ? match.pdpUrl : `https://magiceden.io/marketplace/${encodeURIComponent(k.symbol)}`;
+    // No live item: fall back to the collection's own page on the active
+    // marketplace — OpenSea when we know its slug for this symbol.
+    const osColl = osCollections.find(c => c.symbol === k.symbol);
+    const fallback = market === 'os' && osColl
+      ? { market: 'os', href: `https://opensea.io/collection/${encodeURIComponent(osColl.slug)}` }
+      : { market: 'me', href: `https://magiceden.io/marketplace/${encodeURIComponent(k.symbol)}`, symbol: k.symbol };
+    const href = match ? match.pdpUrl : fallback.href;
+    const trackItem = match || fallback;
     return `
-      <a class="key-issue-card" href="${href}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(k.symbol)}" data-track-mint="${esc(match ? (match.mintAddress || match.mint || "") : "")}">
-        <img src="${image}" loading="lazy" onerror="this.style.opacity=0.15">
+      <a class="key-issue-card" href="${esc(href)}" target="_blank" rel="noopener"${ZurOS.trackAttrs({ market: trackItem.market, symbol: k.symbol }, match ? (match.mintAddress || match.mint || "") : "", esc)}>
+        <img src="${esc(image)}" loading="lazy" onerror="this.style.opacity=0.15">
         <div>
           ${name ? `<div class="k-name">${esc(name)}</div>` : ''}
           <div class="k-note">${esc(k.note)}</div>
@@ -344,14 +358,14 @@ function renderListings(){
   if(items.length === 0){
     gridEl.className = currentDisplay;
     const noun = currentKind === 'character' ? "this character's tracked collections" : 'this series';
-    gridEl.innerHTML = `<div class="empty">Nothing currently for sale in ${noun}.<br>Check back later, or browse <a href="index.html" style="color:var(--gold)">all DC listings</a>.</div>`;
+    gridEl.innerHTML = `<div class="empty">Nothing currently for sale on ${ZurOS.marketLabel(market)} in ${noun}.<br>Check back later, or browse <a href="index.html" style="color:var(--gold)">all DC listings</a>.</div>`;
     return;
   }
 
   if(currentDisplay === 'list'){
     gridEl.className = 'list';
     gridEl.innerHTML = items.map(i => `
-      <a class="list-row" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}" data-track-mint="${esc(i.mintAddress)}">
+      <a class="list-row" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" ${ZurOS.trackAttrs(i, i.mintAddress, esc)}>
         <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
         <div class="info">
           <div class="sub">${esc(i.sub)}</div>
@@ -359,7 +373,7 @@ function renderListings(){
         </div>
         <div class="price-col">
           <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
-          <div class="me-tag">Magic Eden &#8599;</div>
+          ${ZurOS.marketTag(i)}
           ${parseEdition(i.name) ? `<div class="mint">${parseEdition(i.name)}</div>` : ''}
           ${i.listedAt ? `<div class="time">${timeAgo(i.listedAt)}</div>` : ''}
         </div>
@@ -370,13 +384,13 @@ function renderListings(){
 
   gridEl.className = 'grid';
   gridEl.innerHTML = items.map(i => `
-    <a class="card" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}" data-track-mint="${esc(i.mintAddress)}">
+    <a class="card" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" ${ZurOS.trackAttrs(i, i.mintAddress, esc)}>
       <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
       <div class="body">
         <div class="sub">${esc(i.sub)}</div>
         <div class="name">${esc(i.name)}</div>
         <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
-        <div class="me-tag">Magic Eden &#8599;</div>
+        ${ZurOS.marketTag(i)}
         ${i.listedAt ? `<div class="time">${timeAgo(i.listedAt)}</div>` : ''}
       </div>
     </a>
@@ -388,14 +402,14 @@ function renderSales(){
   if(items.length === 0){
     gridEl.className = currentDisplay;
     const noun = currentKind === 'character' ? 'this character' : 'this series';
-    gridEl.innerHTML = `<div class="empty">No sales in the last 7 days for ${noun}.<br>Check back later, or browse <a href="index.html" style="color:var(--gold)">all DC listings</a>.</div>`;
+    gridEl.innerHTML = `<div class="empty">No recent ${ZurOS.marketLabel(market)} sales for ${noun}.<br>Check back later, or browse <a href="index.html" style="color:var(--gold)">all DC listings</a>.</div>`;
     return;
   }
 
   if(currentDisplay === 'list'){
     gridEl.className = 'list';
     gridEl.innerHTML = items.map(i => `
-      <a class="list-row" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}" data-track-mint="${esc(i.mint)}">
+      <a class="list-row" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" ${ZurOS.trackAttrs(i, i.mint, esc)}>
         <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
         <div class="info">
           <div class="sub">${esc(i.sub)}</div>
@@ -403,7 +417,7 @@ function renderSales(){
         </div>
         <div class="price-col">
           <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
-          <div class="me-tag">Magic Eden &#8599;</div>
+          ${ZurOS.marketTag(i)}
           ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
         </div>
       </a>
@@ -413,13 +427,13 @@ function renderSales(){
 
   gridEl.className = 'grid';
   gridEl.innerHTML = items.map(i => `
-    <a class="card" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" data-track="me" data-track-context="${esc(i.symbol)}" data-track-mint="${esc(i.mint)}">
+    <a class="card" href="${esc(i.pdpUrl)}" target="_blank" rel="noopener" ${ZurOS.trackAttrs(i, i.mint, esc)}>
       <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
       <div class="body">
         <div class="sub">${esc(i.sub)}</div>
         <div class="name">${soldLabel(i)}</div>
         <div class="price">${i.price !== null ? i.price + ' SOL' : '—'}</div>
-        <div class="me-tag">Magic Eden &#8599;</div>
+        ${ZurOS.marketTag(i)}
         ${i.soldAt ? `<div class="time">${timeAgo(i.soldAt)}</div>` : ''}
       </div>
     </a>
@@ -468,7 +482,7 @@ async function loadCollection(){
   }
 
   document.title = `${collection.name} — ZurVault`;
-  const collDesc = collection.blurb || `Unofficial fan-built price tracker: live Magic Eden listings and sales for ${collection.name}, a DC Comics NFT collection on Solana.`;
+  const collDesc = collection.blurb || `Unofficial fan-built price tracker: live OpenSea and Magic Eden listings and sales for ${collection.name}, a DC Comics NFT collection on Solana.`;
   document.querySelector('meta[name="description"]').setAttribute('content', collDesc);
   document.querySelector('meta[property="og:title"]').setAttribute('content', `${collection.name} — ZurVault`);
   document.querySelector('meta[property="og:description"]').setAttribute('content', collDesc);
@@ -479,31 +493,104 @@ async function loadCollection(){
   if(collection.blurb) collBlurbEl.textContent = collection.blurb;
   renderHistory(collection);
 
+  currentCollection = collection;
+  ZurOS.mountMarketSwitch(document.getElementById('marketSwitch'), market, showMarket);
   setStatus('Loading…');
+  loadOS(collection);
+  loadME(collection);
+}
+
+// One dataset per marketplace, each filtered to this series/character;
+// the switch picks which one renders. Never interleaved into one list.
+let market = ZurOS.getMarket();
+let currentCollection = null;
+let osCollections = [];
+const byMarket = {
+  os: { listings: [], sales: [], loaded: false, status: null },
+  me: { listings: [], sales: [], loaded: false, status: null },
+};
+
+// OpenSea items match on the same Magic Eden-style symbol (os-data.js
+// tags every OpenSea item with one). A character page additionally
+// matches on each OpenSea listing's own Character trait — that catches
+// OpenSea-only issues no curated symbol list knows about yet.
+function inCollection(i, collection, symbolSet){
+  if(symbolSet.has(i.symbol)) return true;
+  return i.market === 'os' && collection.kind === 'character' && !!i.character &&
+    i.character.toLowerCase() === collection.name.toLowerCase();
+}
+
+function noun(kind){ return kind === 'character' ? 'tracked collection(s)' : 'tracked issue(s)'; }
+
+function showMarket(m){
+  if(m) market = m;
+  const d = byMarket[market];
+  allListings = d.listings;
+  allSales = d.sales;
+  const noteEl = document.getElementById('marketNote');
+  const note = market === 'os' && d.loaded && d.salesScope === 'recent'
+    ? 'OpenSea sales history for individual collections is still being gathered — Recently Sold shows only what the recent-sales feed has caught so far.'
+    : '';
+  noteEl.textContent = note;
+  noteEl.hidden = !note;
+  if(d.status) setStatus(d.status[0], d.status[1]);
+  else setStatus('Loading…');
+  if(currentCollection) renderKeyIssues(currentCollection);
+  render();
+}
+
+function setMarketStatus(m, msg, isErr){
+  byMarket[m].status = [msg, !!isErr];
+  if(m === market) setStatus(msg, isErr);
+}
+
+async function loadOS(collection){
+  let d;
+  try{
+    d = await ZurOS.load();
+  }catch(e){
+    console.error(e);
+    setMarketStatus('os', 'Could not reach the OpenSea listings service. Try reloading in a moment.', true);
+    return;
+  }
+  const symbolSet = new Set(collection.symbols);
+  osCollections = d.collections || [];
+  Object.assign(byMarket.os, {
+    listings: d.listings.filter(i => inCollection(i, collection, symbolSet)),
+    sales: d.sales.filter(i => inCollection(i, collection, symbolSet)),
+    salesScope: d.salesScope,
+    loaded: true,
+  });
+  const updated = d.updatedAt ? new Date(d.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+  setMarketStatus('os', `${byMarket.os.listings.length} for sale on OpenSea, ${byMarket.os.sales.length} sold recently · updated ${updated}.`);
+  if(market === 'os') showMarket();
+}
+
+async function loadME(collection){
   try{
     const res = await fetch(`${ME_BASE}/dc-summary`);
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
     if(data.notReady){
-      setStatus('The listings service is still setting up — check back in a few minutes.', true);
+      setMarketStatus('me', 'The listings service is still setting up — check back in a few minutes.', true);
       return;
     }
 
     const symbolSet = new Set(collection.symbols);
-    allListings = (data.listings || []).filter(i => symbolSet.has(i.symbol));
-    allSales = (data.sales || []).filter(i => symbolSet.has(i.symbol));
-    renderKeyIssues(collection);
-
+    Object.assign(byMarket.me, {
+      listings: (data.listings || []).filter(i => symbolSet.has(i.symbol)),
+      sales: (data.sales || []).filter(i => symbolSet.has(i.symbol)),
+      loaded: true,
+    });
     const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
-    const noun = kind === 'character' ? 'tracked collection(s)' : 'tracked issue(s)';
-    setStatus(`${allListings.length} for sale, ${allSales.length} sold in the last 7 days across ${collection.symbols.length} ${noun} · updated ${updated}.`);
+    setMarketStatus('me', `${byMarket.me.listings.length} for sale on Magic Eden, ${byMarket.me.sales.length} sold in the last 7 days across ${collection.symbols.length} ${noun(collection.kind)} · updated ${updated}.`);
   }catch(e){
     console.error(e);
-    setStatus('Could not reach the listings service. Try reloading in a moment.', true);
+    setMarketStatus('me', 'Could not reach the Magic Eden listings service. Try reloading in a moment.', true);
     return;
   }
-  render();
+  if(market === 'me') showMarket();
 }
 
 document.querySelectorAll('.tab').forEach(t => {

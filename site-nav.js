@@ -167,7 +167,7 @@
     // aggregates live third-party Magic Eden pricing/listings and shows
     // DC-branded comic art, and a visitor should never be able to mistake
     // it for an official storefront.
-    '<div id="zv-disclaimer">Unofficial fan project &mdash; not affiliated with or endorsed by DC Comics, Warner Bros. Discovery, or Magic Eden. Prices, listings, and sales shown are live third-party data; all purchases happen on Magic Eden, not here. This site is read-only and never requests a wallet connection, signature, or private key.</div>';
+    '<div id="zv-disclaimer">Unofficial fan project &mdash; not affiliated with or endorsed by DC Comics, Warner Bros. Discovery, OpenSea, or Magic Eden. Prices, listings, and sales shown are live third-party data; all purchases happen on OpenSea or Magic Eden, not here. This site is read-only and never requests a wallet connection, signature, or private key.</div>';
 
   script.insertAdjacentHTML('afterend', html);
   document.body.classList.add('zv-has-banner');

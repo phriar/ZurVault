@@ -190,6 +190,9 @@ const COLLECTIONS_MAP = {
       "justice_league_unlimited_2024_3", "justice_league_unlimited_2024_4",
       "justice_league_unlimited_2024_6", "dc3_super_power_packs_series_jla_the_nail",
       "justice_league_the_atom_project_2025_1", "justice_league_the_atom_project_2025_2",
+      // OpenSea-only (no Magic Eden collection) — added 2026-11-07, symbol
+      // inferred from its OpenSea slug (see os-data.js inferSymbol()).
+      "justice_league_the_atom_project_2025_4",
       "justice_league_of_america_19601987_1", "justice_league_20112016_1",
       "dc3_super_power_packs_series_justice_league_vs_suicide_squad",
     ],
@@ -222,6 +225,9 @@ const COLLECTIONS_MAP = {
       "batman_19402011_407", "batman_19402011_423", "batman_19402011_428",
       "batman_19402011_608", "batman_19402011_610", "batman_19402011_655",
       "batman_20112016_5", "batman_2016_158", "batman_2016_159",
+      // OpenSea-only issues (no Magic Eden collection) — added 2026-11-07,
+      // symbols inferred from their OpenSea slugs (os-data.js inferSymbol()).
+      "batman_19402011_404", "batman_20112016_2",
       "batman_2016_160", "batman_2016_161", "batman_2025_1",
       "dc3_super_power_packs_series_batman",
     ],
@@ -313,13 +319,14 @@ const COLLECTIONS_MAP = {
   "crisis-on-infinite-earths": {
     name: "Crisis on Infinite Earths",
     blurb:
-      "DC's landmark 1985-86 maxiseries by Marv Wolfman and George Pérez, which collapsed the company's sprawling multiverse into a single shared continuity — one of the most consequential comics events ever published. The three symbols tracked here are crafted/pack-style products rather than confirmed individual numbered issues.",
+      "DC's landmark 1985-86 maxiseries by Marv Wolfman and George Pérez, which collapsed the company's sprawling multiverse into a single shared continuity — one of the most consequential comics events ever published. The symbols tracked here are crafted/pack-style products rather than confirmed individual numbered issues.",
     history:
       "Crisis on Infinite Earths (1985-86) merged DC's decades of parallel-Earth continuity into one unified universe, killing off (among others) the Golden Age Supergirl and Barry Allen's Flash along the way — deaths significant enough that both remained largely untouched in DC continuity for decades afterward. It's excluded from character-map.js's per-character groupings by design (a pure crossover event with no single lead), and Dark Crisis on Infinite Earths (2022) is a separate, unrelated later event — not part of this collection.",
     symbols: [
       "crisis_on_infinite_earths",
       "dc3_super_power_packs_series_1_crisis_on_infinite_earths",
       "dc3_super_power_packs_series_2_crisis_on_infinite_earths",
+      "dc3_super_power_packs_series_3_crisis_on_infinite_earths", // OpenSea-only, added 2026-11-07
     ],
   },
 };

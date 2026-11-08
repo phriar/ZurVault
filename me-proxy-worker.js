@@ -1426,7 +1426,7 @@ async function refreshLiquidityStats(env) {
     // it doesn't need to. fetchEthToSolRate() itself never throws (see
     // its own comment), so this Promise.all can't fail because of it.
     const [osRes, ethToSolRate] = await Promise.all([
-      fetch(OPENSEA_STATS_URL, { headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY } }),
+      osFetch(OPENSEA_STATS_URL, env),
       fetchEthToSolRate(),
     ]);
     logOpenSeaRateLimit("stats", osRes);
@@ -1512,24 +1512,67 @@ async function loadOpenSeaMetadataCache(env) {
 // rate-limit log line for this call regardless of status (see
 // logOpenSeaRateLimit's own comment on why this is temporary Phase 0
 // instrumentation) — a 429 always logs either way.
+// Bumped whenever this function starts capturing a new field, so entries
+// cached under an older shape get re-resolved (within each cycle's
+// resolve budget — see resolveOpenSeaListings()) instead of silently
+// lacking the field for the cache's whole 60-day TTL. v2 added
+// coverArtists/itemType/collectionSlug for OpenSea-primary browsing
+// (artist pages, Item Type pills, collection matching).
+const OPENSEA_METADATA_VERSION = 2;
+
 async function fetchOpenSeaMintMetadata(mint, env, label) {
   try {
-    const res = await fetch(openSeaNftUrl(mint), {
-      headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY },
-    });
+    const res = await osFetch(openSeaNftUrl(mint), env);
     if (label || res.status === 429) logOpenSeaRateLimit(label || `mint-resolve:${mint}`, res);
     if (!res.ok) return null;
     const nft = (await res.json())?.nft || {};
     const rarityInfo = normalizeRarity(nft.traits);
     return {
+      v: OPENSEA_METADATA_VERSION,
       name: nft.name || "Untitled",
       image: nft.image_url || nft.display_image_url || "",
       character: extractOpenSeaTrait(nft.traits, "Character"),
       rarity: rarityInfo.tier,
       rarityPct: rarityInfo.pct,
+      // OpenSea traits share Magic Eden's {trait_type, value} shape, so
+      // the same per-listing extractors apply unchanged.
+      coverArtists: extractCoverArtists(nft.traits),
+      itemType: extractItemType(nft.traits),
+      nftCollection: nft.collection || null,
     };
   } catch {
     return null;
+  }
+}
+
+// Global OpenSea request pacing — same lesson as throttleMagicEden():
+// concurrency and request *rate* are different things. ~120 requests/60s
+// was the budget confirmed live via logOpenSeaRateLimit, so 2/sec sits
+// right at it; every OpenSea call in this file goes through osFetch() so
+// the per-cycle jobs (now run in sequence by refreshOpenSeaAll()) can't
+// collectively burst past it. One short retry on 429.
+const OPENSEA_MAX_REQUESTS_PER_SEC = 2;
+let osRequestTimestamps = [];
+async function throttleOpenSea() {
+  while (true) {
+    const now = Date.now();
+    osRequestTimestamps = osRequestTimestamps.filter((t) => now - t < 1000);
+    if (osRequestTimestamps.length < OPENSEA_MAX_REQUESTS_PER_SEC) {
+      osRequestTimestamps.push(now);
+      return;
+    }
+    await sleep(1000 - (now - osRequestTimestamps[0]) + 10);
+  }
+}
+async function osFetch(url, env) {
+  for (let attempt = 0; ; attempt++) {
+    await throttleOpenSea();
+    const res = await fetch(url, { headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY } });
+    if (res.status === 429 && attempt < 1) {
+      await sleep(2000);
+      continue;
+    }
+    return res;
   }
 }
 
@@ -1560,6 +1603,13 @@ function deriveOpenSeaSale(ev) {
     mintAddress: nft.identifier || "",
     price: priceSol,
     soldAt: ev?.event_timestamp || null,
+    // Which per-issue OpenSea collection this mint belongs to — the
+    // events payload carries it as nft.collection — so a sale can be
+    // matched to collection.html/the Series/Characters maps the same way
+    // a listing is. signature lets the same trade be deduped across the
+    // candy-dc feed and the per-collection sales crawl.
+    collectionSlug: nft.collection || null,
+    signature: ev?.transaction || null,
     character: extractOpenSeaTrait(nft.traits, "Character"),
     rarity: rarityInfo.tier,
     rarityPct: rarityInfo.pct,
@@ -1621,15 +1671,18 @@ async function resolveOpenSeaListings(rawListings, env, cache, newResolveCap) {
 
   async function resolveOne(p, idx) {
     const cached = cache[p.mint];
-    if (cached) return toDisplay(p, cached);
-    if (newlyResolved >= newResolveCap) return null; // over budget this cycle — picked up by cache next time
+    if (cached && cached.v === OPENSEA_METADATA_VERSION) return toDisplay(p, cached);
+    // Over budget this cycle: an older-shape cached entry is still shown
+    // (just missing the newer fields until a later cycle upgrades it); a
+    // never-seen mint is skipped and picked up by the cache next time.
+    if (newlyResolved >= newResolveCap) return cached ? toDisplay(p, cached) : null;
     newlyResolved++;
     // Only the first/last of the batch (plus any 429, forced inside
     // fetchOpenSeaMintMetadata itself) get logged — one line per resolve
     // here would be near-identical noise at this volume.
     const label = idx === 0 || idx === parsed.length - 1 ? `listing-resolve[${idx}/${parsed.length - 1}]` : null;
     const meta = await fetchOpenSeaMintMetadata(p.mint, env, label);
-    if (!meta) return null;
+    if (!meta) return cached ? toDisplay(p, cached) : null;
     cache[p.mint] = meta;
     return toDisplay(p, meta);
   }
@@ -1660,8 +1713,8 @@ async function refreshOpenSeaActivity(env) {
   }
   try {
     const [listingsRes, eventsRes] = await Promise.all([
-      fetch(OPENSEA_LISTINGS_URL, { headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY } }),
-      fetch(OPENSEA_EVENTS_URL, { headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY } }),
+      osFetch(OPENSEA_LISTINGS_URL, env),
+      osFetch(OPENSEA_EVENTS_URL, env),
     ]);
     logOpenSeaRateLimit("listings", listingsRes);
     logOpenSeaRateLimit("events", eventsRes);
@@ -1757,7 +1810,7 @@ async function fetchOpenSeaListingsForSlug(slug, env, maxPages, label) {
   let cursor = null;
   for (let page = 0; page < maxPages; page++) {
     const url = cursor ? `${baseUrl}&next=${encodeURIComponent(cursor)}` : baseUrl;
-    const res = await fetch(url, { headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY } });
+    const res = await osFetch(url, env);
     if (page === 0 || res.status === 429) logOpenSeaRateLimit(`${label}-page[${page}]`, res);
     if (!res.ok) break;
     const data = await res.json();
@@ -1835,7 +1888,14 @@ const KNOWN_HOLDER_WALLETS = [
 // directory. candy-mlb is a non-DC sports-card promo that showed up in
 // the same wallet's holdings — same "exclude non-DC entries" rule
 // DC_COLLECTIONS itself already follows.
-const OPENSEA_EXCLUDED_SLUGS = new Set(["candy-dc", "candy-mlb"]);
+const OPENSEA_EXCLUDED_SLUGS = new Set([
+  "candy-dc",
+  "candy-mlb",
+  // MLB/sports promos the holder-wallet scan picked up (confirmed by
+  // collection name, 2026-11-07) — same non-DC exclusion rule.
+  "2023-team-series-icons",
+  "2024-opening-day-pin",
+]);
 
 const OPENSEA_KNOWN_COLLECTIONS_KEY = "opensea-known-collections";
 const OPENSEA_DISCOVERY_STATE_KEY = "opensea-discovery-last-run";
@@ -1855,7 +1915,7 @@ async function fetchWalletCollectionSlugs(address, env) {
   const MAX_PAGES = 15;
   do {
     const nftUrl = `https://api.opensea.io/api/v2/chain/solana/account/${address}/nfts?limit=200${cursor ? `&next=${encodeURIComponent(cursor)}` : ""}`;
-    const res = await fetch(nftUrl, { headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY } });
+    const res = await osFetch(nftUrl, env);
     if (!res.ok) break; // keep whatever slugs were already found rather than failing the whole scan
     const data = await res.json();
     for (const nft of data?.nfts || []) {
@@ -1871,9 +1931,7 @@ async function fetchWalletCollectionSlugs(address, env) {
 // below), so this is a rare call, not a per-cycle cost.
 async function fetchCollectionDisplayName(slug, env) {
   try {
-    const res = await fetch(`https://api.opensea.io/api/v2/collections/${slug}`, {
-      headers: { Accept: "application/json", "x-api-key": env.OPENSEA_API_KEY },
-    });
+    const res = await osFetch(`https://api.opensea.io/api/v2/collections/${slug}`, env);
     if (!res.ok) return null;
     const data = await res.json();
     return data?.name || null;
@@ -1950,23 +2008,38 @@ const OPENSEA_NAMED_LISTINGS_TTL_SECONDS = 2400;
 // Cron entry point — same isolation contract as the other refresh*
 // functions: any failure caught/logged, never thrown out of scheduled(),
 // last-known-good KV entry left in place on failure.
-async function refreshOpenSeaNamedCollections(env) {
+async function refreshOpenSeaNamedCollections(env, meListedMints) {
   if (!env.OPENSEA_API_KEY) {
     console.error("refreshOpenSeaNamedCollections: OPENSEA_API_KEY not configured");
     return;
   }
   try {
     const directory = await loadKnownOpenSeaCollections(env);
-    const slugs = Object.keys(directory);
+    const slugs = Object.keys(directory).filter((s) => !OPENSEA_EXCLUDED_SLUGS.has(s));
     if (slugs.length === 0) return; // nothing discovered yet — discoverOpenSeaCollections() hasn't run or found anything
 
-    // Same cross-reference as refreshOpenSeaFullCatalog() — a mint
-    // already actively listed on Magic Eden gets excluded here too.
-    const meListedMints = new Set((await mergeDCCollections(env)).listings.map((l) => l.mintAddress).filter(Boolean));
+    // Rotating crawl: once seedOpenSeaCollectionsFromME() fills the
+    // directory out to ~200 collections, re-crawling every one every
+    // 20-min cycle would blow far past the OpenSea rate budget. Instead
+    // each slug keeps its own last-crawled snapshot, and each cycle
+    // refreshes the OPENSEA_NAMED_SLUGS_PER_CYCLE stalest ones (never-
+    // crawled first). The served listing set is the union of every
+    // snapshot younger than OPENSEA_NAMED_SNAPSHOT_MAX_AGE_MS.
+    const snapshots = await kvJSON(env, OPENSEA_NAMED_SNAPSHOTS_KEY, {});
+    const due = slugs
+      .slice()
+      .sort((a, b) => (snapshots[a]?.at || 0) - (snapshots[b]?.at || 0))
+      .slice(0, OPENSEA_NAMED_SLUGS_PER_CYCLE);
+
+    if (!meListedMints) {
+      meListedMints = new Set((await mergeDCCollections(env)).listings.map((l) => l.mintAddress).filter(Boolean));
+    }
 
     const rawListings = [];
-    for (const slug of slugs) {
+    const crawled = new Set();
+    for (const slug of due) {
       const slugListings = await fetchOpenSeaListingsForSlug(slug, env, OPENSEA_NAMED_CRAWL_MAX_PAGES, `named-crawl:${slug}`);
+      crawled.add(slug);
       for (const l of slugListings) {
         if (meListedMints.has(l?.asset?.identifier)) continue;
         rawListings.push({ ...l, _collectionSlug: slug, _collectionName: directory[slug]?.name || slug });
@@ -1977,11 +2050,309 @@ async function refreshOpenSeaNamedCollections(env) {
     const listings = await resolveOpenSeaListings(rawListings, env, cache, OPENSEA_NAMED_RESOLVE_CAP);
     await env.DC_CACHE.put(OPENSEA_METADATA_CACHE_KEY, JSON.stringify(cache), { expirationTtl: OPENSEA_METADATA_CACHE_TTL_SECONDS });
 
-    const entry = { updatedAt: Date.now(), listings, notReady: false };
+    const now = Date.now();
+    for (const slug of crawled) snapshots[slug] = { at: now, listings: [] };
+    for (const l of listings) snapshots[l.collectionSlug]?.listings.push(l);
+    for (const slug of Object.keys(snapshots)) {
+      if (!directory[slug] || OPENSEA_EXCLUDED_SLUGS.has(slug) || now - snapshots[slug].at > OPENSEA_NAMED_SNAPSHOT_MAX_AGE_MS) {
+        delete snapshots[slug];
+      }
+    }
+    await env.DC_CACHE.put(OPENSEA_NAMED_SNAPSHOTS_KEY, JSON.stringify(snapshots), { expirationTtl: OPENSEA_NAMED_SNAPSHOT_TTL_SECONDS });
+
+    const all = Object.values(snapshots).flatMap((s) => s.listings);
+    const entry = { updatedAt: now, listings: all, notReady: false };
     await env.DC_CACHE.put(OPENSEA_NAMED_LISTINGS_KEY, JSON.stringify(entry), { expirationTtl: OPENSEA_NAMED_LISTINGS_TTL_SECONDS });
   } catch (err) {
     console.error("refreshOpenSeaNamedCollections failed:", err.message);
   }
+}
+
+// ---------------------------------------------------------------------
+// OPENSEA PRIMARY (2026-11-07) — OpenSea became the main marketplace for
+// this site (candy.io's own site changes plus collectors moving off
+// Magic Eden), so OpenSea now needs the same capabilities the Magic Eden
+// side has always had: every DC collection covered (not just whatever
+// one holder wallet happened to hold), per-collection Recent Sales, and
+// one merged summary endpoint shaped like /v2/dc-summary so every page
+// can read OpenSea the same way.
+//
+// Three pieces:
+//   1. seedOpenSeaCollectionsFromME() — maps each DC_COLLECTIONS symbol
+//      to its real OpenSea collection slug by looking up one mint we
+//      already know belongs to it (from that symbol's collection:* KV
+//      entry) on OpenSea. Exact, not a name guess, and it grows the
+//      OPENSEA_KNOWN_COLLECTIONS_KEY directory far past what the holder-
+//      wallet scan alone finds. Bounded per cycle; permanent once found.
+//   2. refreshOpenSeaSales() — rotating per-collection sale-events crawl,
+//      accumulated into a rolling 7-day window (OpenSea's candy-dc
+//      events feed alone only ever covered the catch-all collection).
+//   3. buildOsSummary() / GET /v2/os-summary — merges named + catch-all
+//      listings and the accumulated sales, tags each item with its Magic
+//      Eden-style `symbol` (so character-map.js/collections-map.js symbol
+//      lists match OpenSea items too) and a display `sub` (the OpenSea
+//      collection's own clean name).
+// ---------------------------------------------------------------------
+const OPENSEA_NAMED_SNAPSHOTS_KEY = "opensea-named-snapshots";
+const OPENSEA_NAMED_SLUGS_PER_CYCLE = 50;
+const OPENSEA_NAMED_SNAPSHOT_MAX_AGE_MS = 6 * 60 * 60 * 1000; // a slug not re-crawled in 6h drops out rather than showing stale listings
+const OPENSEA_NAMED_SNAPSHOT_TTL_SECONDS = 60 * 60 * 24;
+
+const OPENSEA_SYMBOL_MAP_KEY = "opensea-symbol-map"; // { [meSymbol]: { slug: string|null, at: ms } }
+const OPENSEA_SEED_PER_CYCLE = 20;
+const OPENSEA_SEED_RETRY_MS = 24 * 60 * 60 * 1000; // a symbol with no usable mint (or no OpenSea match) is retried daily
+
+const OPENSEA_SALES_KEY = "opensea-sales"; // { updatedAt, sales: [...], crawledAt: { [slug]: ms } }
+const OPENSEA_SALES_SLUGS_PER_CYCLE = 30;
+const OPENSEA_SALES_RESOLVE_CAP = 20;
+const OPENSEA_SALES_TTL_SECONDS = 60 * 60 * 24 * 14;
+
+async function kvJSON(env, key, fallback) {
+  try {
+    const raw = await env.DC_CACHE.get(key);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === "object" ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+// OpenSea slugs vs Magic Eden symbols for the same collection usually
+// differ only in punctuation ("harley-quinn-2000-2004-1" vs
+// "harley_quinn_20002004_1"), plus OpenSea's occasional numeric
+// dedupe suffix ("the-legacy-cowl-collection-433776291"). Comparing
+// alphanumerics only, minus that suffix, matches the two directly — the
+// fallback for any slug seedOpenSeaCollectionsFromME() hasn't mapped
+// exactly yet. os-data.js on the client uses the identical rule.
+function osNormKey(s) {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/-\d{6,}$/, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+// For an OpenSea-only collection (no Magic Eden counterpart at all —
+// e.g. "batman-1940-2011-404"), builds the symbol Magic Eden *would*
+// use, following its observed convention ("batman_19402011_404"), so a
+// hand-curated character-map.js/collections-map.js entry can list it
+// the same way as any other symbol. Flagged symbolInferred on the item.
+function inferSymbolFromSlug(slug) {
+  return String(slug || "")
+    .toLowerCase()
+    .replace(/-\d{6,}$/, "")
+    .replace(/(\d{4})-(\d{4})/g, "$1$2")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "");
+}
+
+async function seedOpenSeaCollectionsFromME(env) {
+  if (!env.OPENSEA_API_KEY) return;
+  try {
+    const map = await kvJSON(env, OPENSEA_SYMBOL_MAP_KEY, {});
+    const directory = await loadKnownOpenSeaCollections(env);
+    const now = Date.now();
+    const symbols = [...new Set(DC_COLLECTIONS.map((c) => c.symbol))].filter((s) => !s.startsWith("UNRESOLVED_"));
+    const pending = symbols.filter((s) => !map[s] || (!map[s].slug && now - (map[s].at || 0) > OPENSEA_SEED_RETRY_MS));
+    let mapped = 0;
+    let directoryChanged = false;
+
+    for (const symbol of pending.slice(0, OPENSEA_SEED_PER_CYCLE)) {
+      const entry = await kvJSON(env, collectionKey(symbol), null);
+      const mint = entry?.listings?.find((l) => l.mintAddress)?.mintAddress || entry?.sales?.find((s) => s.mint)?.mint;
+      if (!mint) {
+        map[symbol] = { slug: null, at: now };
+        continue;
+      }
+      const res = await osFetch(openSeaNftUrl(mint), env);
+      const slug = res.ok ? (await res.json())?.nft?.collection || null : null;
+      if (!res.ok && res.status !== 404) continue; // transient failure — leave unmapped, retried next cycle
+      map[symbol] = { slug: slug && !OPENSEA_EXCLUDED_SLUGS.has(slug) ? slug : null, at: now };
+      if (map[symbol].slug) {
+        mapped++;
+        if (!directory[slug]) {
+          const name = await fetchCollectionDisplayName(slug, env);
+          directory[slug] = { name: name || slug, discoveredAt: now, symbol };
+          directoryChanged = true;
+        } else if (!directory[slug].symbol) {
+          directory[slug].symbol = symbol;
+          directoryChanged = true;
+        }
+      }
+    }
+
+    await env.DC_CACHE.put(OPENSEA_SYMBOL_MAP_KEY, JSON.stringify(map));
+    if (directoryChanged) await env.DC_CACHE.put(OPENSEA_KNOWN_COLLECTIONS_KEY, JSON.stringify(directory));
+    if (mapped > 0) console.log(`seedOpenSeaCollectionsFromME: mapped ${mapped} symbol(s), ${Object.keys(directory).length} known OpenSea collections`);
+  } catch (err) {
+    console.error("seedOpenSeaCollectionsFromME failed:", err.message);
+  }
+}
+
+// Fills a sale's display fields (rarity, character, cover artist, item
+// type) from the shared mint metadata cache — OpenSea's events payload
+// doesn't reliably carry traits, so without this most sales would have
+// no rarity badge at all.
+function enrichSaleFromCache(sale, cache) {
+  const meta = cache[sale.mintAddress];
+  if (!meta) return sale;
+  return {
+    ...sale,
+    name: sale.name && sale.name !== "Untitled" ? sale.name : meta.name,
+    image: sale.image || meta.image,
+    character: sale.character ?? meta.character ?? null,
+    rarity: sale.rarity ?? meta.rarity ?? null,
+    rarityPct: sale.rarityPct ?? meta.rarityPct ?? null,
+    coverArtists: sale.coverArtists?.length ? sale.coverArtists : meta.coverArtists || [],
+    itemType: sale.itemType ?? meta.itemType ?? null,
+  };
+}
+
+async function refreshOpenSeaSales(env, meSaleSignatures) {
+  if (!env.OPENSEA_API_KEY) return;
+  try {
+    const directory = await loadKnownOpenSeaCollections(env);
+    const state = await kvJSON(env, OPENSEA_SALES_KEY, { sales: [], crawledAt: {} });
+    const crawledAt = state.crawledAt || {};
+    const slugs = Object.keys(directory).filter((s) => !OPENSEA_EXCLUDED_SLUGS.has(s));
+    const due = slugs.sort((a, b) => (crawledAt[a] || 0) - (crawledAt[b] || 0)).slice(0, OPENSEA_SALES_SLUGS_PER_CYCLE);
+
+    if (!meSaleSignatures) {
+      meSaleSignatures = new Set((await mergeDCCollections(env)).sales.map((s) => s.signature).filter(Boolean));
+    }
+
+    const nowSec = Math.floor(Date.now() / 1000);
+    const cutoff = nowSec - SALES_WINDOW_SECS;
+    const byKey = new Map();
+    const keyOf = (s) => s.signature || `${s.mintAddress}:${s.soldAt}`;
+    for (const s of state.sales || []) if ((s.soldAt || 0) >= cutoff) byKey.set(keyOf(s), s);
+
+    for (const slug of due) {
+      const res = await osFetch(
+        `https://api.opensea.io/api/v2/events/collection/${slug}?event_type=sale&limit=50&after=${cutoff}`,
+        env
+      );
+      if (!res.ok) continue; // left un-stamped so it stays at the front of the queue next cycle
+      const data = await res.json();
+      for (const ev of data?.asset_events || []) {
+        if (ev?.event_type !== "sale" || meSaleSignatures.has(ev?.transaction)) continue;
+        const sale = deriveOpenSeaSale(ev);
+        if (!sale.mintAddress || (sale.soldAt || 0) < cutoff) continue;
+        sale.collectionSlug = sale.collectionSlug || slug;
+        sale.collectionName = directory[slug]?.name || null;
+        byKey.set(keyOf(sale), sale);
+      }
+      crawledAt[slug] = Date.now();
+    }
+
+    // Resolve metadata for a few sold mints we've never seen listed, so
+    // they get rarity/character too — bounded, the rest fill in later.
+    const cache = await loadOpenSeaMetadataCache(env);
+    let resolved = 0;
+    for (const s of byKey.values()) {
+      if (resolved >= OPENSEA_SALES_RESOLVE_CAP) break;
+      const c = cache[s.mintAddress];
+      if (c && c.v === OPENSEA_METADATA_VERSION) continue;
+      const meta = await fetchOpenSeaMintMetadata(s.mintAddress, env);
+      resolved++;
+      if (meta) cache[s.mintAddress] = meta;
+    }
+    if (resolved > 0) {
+      await env.DC_CACHE.put(OPENSEA_METADATA_CACHE_KEY, JSON.stringify(cache), { expirationTtl: OPENSEA_METADATA_CACHE_TTL_SECONDS });
+    }
+
+    const sales = [...byKey.values()].map((s) => enrichSaleFromCache(s, cache)).sort((a, b) => (b.soldAt || 0) - (a.soldAt || 0));
+    for (const slug of Object.keys(crawledAt)) if (!directory[slug]) delete crawledAt[slug];
+    await env.DC_CACHE.put(OPENSEA_SALES_KEY, JSON.stringify({ updatedAt: Date.now(), sales, crawledAt }), {
+      expirationTtl: OPENSEA_SALES_TTL_SECONDS,
+    });
+  } catch (err) {
+    console.error("refreshOpenSeaSales failed:", err.message);
+  }
+}
+
+async function buildOsSummary(env) {
+  const [named, full, salesState, activity, symbolMap, directory] = await Promise.all([
+    kvJSON(env, OPENSEA_NAMED_LISTINGS_KEY, null),
+    kvJSON(env, OPENSEA_FULL_LISTINGS_KEY, null),
+    kvJSON(env, OPENSEA_SALES_KEY, null),
+    kvJSON(env, OPENSEA_ACTIVITY_KEY, null),
+    kvJSON(env, OPENSEA_SYMBOL_MAP_KEY, {}),
+    loadKnownOpenSeaCollections(env),
+  ]);
+  if (!named && !full && !salesState && !activity) {
+    return JSON.stringify({ listings: [], sales: [], collections: [], updatedAt: null, notReady: true });
+  }
+
+  // slug -> Magic Eden symbol: exact mapping first (seedOpenSeaCollectionsFromME),
+  // then the punctuation-insensitive name match as a fallback.
+  const slugToSymbol = {};
+  for (const [symbol, m] of Object.entries(symbolMap)) if (m?.slug && !slugToSymbol[m.slug]) slugToSymbol[m.slug] = symbol;
+  const normToSymbol = {};
+  for (const c of DC_COLLECTIONS) normToSymbol[osNormKey(c.symbol)] ??= c.symbol;
+  const knownSymbolFor = (slug) => (slug ? slugToSymbol[slug] || directory[slug]?.symbol || normToSymbol[osNormKey(slug)] || null : null);
+  const symbolFor = (slug) => (slug ? knownSymbolFor(slug) || inferSymbolFromSlug(slug) : null);
+
+  const tag = (item) => {
+    const slug = item.collectionSlug && item.collectionSlug !== OPENSEA_COLLECTION_SLUG ? item.collectionSlug : null;
+    return {
+      ...item,
+      symbolInferred: !!slug && !knownSymbolFor(slug),
+      collectionSlug: slug || item.collectionSlug || null,
+      collectionName: slug ? directory[slug]?.name || item.collectionName || slug : item.collectionName || OPENSEA_CATCHALL_NAME,
+      symbol: symbolFor(slug),
+      sub: slug ? directory[slug]?.name || item.collectionName || slug : item.character || OPENSEA_CATCHALL_NAME,
+    };
+  };
+
+  const seenMints = new Set();
+  const listings = [];
+  for (const l of [...(named?.listings || []), ...(full?.listings || [])]) {
+    if (!l?.mintAddress || seenMints.has(l.mintAddress)) continue;
+    if (l.collectionSlug && OPENSEA_EXCLUDED_SLUGS.has(l.collectionSlug) && l.collectionSlug !== OPENSEA_COLLECTION_SLUG) continue;
+    seenMints.add(l.mintAddress);
+    listings.push(tag(l));
+  }
+
+  const seenSales = new Set();
+  const sales = [];
+  for (const s of [...(salesState?.sales || []), ...(activity?.sales || [])]) {
+    const k = s.signature || `${s.mintAddress}:${s.soldAt}`;
+    if (!s?.mintAddress || seenSales.has(k)) continue;
+    if (s.collectionSlug && OPENSEA_EXCLUDED_SLUGS.has(s.collectionSlug) && s.collectionSlug !== OPENSEA_COLLECTION_SLUG) continue;
+    seenSales.add(k);
+    sales.push(tag(s));
+  }
+
+  const collections = Object.entries(directory)
+    .filter(([slug]) => !OPENSEA_EXCLUDED_SLUGS.has(slug))
+    .map(([slug, d]) => ({ slug, name: d.name || slug, symbol: symbolFor(slug), symbolInferred: !knownSymbolFor(slug) }));
+
+  const updatedAt = Math.max(named?.updatedAt || 0, full?.updatedAt || 0, salesState?.updatedAt || 0, activity?.updatedAt || 0) || null;
+  return JSON.stringify({ listings, sales, collections, updatedAt, notReady: false });
+}
+
+// Every OpenSea job, in sequence rather than as independent concurrent
+// waitUntil()s: they share OPENSEA_METADATA_CACHE_KEY (concurrent runs
+// used to race on its read-modify-write) and one rate budget, and the
+// Magic Eden cross-reference sets are now computed once per cycle instead
+// of once per job. Each step still catches its own errors, so one
+// failing never blocks the rest.
+async function refreshOpenSeaAll(env) {
+  let meListedMints = null;
+  let meSaleSignatures = null;
+  try {
+    const merged = await mergeDCCollections(env);
+    meListedMints = new Set(merged.listings.map((l) => l.mintAddress).filter(Boolean));
+    meSaleSignatures = new Set(merged.sales.map((s) => s.signature).filter(Boolean));
+  } catch (err) {
+    console.error("refreshOpenSeaAll: Magic Eden cross-reference unavailable:", err.message);
+  }
+  await refreshOpenSeaActivity(env);
+  await refreshOpenSeaFullCatalog(env);
+  await discoverOpenSeaCollections(env);
+  await seedOpenSeaCollectionsFromME(env);
+  await refreshOpenSeaNamedCollections(env, meListedMints);
+  await refreshOpenSeaSales(env, meSaleSignatures);
 }
 
 // ---------------------------------------------------------------------
@@ -2160,6 +2531,29 @@ export default {
           headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=30" },
         });
         ctx.waitUntil(cache.put(namedListingsCacheKey, toCache));
+      }
+      return new Response(body, {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" },
+      });
+    }
+
+    // OpenSea counterpart to /v2/dc-summary — every active OpenSea
+    // listing (per-issue collections + candy-dc catch-all, deduped) plus
+    // the accumulated 7-day per-collection sales, each tagged with a
+    // Magic Eden-style `symbol` and display `sub`. See the OPENSEA
+    // PRIMARY section above. Same short edge-cache shape as dc-summary.
+    if (url.pathname === "/v2/os-summary") {
+      const cache = caches.default;
+      const osSummaryCacheKey = new Request(url.origin + "/__os-summary-merged", { method: "GET" });
+      const cachedOs = await cache.match(osSummaryCacheKey);
+      const body = cachedOs ? await cachedOs.text() : await buildOsSummary(env);
+      if (!cachedOs) {
+        const toCache = new Response(body, {
+          status: 200,
+          headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=30" },
+        });
+        ctx.waitUntil(cache.put(osSummaryCacheKey, toCache));
       }
       return new Response(body, {
         status: 200,
@@ -2854,26 +3248,9 @@ export default {
     // refreshLiquidityStats() just reads whatever collection:* KV state
     // currently exists, so there's no need to sequence after it.
     ctx.waitUntil(refreshLiquidityStats(env));
-    // Independent of both of the above — refreshOpenSeaActivity() only
-    // talks to OpenSea, never reads collection:* KV state.
-    ctx.waitUntil(refreshOpenSeaActivity(env));
-    // Independent of the above too, but shares OPENSEA_METADATA_CACHE_KEY
-    // with it — see that constant's comment. Since both run concurrently
-    // in the same tick, they can race on that cache's read-modify-write
-    // and one's newly-resolved entries can be overwritten by the other's;
-    // low-stakes (that mint just gets re-resolved next cycle instead of
-    // staying cached a cycle early), not worth real locking for.
-    ctx.waitUntil(refreshOpenSeaFullCatalog(env));
-    // Independent of everything above — self-throttles internally via
-    // OPENSEA_DISCOVERY_STATE_KEY, so it's a no-op most cycles rather
-    // than something that needs its own separate cron cadence.
-    ctx.waitUntil(discoverOpenSeaCollections(env));
-    // Reads whatever discoverOpenSeaCollections() has written so far —
-    // on the very first cycle after deploy, before any discovery has
-    // run, the directory is empty and this is a no-op (see its own
-    // length-0 guard); it'll pick up the directory fine starting the
-    // next cycle once discovery has written it. Not worth sequencing
-    // after discovery just to close that one-cycle gap.
-    ctx.waitUntil(refreshOpenSeaNamedCollections(env));
+    // Every OpenSea job (activity, full catalog, discovery, ME->OpenSea
+    // collection seeding, named-collection listings, per-collection
+    // sales), run in sequence — see refreshOpenSeaAll() for why.
+    ctx.waitUntil(refreshOpenSeaAll(env));
   },
 };

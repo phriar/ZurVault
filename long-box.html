@@ -239,16 +239,12 @@
   <p class="sub">Enter a min and max SOL price range, then see what's available in each rarity tier. Just want a quick "under X SOL" browse instead? Try <a href="dollar-bin.html" style="color:var(--gold)">the Dollar Bin</a>.</p>
 </header>
 
-<div class="market-tabs" id="marketTabs">
-  <div class="market-tab active" data-market="me">Magic Eden</div>
-  <div class="market-tab" data-market="os">OpenSea</div>
-</div>
-<!-- candy.io's whole DC catalog sits under one flat OpenSea collection
-     (candy-dc) with no per-series sub-collections at all — this is
-     ZurVault's own live price-sort over that one shared pool, not
-     something OpenSea's own site offers. See me-proxy-worker.js's
-     OPENSEA FULL CATALOG section. -->
-<p class="market-sub" id="marketSub" hidden>Every active OpenSea listing across candy.io's whole DC catalog — it's one flat shared collection there, not split per comic series the way Magic Eden's is, so this price sort is ZurVault's own, not OpenSea's.</p>
+<!-- OpenSea / Magic Eden switch — OpenSea first and default (primary
+     marketplace as of 2026-11-07). Rendered by os-data.js's shared
+     ZurOS.mountMarketSwitch(); the choice carries across pages. The two
+     marketplaces are never interleaved into one list. -->
+<div id="marketSwitch"></div>
+<p class="market-sub" id="marketSub" hidden>Every active OpenSea listing across candy.io's DC collections, cheapest first — ZurVault's own price sort and filters, not OpenSea's.</p>
 
 <div class="controls">
   <div class="price-range">
@@ -257,11 +253,10 @@
     <input type="number" id="maxPrice" class="price-input" placeholder="Max SOL" min="0" step="0.01">
   </div>
   <input type="text" id="searchInput" class="search-input" placeholder="Search by name&hellip;">
-  <!-- OpenSea-only (toggled in JS alongside marketSub) — built from
-       whichever real collection names + the "Candy DC" catch-all are
-       actually present in the live OpenSea listings, same "don't
-       hardcode what varies" approach as Item Type below. -->
-  <select id="collectionFilter" style="display:none;"><option value="">All Collections</option></select>
+  <!-- Built per market from whichever collections actually have live
+       listings, same "don't hardcode what varies" approach as Item Type
+       below. -->
+  <select id="collectionFilter" aria-label="Collection"><option value="">All Collections</option></select>
   <div class="view-toggle" id="viewToggle">
     <button class="pill active" data-view="grid">Grid</button>
     <button class="pill" data-view="list">List</button>
@@ -293,6 +288,7 @@
   <p class="support-note">Built by a collector, for collectors. Zur is free to use. If it's helped you find something for your collection, support is welcome, never expected.</p>
 </footer>
 <script src="/site-footer.js"></script>
+<script src="/os-data.js"></script>
 <script>
 const ME_PROXY_BASE = "https://zurvault-proxy.stholt.workers.dev";
 const ME_BASE = ME_PROXY_BASE + "/v2";
@@ -305,13 +301,12 @@ const maxPriceEl = document.getElementById('maxPrice');
 const searchInputEl = document.getElementById('searchInput');
 const pillsEl = document.getElementById('pills');
 const itemTypePillsEl = document.getElementById('itemTypePills');
-const marketTabsEl = document.getElementById('marketTabs');
 const marketSubEl = document.getElementById('marketSub');
 const collectionFilterEl = document.getElementById('collectionFilter');
 
 let allListings = [];
 let osListings = [];
-let currentMarket = 'me';
+let currentMarket = ZurOS.getMarket();
 let selectedItemType = null;
 let minPrice = null;
 let maxPrice = null;
@@ -325,14 +320,15 @@ let currentView = 'grid';
 // feeds otherwise already share the same `mintAddress`/`price`/`rarity`/
 // `rarityPct`/`name`/`image` field names, which is what let the price
 // range, rarity pills, and sort logic stay untouched below.
-function itemUrl(i){ return i.market === 'os' ? i.openSeaUrl : i.pdpUrl; }
+function itemUrl(i){ return i.pdpUrl || i.openSeaUrl; }
 function itemTagText(i){ return i.market === 'os' ? 'OpenSea &#8599;' : 'Magic Eden &#8599;'; }
 // ME's per-card "tags" come from a symbol -> character reverse lookup
 // (SYMBOL_TO_CHARACTERS, below) since a listing only carries its raw
 // collection symbol; OpenSea listings already carry Character directly.
 function itemTags(i){
-  if(i.market === 'os') return i.character ? [{ name: i.character }] : [];
-  return (SYMBOL_TO_CHARACTERS[i.symbol] || []).slice(0, 3);
+  const mapped = (SYMBOL_TO_CHARACTERS[i.symbol] || []).slice(0, 3);
+  if(i.market === 'os' && i.character && !mapped.some(c => c.name === i.character)) return [{ name: i.character }, ...mapped].slice(0, 3);
+  return mapped;
 }
 // click-log/click-stats (site-nav.js) assume a Magic Eden DC_COLLECTIONS
 // symbol as their "context" — there's no equivalent for an unfiltered
@@ -417,7 +413,7 @@ function renderGrid(items){
         <a class="card-link" href="${esc(itemUrl(i))}" target="_blank" rel="noopener" ${itemTrackAttrs(i)}>
           <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
           <div class="body">
-            <div class="sub">${esc(i.market === 'os' ? (i.character || '') : i.sub)}</div>
+            <div class="sub">${esc(i.sub || '')}</div>
             <div class="name">${esc(i.name)}</div>
             ${rarityBadge(i.rarity, i.rarityPct)}
             ${tags ? `<div class="tags">${tags}</div>` : ''}
@@ -445,7 +441,7 @@ function renderList(items){
         <a class="row-link" href="${esc(itemUrl(i))}" target="_blank" rel="noopener" ${itemTrackAttrs(i)}>
           <img ${i.image ? `src="${esc(i.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
           <div class="info">
-            <div class="sub">${esc(i.market === 'os' ? (i.character || '') : i.sub)}</div>
+            <div class="sub">${esc(i.sub || '')}</div>
             <div class="name">${esc(i.name)}</div>
             ${rarityBadge(i.rarity, i.rarityPct)}
             ${tags ? `<div class="tags">${tags}</div>` : ''}
@@ -470,7 +466,7 @@ function renderList(items){
 // collections have active listings changes over time as the discovery
 // directory grows.
 function buildOsCollectionOptions(){
-  const names = [...new Set(osListings.map(i => i.collectionName).filter(Boolean))].sort();
+  const names = [...new Set((currentMarket === 'os' ? osListings : allListings).map(i => i.sub).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   const current = collectionFilterEl.value;
   collectionFilterEl.innerHTML = '<option value="">All Collections</option>' +
     names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
@@ -489,7 +485,7 @@ function render(){
     .filter(i => matchesSearch(i, searchQuery))
     .filter(i => !selectedTier || i.rarity === selectedTier)
     .filter(i => !selectedItemType || i.itemType === selectedItemType)
-    .filter(i => !selectedCollection || i.collectionName === selectedCollection)
+    .filter(i => !selectedCollection || i.sub === selectedCollection)
     .slice()
     .sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
 
@@ -565,7 +561,7 @@ async function load(){
 
     allListings = (data.listings || []).filter(i => i.price !== null).map(i => ({ ...i, market: 'me' }));
     const withRarity = allListings.filter(i => i.rarity).length;
-    if(currentMarket === 'me') buildItemTypePills(allListings);
+    if(currentMarket === 'me'){ buildItemTypePills(allListings); buildOsCollectionOptions(); }
     const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
     meStatus = { text: `${allListings.length} priced listing(s), ${withRarity} with rarity data · updated ${updated}.`, isErr: false };
   }catch(e){
@@ -585,44 +581,30 @@ async function load(){
 // on any failure/not-ready — a problem with one feed should never blank
 // out whatever the other one has (same "a failure in one never touches
 // the other" independence used throughout this site).
-async function fetchOpenSeaFeed(path){
+// OpenSea listings via os-data.js (GET /v2/os-summary — per-issue
+// collections + the candy-dc catch-all, already deduped by mint).
+async function loadOpenSea(force){
+  if(!osListings.length){
+    osStatus = { text: 'Loading…', isErr: false };
+    if(currentMarket === 'os') refreshStatus();
+  }
+  let d;
   try{
-    const res = await fetch(`${ME_BASE}/${path}`);
-    if(!res.ok) return [];
-    const data = await res.json();
-    if(data.notReady) return [];
-    return (data.listings || []).filter(i => i.price !== null);
+    d = await ZurOS.load(force);
   }catch(e){
     console.error(e);
-    return [];
-  }
-}
-
-// Combines the flat candy-dc catch-all (opensea-full-listings) with every
-// known real named collection (opensea-named-listings, see
-// me-proxy-worker.js's OPENSEA NAMED COLLECTIONS section) — both already
-// carry the same collectionSlug/collectionName fields server-side, so
-// they merge into one list the Collection dropdown can filter uniformly.
-async function loadOpenSea(){
-  osStatus = { text: 'Loading…', isErr: false };
-  if(currentMarket === 'os') refreshStatus();
-
-  const [catchAll, named] = await Promise.all([
-    fetchOpenSeaFeed('opensea-full-listings'),
-    fetchOpenSeaFeed('opensea-named-listings'),
-  ]);
-
-  if(catchAll.length === 0 && named.length === 0){
-    osStatus = { text: 'Still gathering data — check back shortly.', isErr: false };
-    if(currentMarket === 'os') refreshStatus();
+    if(!osListings.length){
+      osStatus = { text: 'Could not reach the OpenSea listings service. Try reloading in a moment.', isErr: true };
+      if(currentMarket === 'os') refreshStatus();
+    }
     return;
   }
 
-  osListings = [...catchAll, ...named].map(i => ({ ...i, market: 'os' }));
-  buildOsCollectionOptions();
+  osListings = d.listings.filter(i => i.price !== null);
   const withRarity = osListings.filter(i => i.rarity).length;
-  if(currentMarket === 'os') buildItemTypePills(osListings);
-  osStatus = { text: `${osListings.length} priced listing(s), ${withRarity} with rarity data.`, isErr: false };
+  if(currentMarket === 'os'){ buildItemTypePills(osListings); buildOsCollectionOptions(); }
+  const updated = d.updatedAt ? new Date(d.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+  osStatus = { text: `${osListings.length} priced OpenSea listing(s), ${withRarity} with rarity data · updated ${updated}.`, isErr: false };
   if(currentMarket === 'os'){
     refreshStatus();
     render();
@@ -667,28 +649,18 @@ pillsEl.querySelectorAll('.pill[data-tier]').forEach(p => {
   });
 });
 
-marketTabsEl.querySelectorAll('.market-tab').forEach(t => {
-  t.addEventListener('click', () => {
-    marketTabsEl.querySelectorAll('.market-tab').forEach(x => x.classList.toggle('active', x === t));
-    currentMarket = t.dataset.market;
-    marketSubEl.hidden = currentMarket !== 'os';
-    collectionFilterEl.style.display = currentMarket === 'os' ? '' : 'none';
-    if(currentMarket !== 'os'){
-      // Magic Eden has no equivalent "real collection" concept the way
-      // OpenSea's does here — reset so switching back to OpenSea later
-      // doesn't silently apply a filter the dropdown can't currently show.
-      selectedCollection = '';
-      collectionFilterEl.value = '';
-    }
-    // Item Type only ever applies to Magic Eden data (OS listings carry
-    // no itemType field), so this naturally clears/hides on switching —
-    // buildItemTypePills() already hides itself when <2 distinct values
-    // are present, which is exactly 0 for an all-empty-itemType dataset.
-    buildItemTypePills(currentMarket === 'os' ? osListings : allListings);
-    refreshStatus();
-    render();
-  });
-});
+function activateMarket(m){
+  currentMarket = m;
+  marketSubEl.hidden = currentMarket !== 'os';
+  selectedCollection = '';
+  collectionFilterEl.value = '';
+  buildOsCollectionOptions();
+  buildItemTypePills(currentMarket === 'os' ? osListings : allListings);
+  refreshStatus();
+  render();
+}
+ZurOS.mountMarketSwitch(document.getElementById('marketSwitch'), currentMarket, activateMarket);
+marketSubEl.hidden = currentMarket !== 'os';
 
 collectionFilterEl.addEventListener('change', () => {
   selectedCollection = collectionFilterEl.value;
@@ -729,7 +701,7 @@ setInterval(load, REFRESH_INTERVAL);
 // (refreshOpenSeaFullCatalog() in me-proxy-worker.js), own backfill
 // timeline (see that section's comment), so it's fetched on its own.
 loadOpenSea();
-setInterval(loadOpenSea, REFRESH_INTERVAL);
+setInterval(() => loadOpenSea(true), REFRESH_INTERVAL);
 </script>
 </body>
 </html>

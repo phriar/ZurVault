@@ -112,7 +112,7 @@
 
 <header>
   <h1>Browse by <span>Cover Artist</span></h1>
-  <p class="sub">Every currently-listed comic, grouped by who's actually credited as cover artist on that specific listing — not the whole collection lumped together, since variant covers mean a collection can span several different artists. Pulled live from each listing's own Magic Eden attributes.</p>
+  <p class="sub">Every currently-listed comic, grouped by who's actually credited as cover artist on that specific listing — not the whole collection lumped together, since variant covers mean a collection can span several different artists. Pulled live from each listing's own attributes on OpenSea and Magic Eden.</p>
 </header>
 
 <div class="controls">
@@ -128,6 +128,7 @@
   <p class="support-note">Built by a collector, for collectors. Zur is free to use. If it's helped you find something for your collection, support is welcome, never expected.</p>
 </footer>
 <script src="/site-footer.js"></script>
+<script src="/os-data.js"></script>
 <script>
 const ME_PROXY_BASE = "https://zurvault-proxy.stholt.workers.dev";
 const ME_BASE = ME_PROXY_BASE + "/v2";
@@ -157,49 +158,66 @@ function render(){
   gridEl.innerHTML = items.map(a => `
     <a class="artist-tile" href="artist.html?a=${encodeURIComponent(a.name)}">
       <div class="name">${esc(a.name)}</div>
-      <div class="count">${a.count} listing${a.count === 1 ? '' : 's'}</div>
+      <div class="count">${countText(a)}</div>
     </a>
   `).join('');
 }
 
+// "12 on OpenSea · 3 on Magic Eden" — the two marketplaces are counted
+// separately, never summed into one number, matching how every other
+// page keeps them apart.
+function countText(a){
+  const parts = [];
+  if(a.os) parts.push(`${a.os} on OpenSea`);
+  if(a.me) parts.push(`${a.me} on Magic Eden`);
+  return parts.join(' · ');
+}
+
+// Build the artist directory live from each listing's own coverArtists
+// — a collection can span several different artists (variant covers),
+// so this only ever counts a listing under an artist actually credited
+// on that specific listing, not the whole collection. Both marketplaces
+// feed one directory (it's a list of names, not a listings feed); each
+// artist.html page then splits by marketplace.
+function tally(counts, listings, key){
+  for(const i of listings){
+    for(const name of (i.coverArtists || [])){
+      counts[name] = counts[name] || { name, os: 0, me: 0 };
+      counts[name][key]++;
+    }
+  }
+}
+
 async function load(){
   setStatus('Loading…');
-  try{
-    const res = await fetch(`${ME_BASE}/dc-summary`);
-    if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+  const [os, me] = await Promise.all([
+    ZurOS.load().catch(e => { console.error(e); return null; }),
+    fetch(`${ME_BASE}/dc-summary`).then(r => { if(!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(d => d.notReady ? null : d)
+      .catch(e => { console.error(e); return null; }),
+  ]);
 
-    if(data.notReady){
-      setStatus('The listings service is still setting up — check back in a few minutes.', true);
-      return;
-    }
-
-    // Build the artist directory live from each listing's own coverArtists
-    // — a collection can span several different artists (variant covers),
-    // so this only ever counts a listing under an artist actually credited
-    // on that specific listing, not the whole collection.
-    const counts = {};
-    for(const i of (data.listings || [])){
-      for(const name of (i.coverArtists || [])){
-        counts[name] = (counts[name] || 0) + 1;
-      }
-    }
-    artistsSorted = Object.entries(counts)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-
-    if(artistsSorted.length === 0){
-      setStatus('No cover-artist data available yet — the listings service may still be catching up.', true);
-      return;
-    }
-
-    const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
-    setStatus(`${artistsSorted.length} artist(s) across ${(data.listings || []).length} listings · updated ${updated}.`);
-  }catch(e){
-    console.error(e);
+  if(!os && !me){
     setStatus('Could not reach the listings service. Try reloading in a moment.', true);
     return;
   }
+
+  const counts = {};
+  if(os) tally(counts, os.listings, 'os');
+  if(me) tally(counts, me.listings || [], 'me');
+  artistsSorted = Object.values(counts).sort((a, b) => a.name.localeCompare(b.name));
+
+  if(artistsSorted.length === 0){
+    setStatus('No cover-artist data available yet — the listings service may still be catching up.', true);
+    return;
+  }
+
+  const osWith = os ? os.listings.filter(i => (i.coverArtists || []).length).length : 0;
+  const meWith = me ? (me.listings || []).filter(i => (i.coverArtists || []).length).length : 0;
+  // Cover artist on OpenSea items arrives with the Worker's metadata
+  // refresh (see os-data.js) — say so rather than imply there are none.
+  const osNote = os && os.listings.length && !osWith ? ' · OpenSea cover-artist credits are still being gathered' : '';
+  setStatus(`${artistsSorted.length} artist(s) · ${osWith} OpenSea and ${meWith} Magic Eden listings with a cover credit${osNote}.`);
   render();
 }
 

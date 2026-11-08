@@ -11,17 +11,17 @@
 <meta name="theme-color" content="#0a0a0a">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' https: data:; connect-src 'self' https://zurvault-proxy.stholt.workers.dev;">
 <title>Collections — ZurVault</title>
-<meta name="description" content="Unofficial fan-built DC Comics NFT price tracker — browse Solana collections by series or by character, with key issues, history, and live Magic Eden listings for each.">
+<meta name="description" content="Unofficial fan-built DC Comics NFT price tracker — browse Solana collections by series or by character, with key issues, history, and live OpenSea and Magic Eden listings for each.">
 <link rel="canonical" href="https://zurvault.com/collections.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="ZurVault">
 <meta property="og:title" content="Collections — ZurVault">
-<meta property="og:description" content="Unofficial fan-built DC Comics NFT price tracker — browse Solana collections by series or by character, with key issues, history, and live Magic Eden listings for each.">
+<meta property="og:description" content="Unofficial fan-built DC Comics NFT price tracker — browse Solana collections by series or by character, with key issues, history, and live OpenSea and Magic Eden listings for each.">
 <meta property="og:url" content="https://zurvault.com/collections.html">
 <meta property="og:image" content="https://zurvault.com/icon-512.png">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Collections — ZurVault">
-<meta name="twitter:description" content="Unofficial fan-built DC Comics NFT price tracker — browse Solana collections by series or by character, with key issues, history, and live Magic Eden listings for each.">
+<meta name="twitter:description" content="Unofficial fan-built DC Comics NFT price tracker — browse Solana collections by series or by character, with key issues, history, and live OpenSea and Magic Eden listings for each.">
 <meta name="twitter:image" content="https://zurvault.com/icon-512.png">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 <style>
@@ -165,6 +165,7 @@
   <p class="support-note">Built by a collector, for collectors. Zur is free to use. If it's helped you find something for your collection, support is welcome, never expected.</p>
 </footer>
 <script src="/site-footer.js"></script>
+<script src="/os-data.js"></script>
 <script>
 const ME_PROXY_BASE = "https://zurvault-proxy.stholt.workers.dev";
 const ME_BASE = ME_PROXY_BASE + "/v2";
@@ -218,31 +219,35 @@ if (typeof SPOTLIGHTS !== 'undefined' && SPOTLIGHTS.length) {
   `;
 }
 
-// Then fetch the live aggregate once and backfill a representative image
-// per series/character from whichever of its issues has one.
-fetch(`${ME_BASE}/dc-summary`)
-  .then(r => r.json())
-  .then(data => {
-    if (data.notReady) return;
-    const items = [...(data.listings || []), ...(data.sales || [])];
+// Then fetch the live aggregates and backfill a representative image per
+// series/character from whichever of its issues has one — OpenSea items
+// first (primary marketplace), Magic Eden as the fallback. Tiles already
+// render fine without images, so either feed failing is harmless.
+Promise.all([
+  ZurOS.load().then(d => [...d.listings, ...d.sales]).catch(() => []),
+  fetch(`${ME_BASE}/dc-summary`).then(r => r.json())
+    .then(data => data.notReady ? [] : [...(data.listings || []), ...(data.sales || [])])
+    .catch(() => []),
+]).then(([osItems, meItems]) => {
+  const items = [...osItems, ...meItems];
+  if (items.length === 0) return;
 
-    const seriesImages = {};
-    for (const [id, s] of Object.entries(COLLECTIONS_MAP)) {
-      const symbolSet = new Set(s.symbols);
-      const match = items.find(i => symbolSet.has(i.symbol) && i.image);
-      if (match) seriesImages[id] = match.image;
-    }
-    renderTiles(seriesImages);
+  const seriesImages = {};
+  for (const [id, s] of Object.entries(COLLECTIONS_MAP)) {
+    const symbolSet = new Set(s.symbols);
+    const match = items.find(i => symbolSet.has(i.symbol) && i.image);
+    if (match) seriesImages[id] = match.image;
+  }
+  renderTiles(seriesImages);
 
-    const charImages = {};
-    for (const [id, c] of Object.entries(CHARACTER_MAP)) {
-      const symbolSet = new Set(c.symbols);
-      const match = items.find(i => symbolSet.has(i.symbol) && i.image);
-      if (match) charImages[id] = match.image;
-    }
-    renderCharTiles(charImages);
-  })
-  .catch(() => {}); // tiles already render fine without images
+  const charImages = {};
+  for (const [id, c] of Object.entries(CHARACTER_MAP)) {
+    const symbolSet = new Set(c.symbols);
+    const match = items.find(i => symbolSet.has(i.symbol) && i.image);
+    if (match) charImages[id] = match.image;
+  }
+  renderCharTiles(charImages);
+});
 
 // Tab toggle — Series vs Characters, deep-linkable via ?tab=characters.
 const seriesPaneEl = document.getElementById('seriesPane');
