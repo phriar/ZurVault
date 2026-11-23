@@ -379,7 +379,7 @@
 <div class="panel-title"><span id="panelMarket">OpenSea</span> Listings</div>
 <div class="tabs" id="meTabs">
   <div class="tab active" data-view="listings">For Sale</div>
-  <div class="tab" data-view="sales">Recent Sales (7d)</div>
+  <div class="tab" data-view="sales">Recent Sales (30d)</div>
 </div>
 <p class="os-activity-sub" id="marketNote" hidden></p>
 
@@ -1117,7 +1117,7 @@ function renderSales(){
     const hint = searchQuery
       ? 'Try a different search, a different collection, or a different rarity tier.'
       : 'Try a different collection, a different rarity tier, or check back later.';
-    gridEl.innerHTML = `<div class="empty">No sales in the last 7 days for this view.<br>${hint}</div>`;
+    gridEl.innerHTML = `<div class="empty">No sales in the last 30 days for this view.<br>${hint}</div>`;
     return;
   }
 

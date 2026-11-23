@@ -276,7 +276,7 @@ function buildEraPills(){
 
 // Joins one grail entry against live /v2/dc-summary data by symbol —
 // floor price is the lowest currently-listed price for that exact
-// symbol, last sale is the most recent sale in the 7-day sales
+// symbol, last sale is the most recent sale in the 30-day sales
 // window the Worker already tracks. A symbol with no listings/sales
 // right now looks identical here to a symbol that's missing from the
 // Worker's own DC_COLLECTIONS copy entirely — this page can't tell
@@ -357,7 +357,7 @@ function renderCard(grail){
           </div>
         </a>
       `).join('')
-    : `<div class="item-panel-empty">No sales in the last 7 days.</div>`;
+    : `<div class="item-panel-empty">No sales in the last 30 days.</div>`;
 
   const symbolAttr = esc(grail.symbol);
 
@@ -380,7 +380,7 @@ function renderCard(grail){
           ${floorHtml}
         </div>
         <div class="market-stat">
-          <div class="stat-label">Last Sale (7d)</div>
+          <div class="stat-label">Last Sale (30d)</div>
           ${lastSaleHtml}
         </div>
       </div>

@@ -610,7 +610,7 @@ function renderWeeklyTable(weeks){
 // data itself only ever stores symbol+mint (see /v2/click-log's sanitize
 // step), so this cross-references the live /v2/dc-summary snapshot to
 // turn Top Clicked Listings from a wall of addresses into real comic
-// covers/titles. A mint that's since sold outside the 7-day sales window
+// covers/titles. A mint that's since sold outside the 30-day sales window
 // or been delisted just won't resolve — renderTopListings() falls back to
 // shortMint() for those, same as the Recent Listing Clicks feed already
 // does for every listing, resolved or not.

@@ -312,7 +312,7 @@ function renderHistory(collection){
 // Curated "key issues" for this series (collections-map.js). Same pattern
 // as CHARACTER_MAP's `highlights` (rendered here too, for `?c=` characters):
 // each entry is just a symbol + a note — pull the image/name from whatever live data we already
-// have for it (currently for sale, or sold in the last 7 days), and fall
+// have for it (currently for sale, or sold in the last 30 days), and fall
 // back to a plain text card linking to Magic Eden if neither is available.
 function renderKeyIssues(collection){
   const keyIssues = collection.keyIssues || [];
@@ -584,7 +584,7 @@ async function loadME(collection){
       loaded: true,
     });
     const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
-    setMarketStatus('me', `${byMarket.me.listings.length} for sale on Magic Eden, ${byMarket.me.sales.length} sold in the last 7 days across ${collection.symbols.length} ${noun(collection.kind)} · updated ${updated}.`);
+    setMarketStatus('me', `${byMarket.me.listings.length} for sale on Magic Eden, ${byMarket.me.sales.length} sold in the last 30 days across ${collection.symbols.length} ${noun(collection.kind)} · updated ${updated}.`);
   }catch(e){
     console.error(e);
     setMarketStatus('me', 'Could not reach the Magic Eden listings service. Try reloading in a moment.', true);

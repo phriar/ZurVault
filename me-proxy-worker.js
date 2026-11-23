@@ -380,13 +380,13 @@ const HISTORY_TTL_SECONDS = 60 * 60 * 24 * 120; // 120 days
 // collection that fails to refresh for under an hour, defeating a cache
 // meant to survive well past a single bad cycle.
 const rarityCacheKey = (symbol) => `rarity-cache:${symbol}`;
-// Comfortably longer than SALES_WINDOW_SECS (7 days) so a listing seen
+// Comfortably longer than SALES_WINDOW_SECS (30 days) so a listing seen
 // once still covers any sale that shows up anywhere in that window, with
 // margin for a mint going quiet a cycle or two before it actually sells.
-const RARITY_CACHE_TTL_SECONDS = 60 * 60 * 24 * 14; // 14 days
+const RARITY_CACHE_TTL_SECONDS = 60 * 60 * 24 * 45; // 45 days
 const BATCH_SIZE = 5; // collections processed concurrently per batch — kept conservative given the 429s we saw; the real rate gate is throttleMagicEden() below, this just bounds how many writes are in flight at once
-const SALES_WINDOW_SECS = 7 * 24 * 60 * 60; // Recent Sales looks back one week
-const ACTIVITIES_MAX_PAGES = 5; // safety cap — a very active collection could otherwise page forever
+const SALES_WINDOW_SECS = 30 * 24 * 60 * 60; // Recent Sales looks back 30 days (was 7 until 2026-11-22; widened at a collector's request while sales are slow)
+const ACTIVITIES_MAX_PAGES = 10; // safety cap (raised from 5 with the 30-day window; quiet collections still stop after page 1) — a very active collection could otherwise page forever
 // Used by /v2/click-stats to flag a click as a "possible sale" — a sale of
 // the same mint landing within this window AFTER the click, not "sold at
 // any point later, however unrelated." Forward-only (a sale before the
@@ -727,12 +727,12 @@ async function refreshOneCollection(col, env) {
 
     // Persist each sale as its own KV entry, mirroring how clicks are
     // tracked (see /v2/click-log below) — deriveSales() only reflects
-    // Magic Eden's live 7-day activity window and this collection's whole
+    // Magic Eden's live 30-day activity window and this collection's whole
     // KV entry is overwritten every cron cycle, so without a separate
     // record a sale would age out of view long before enough weekly
     // history could accumulate for /v2/click-stats' conversion chart.
     // Keyed by mint+soldAt (not a random suffix) so re-writing the same
-    // sale on every cron cycle it's still within the 7-day window is a
+    // sale on every cron cycle it's still within the 30-day window is a
     // harmless idempotent overwrite, never a duplicate entry. Same
     // CLICK_TTL_SECONDS (90 days) as clicks, so a full matching window of
     // weekly history is available once this has run for a while.
@@ -1316,9 +1316,10 @@ const LIQUIDITY_TTL_SECONDS = 2400;
 
 // Pure — no I/O. Derives Magic Eden's side of the comparison from the
 // same merged { listings, sales } mergeDCCollections() already produces.
-// merged.sales is already 7-day-scoped (deriveSales() applies
-// SALES_WINDOW_SECS as its own cutoff before writing to KV), so only
-// the 24h figures need a fresh cutoff filter here.
+// merged.sales is SALES_WINDOW_SECS-scoped (30 days since 2026-11-22),
+// so both the 24h and 7d figures apply their own cutoff here — the
+// liquidity card stays a 24h/7d comparison regardless of how far back
+// Recent Sales looks.
 function deriveMagicEdenLiquidityStats(merged) {
   const dayCutoff = Date.now() / 1000 - 24 * 60 * 60;
   const sanePrice = (n) => typeof n === "number" && n >= SCOUT_MIN_SANE_PRICE_SOL;
@@ -1328,7 +1329,8 @@ function deriveMagicEdenLiquidityStats(merged) {
   const floorPriceSol = listings.length ? Math.min(...listings.map((l) => l.price)) : null;
 
   const sales24h = merged.sales.filter((s) => (s.soldAt || 0) >= dayCutoff);
-  const sales7d = merged.sales;
+  const weekCutoff = Date.now() / 1000 - 7 * 24 * 60 * 60;
+  const sales7d = merged.sales.filter((s) => (s.soldAt || 0) >= weekCutoff);
 
   return {
     floorPriceSol,
@@ -2085,7 +2087,7 @@ async function refreshOpenSeaNamedCollections(env, meListedMints) {
 //      OPENSEA_KNOWN_COLLECTIONS_KEY directory far past what the holder-
 //      wallet scan alone finds. Bounded per cycle; permanent once found.
 //   2. refreshOpenSeaSales() — rotating per-collection sale-events crawl,
-//      accumulated into a rolling 7-day window (OpenSea's candy-dc
+//      accumulated into a rolling 30-day window (SALES_WINDOW_SECS) (OpenSea's candy-dc
 //      events feed alone only ever covered the catch-all collection).
 //   3. buildOsSummary() / GET /v2/os-summary — merges named + catch-all
 //      listings and the accumulated sales, tags each item with its Magic
@@ -2540,7 +2542,7 @@ export default {
 
     // OpenSea counterpart to /v2/dc-summary — every active OpenSea
     // listing (per-issue collections + candy-dc catch-all, deduped) plus
-    // the accumulated 7-day per-collection sales, each tagged with a
+    // the accumulated 30-day per-collection sales, each tagged with a
     // Magic Eden-style `symbol` and display `sub`. See the OPENSEA
     // PRIMARY section above. Same short edge-cache shape as dc-summary.
     if (url.pathname === "/v2/os-summary") {

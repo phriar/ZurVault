@@ -401,7 +401,7 @@ function renderMovers(){
   }).join('');
 }
 
-// Ranks sub-collections by number of sales in the 7-day window (allSales
+// Ranks sub-collections by number of sales in the 30-day window (allSales
 // is already scoped to that window server-side — see SALES_WINDOW_SECS in
 // me-proxy-worker.js). Sale count rather than volume, per the "what's
 // actively moving" framing — a $5 item selling 20 times outranks a single
@@ -422,7 +422,7 @@ function renderTopSellers(){
   const ranked = [...bySub.values()].sort((a, b) => b.count - a.count).slice(0, 15);
 
   if(ranked.length === 0){
-    rowsEl.innerHTML = `<div class="empty">No sales in the last 7 days yet.<br>Check back later.</div>`;
+    rowsEl.innerHTML = `<div class="empty">No sales in the last 30 days yet.<br>Check back later.</div>`;
     return;
   }
 
@@ -434,7 +434,7 @@ function renderTopSellers(){
       <img ${r.image ? `src="${esc(r.image)}"` : ''} loading="lazy" onerror="this.style.opacity=0.2">
       <div class="info">
         <div class="sub">${esc(r.sub)}</div>
-        <div class="name">${r.count} sold this week</div>
+        <div class="name">${r.count} sold in 30 days</div>
       </div>
       <div class="price-col">
         <div class="price">${r.volume.toFixed(2)} SOL</div>
@@ -445,7 +445,7 @@ function renderTopSellers(){
   }).join('');
 }
 
-// Top 20 highest-priced individual sales in the 7-day window, across
+// Top 20 highest-priced individual sales in the 30-day window, across
 // every tracked collection at once — no sub-collection filter, unlike
 // index.html's version, since this page has no such control. Ported
 // from index.html's Highest Sales tab (list-row layout only; that page's
@@ -455,7 +455,7 @@ function renderHighestSales(){
   const items = allSales.slice().sort((a, b) => (b.price ?? -Infinity) - (a.price ?? -Infinity)).slice(0, 20);
 
   if(items.length === 0){
-    rowsEl.innerHTML = `<div class="empty">No sales in the last 7 days yet.<br>Check back later.</div>`;
+    rowsEl.innerHTML = `<div class="empty">No sales in the last 30 days yet.<br>Check back later.</div>`;
     return;
   }
 
