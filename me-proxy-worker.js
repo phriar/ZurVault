@@ -2315,11 +2315,18 @@ async function buildOsSummary(env) {
     listings.push(tag(l));
   }
 
+  // The candy-dc activity feed is "last 100 sales" with no age bound
+  // (seen live reaching back ~90 days), so clip everything to the same
+  // SALES_WINDOW_SECS the per-collection crawl uses — the pages label
+  // Recent Sales with that window.
+  const salesCutoff = Date.now() / 1000 - SALES_WINDOW_SECS;
+  const toSec = (t) => (t > 1e12 ? t / 1000 : t);
   const seenSales = new Set();
   const sales = [];
   for (const s of [...(salesState?.sales || []), ...(activity?.sales || [])]) {
     const k = s.signature || `${s.mintAddress}:${s.soldAt}`;
     if (!s?.mintAddress || seenSales.has(k)) continue;
+    if (!s.soldAt || toSec(s.soldAt) < salesCutoff) continue;
     if (s.collectionSlug && OPENSEA_EXCLUDED_SLUGS.has(s.collectionSlug) && s.collectionSlug !== OPENSEA_COLLECTION_SLUG) continue;
     seenSales.add(k);
     sales.push(tag(s));
