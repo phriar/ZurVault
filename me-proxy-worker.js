@@ -1612,6 +1612,10 @@ function deriveOpenSeaSale(ev) {
     // candy-dc feed and the per-collection sales crawl.
     collectionSlug: nft.collection || null,
     signature: ev?.transaction || null,
+    // Same "Sold to {addr}" display as Magic Eden sales (a.buyer there).
+    // Only present on sales fetched after this shipped; older accumulated
+    // sales fill in as the rotating crawl re-fetches them.
+    buyer: typeof ev?.buyer === "string" && ev.buyer ? ev.buyer : null,
     character: extractOpenSeaTrait(nft.traits, "Character"),
     rarity: rarityInfo.tier,
     rarityPct: rarityInfo.pct,

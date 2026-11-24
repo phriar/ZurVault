@@ -59,7 +59,7 @@
       character: i.character || null,
       coverArtists: Array.isArray(i.coverArtists) ? i.coverArtists : [],
       itemType: i.itemType || null,
-      buyer: null
+      buyer: kind === 'sale' && i.buyer || null
     };
     if (kind === 'sale') out.soldAt = i.soldAt || null;
     else out.listedAt = i.listedAt || null;
