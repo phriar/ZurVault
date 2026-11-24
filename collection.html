@@ -297,7 +297,6 @@ function shortMint(mint){
 // KV entries written before the Worker started capturing it) — never shows
 // a blank label.
 function soldLabel(i){
-  if(i.market === 'os') return esc(i.name || 'Sold');
   return i.buyer ? `Sold to ${shortMint(i.buyer)}` : `Sold · ${shortMint(i.mint)}`;
 }
 
